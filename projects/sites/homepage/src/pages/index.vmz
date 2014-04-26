@@ -64,7 +64,7 @@
                     </div>
                     <div class="frame__line">
                         <span class="mono">patch</span>
-                        <span>atomic write · before/after FNV-1a</span>
+                        <span>atomic write · before/after XXH64</span>
                     </div>
                 </div>
                 <div class="frame__status">

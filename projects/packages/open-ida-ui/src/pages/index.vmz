@@ -77,7 +77,7 @@
                         <small class="oida-card-note">{{ info.commandCount === null ? "not reported" : info.commandCount + " load command(s)" }}</small>
                     </article>
                     <article class="oida-card">
-                        <span class="oida-card-label">FNV-1a</span>
+                        <span class="oida-card-label">XXH64</span>
                         <b class="oida-card-value oida-card-value--hash" :title="info.hash">{{ info.hash }}</b>
                         <small class="oida-card-note" :title="info.path">{{ info.path }}</small>
                     </article>

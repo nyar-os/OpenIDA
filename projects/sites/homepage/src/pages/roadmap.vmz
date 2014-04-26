@@ -55,7 +55,7 @@
                     <ul>
                         <li>Big-endian ELF support behind an explicit flag.</li>
                         <li>PE debug directory and resource tree.</li>
-                        <li>Additional hash algorithms alongside FNV-1a.</li>
+                        <li>Additional hash algorithms alongside XXH64.</li>
                         <li>Structurally verified patch previews.</li>
                     </ul>
                 </div>

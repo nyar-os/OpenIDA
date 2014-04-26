@@ -64,17 +64,12 @@ pub(crate) fn macho_magic(bytes: &[u8]) -> Option<(bool, bool)> {
     }
 }
 
-fn peek_u32(bytes: &[u8], offset: usize) -> Option<u32> {
-    let slice = bytes.get(offset..offset + 4)?;
-    Some(u32::from_le_bytes([slice[0], slice[1], slice[2], slice[3]]))
-}
-
 /// Names the container from its leading bytes.
+///
+/// PE validation is delegated to the shared `boost.rs` reader, so a file that
+/// merely starts with `MZ` is not reported as an executable image.
 pub fn detect(bytes: &[u8]) -> BinaryFormat {
-    if bytes.starts_with(b"MZ")
-        && let Some(pointer) = peek_u32(bytes, 0x3c)
-        && bytes.get(pointer as usize..pointer as usize + 4) == Some(b"PE\0\0".as_slice())
-    {
+    if data_binary_pe::pe::parse_pe(bytes).is_ok() {
         return BinaryFormat::Pe;
     }
     if bytes.starts_with(b"\x7fELF") {

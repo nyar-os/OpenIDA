@@ -1,17 +1,17 @@
 //! Portable Executable headers.
 //!
-//! Only the fields the product reports are decoded: the COFF machine, the
-//! optional-header flavour, the image base, the entry RVA and the section table.
-//! Directories, imports, exports and relocations stay out of scope.
+//! The structural decode is delegated to `boost.rs/data-binary-pe`; this module
+//! only maps the shared `PeImage` onto the fields OpenIDA reports and keeps the
+//! product's zero-fill and file-boundary checks. Directories beyond the optional
+//! header, imports and relocations stay out of scope for this build.
+
+use data_binary_pe::pe::{self, SectionHeader};
 
 use crate::{
     Architecture, Section,
-    bytes::{name_at, span, u16_at, u32_at, u64_at},
     error::{IdaError, Result},
 };
 
-const DOS_SIGNATURE: u16 = 0x5a4d;
-const PE_SIGNATURE: &[u8] = b"PE\0\0";
 const PE32_MAGIC: u16 = 0x010b;
 const PE32_PLUS_MAGIC: u16 = 0x020b;
 
@@ -29,6 +29,7 @@ pub(crate) struct PeHeader {
     pub size_of_headers: u32,
     pub section_count: u16,
     pub sections: Vec<Section>,
+    raw_sections: Vec<SectionHeader>,
 }
 
 /// Maps a COFF machine word onto a known architecture.
@@ -41,79 +42,83 @@ pub(crate) fn architecture(machine: u16) -> Architecture {
     }
 }
 
-/// Parses the DOS stub, the PE signature, the optional header and the sections.
+/// Decodes a PE image through the shared `data-binary-pe` parser.
 pub(crate) fn parse(bytes: &[u8]) -> Result<PeHeader> {
-    if u16_at(bytes, 0)? != DOS_SIGNATURE {
-        return Err(IdaError::parse("missing DOS MZ signature"));
-    }
-    let pe_offset = u32_at(bytes, 0x3c)? as u64;
-    if span(bytes, pe_offset, 4)? != PE_SIGNATURE {
-        return Err(IdaError::parse(format!("missing PE signature at 0x{pe_offset:x}")));
-    }
-
-    let coff = pe_offset + 4;
-    let machine = u16_at(bytes, coff)?;
-    let section_count = u16_at(bytes, coff + 2)?;
-    let optional_size = u16_at(bytes, coff + 16)?;
-    let optional = coff + 20;
-
-    let magic = match u16_at(bytes, optional)? {
+    let image = pe::parse_pe(bytes).map_err(|error| IdaError::parse(format!("PE: {error}")))?;
+    let magic = match image.optional.magic {
         PE32_MAGIC => "PE32",
         PE32_PLUS_MAGIC => "PE32+",
         other => return Err(IdaError::unsupported(format!("unknown PE optional header magic 0x{other:04x}"))),
     };
-    if optional_size < 68 {
-        return Err(IdaError::parse(format!("optional header is too small ({optional_size} bytes)")));
-    }
 
-    let entry_rva = u32_at(bytes, optional + 16)?;
-    let (image_base, size_of_headers) = if magic == "PE32" {
-        (u32_at(bytes, optional + 28)? as u64, u32_at(bytes, optional + 60)?)
-    }
-    else {
-        (u64_at(bytes, optional + 24)?, u32_at(bytes, optional + 60)?)
-    };
+    let sections = image
+        .sections
+        .iter()
+        .map(|section| {
+            let flags = section.characteristics;
+            Section {
+                name: section.name.clone(),
+                virtual_address: u64::from(section.virtual_address),
+                virtual_size: u64::from(section.virtual_size),
+                raw_pointer: u64::from(section.pointer_to_raw_data),
+                raw_size: u64::from(section.size_of_raw_data),
+                characteristics: u64::from(flags),
+                readable: flags & SECTION_READ != 0,
+                writable: flags & SECTION_WRITE != 0,
+                executable: flags & (SECTION_EXECUTE | SECTION_CODE) != 0,
+            }
+        })
+        .collect();
 
-    let table = optional + optional_size as u64;
-    let mut sections = Vec::with_capacity(section_count as usize);
-    for index in 0..section_count as u64 {
-        let entry = table + index * 40;
-        let raw = span(bytes, entry, 40)?;
-        let characteristics = u32::from_le_bytes([raw[36], raw[37], raw[38], raw[39]]);
-        sections.push(Section {
-            name: name_at(raw, 0, 8),
-            virtual_address: u32::from_le_bytes([raw[12], raw[13], raw[14], raw[15]]) as u64,
-            virtual_size: u32::from_le_bytes([raw[8], raw[9], raw[10], raw[11]]) as u64,
-            raw_pointer: u32::from_le_bytes([raw[20], raw[21], raw[22], raw[23]]) as u64,
-            raw_size: u32::from_le_bytes([raw[16], raw[17], raw[18], raw[19]]) as u64,
-            characteristics: characteristics as u64,
-            readable: characteristics & SECTION_READ != 0,
-            writable: characteristics & SECTION_WRITE != 0,
-            executable: characteristics & (SECTION_EXECUTE | SECTION_CODE) != 0,
-        });
-    }
-
-    Ok(PeHeader { magic, machine, image_base, entry_rva, size_of_headers, section_count, sections })
+    Ok(PeHeader {
+        magic,
+        machine: image.coff.machine,
+        image_base: image.optional.image_base,
+        entry_rva: image.optional.address_of_entry_point,
+        size_of_headers: image.optional.size_of_headers,
+        section_count: image.coff.number_of_sections,
+        sections,
+        raw_sections: image.sections,
+    })
 }
 
 /// Maps an RVA onto a file offset through the header window and section table.
 pub(crate) fn rva_to_offset(header: &PeHeader, file_len: u64, rva: u64) -> Result<u64> {
-    if rva < header.size_of_headers as u64 && rva < file_len {
+    if rva < u64::from(header.size_of_headers) && rva < file_len {
         return Ok(rva);
     }
+    let rva32 = u32::try_from(rva).map_err(|_| IdaError::range(format!("RVA 0x{rva:x} does not fit a 32-bit image")))?;
+    let offset = match pe::rva_to_offset(&header.raw_sections, rva32) {
+        Ok(offset) => u64::from(offset),
+        Err(_) => fallback_offset(header, rva)?,
+    };
+    if let Some(section) = header.raw_sections.iter().find(|section| {
+        let start = u64::from(section.virtual_address);
+        rva >= start && rva < start.saturating_add(u64::from(section.virtual_size))
+    }) {
+        let delta = rva - u64::from(section.virtual_address);
+        if delta >= u64::from(section.size_of_raw_data) {
+            return Err(IdaError::range(format!("RVA 0x{rva:x} points at zero-filled memory in section {}", section.name)));
+        }
+    }
+    if offset >= file_len {
+        return Err(IdaError::range(format!("RVA 0x{rva:x} maps beyond the end of the file")));
+    }
+    Ok(offset)
+}
+
+/// Handles images whose section declares raw data but no virtual size.
+fn fallback_offset(header: &PeHeader, rva: u64) -> Result<u64> {
     for section in &header.sections {
         let span = section.virtual_size.max(section.raw_size);
-        if rva >= section.virtual_address && rva < section.virtual_address.saturating_add(span) {
-            let delta = rva - section.virtual_address;
-            if delta >= section.raw_size {
-                return Err(IdaError::range(format!("RVA 0x{rva:x} points at zero-filled memory in section {}", section.name)));
-            }
-            let offset = section.raw_pointer + delta;
-            if offset >= file_len {
-                return Err(IdaError::range(format!("RVA 0x{rva:x} maps beyond the end of the file")));
-            }
-            return Ok(offset);
+        if rva < section.virtual_address || rva >= section.virtual_address.saturating_add(span) {
+            continue;
         }
+        let delta = rva - section.virtual_address;
+        if delta >= section.raw_size {
+            return Err(IdaError::range(format!("RVA 0x{rva:x} points at zero-filled memory in section {}", section.name)));
+        }
+        return Ok(section.raw_pointer + delta);
     }
     Err(IdaError::range(format!("RVA 0x{rva:x} is not mapped by any section")))
 }
