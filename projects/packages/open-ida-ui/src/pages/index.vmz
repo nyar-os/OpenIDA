@@ -1,0 +1,1213 @@
+<template>
+    <div class="oida-studio" data-open-ida="root">
+        <header class="oida-titlebar">
+            <div class="oida-brand">
+                <span class="oida-mark">ID</span>
+                <div class="oida-brand-copy">
+                    <h1>OpenIDA Studio</h1>
+                    <p class="oida-sub" :title="binaryLine()">{{ binaryLine() }}</p>
+                </div>
+                <span class="oida-chip">{{ handleLabel() }}</span>
+            </div>
+
+            <div class="oida-titlebar-actions">
+                <button type="button" class="oida-btn" :disabled="!hostReady" @click="open">Open binary</button>
+                <button type="button" class="oida-btn" :disabled="!hostReady || !info" @click="reload">Reload</button>
+                <button type="button" class="oida-btn" :disabled="!hostReady || !info" @click="closeBinary">Close binary</button>
+                <button type="button" class="oida-btn" :disabled="!hostReady" @click="quit">Quit</button>
+            </div>
+
+            <div class="oida-titlebar-right">
+                <span class="oida-pill" :class="{ 'oida-pill--live': hostReady }">
+                    <span class="oida-dot" :class="{ 'oida-dot--on': hostReady }"></span>{{ hostReady ? "Host connected" : "Host disconnected" }}
+                </span>
+            </div>
+        </header>
+
+        <section class="oida-context" aria-label="Binary path">
+            <label class="oida-path" for="oida-path">
+                <span>Binary</span>
+                <input
+                    id="oida-path"
+                    class="oida-path-input"
+                    type="text"
+                    spellcheck="false"
+                    autocomplete="off"
+                    :value="path"
+                    placeholder="C:\samples\app.exe"
+                    @input="onPathInput"
+                />
+            </label>
+            <button type="button" class="oida-btn oida-btn--primary" :disabled="!hostReady" @click="open">Open</button>
+            <span class="oida-spacer"></span>
+            <span class="oida-pill">{{ engineLabel() }}</span>
+        </section>
+
+        <section class="oida-banner" v-if="!hostReady" role="note">
+            Native host not connected. The <code>window.__IDA__</code> bridge is absent, so no file is opened and no
+            analysis result is drawn. Start this studio from the OpenIDA window to inspect a binary.
+        </section>
+
+        <div class="oida-workspace">
+            <section class="oida-main" aria-label="Binary summary">
+                <div class="oida-cards" v-if="info">
+                    <article class="oida-card">
+                        <span class="oida-card-label">Format</span>
+                        <b class="oida-card-value">{{ info.format }}</b>
+                        <small class="oida-card-note">{{ info.magic || "no header flavour" }}</small>
+                    </article>
+                    <article class="oida-card">
+                        <span class="oida-card-label">Architecture</span>
+                        <b class="oida-card-value">{{ info.architecture }}</b>
+                        <small class="oida-card-note">{{ info.endian ? info.endian + " endian" : "byte order unknown" }}</small>
+                    </article>
+                    <article class="oida-card">
+                        <span class="oida-card-label">Size</span>
+                        <b class="oida-card-value">{{ sizeLabel(info.size) }}</b>
+                        <small class="oida-card-note">{{ info.sectionCount }} section(s)</small>
+                    </article>
+                    <article class="oida-card">
+                        <span class="oida-card-label">Entry</span>
+                        <b class="oida-card-value">{{ info.entry === null ? "—" : hex(info.entry) }}</b>
+                        <small class="oida-card-note">{{ info.entryRva === null ? "no entry RVA" : "RVA " + hex(info.entryRva) }}</small>
+                    </article>
+                    <article class="oida-card">
+                        <span class="oida-card-label">Image base</span>
+                        <b class="oida-card-value">{{ info.imageBase === null ? "—" : hex(info.imageBase) }}</b>
+                        <small class="oida-card-note">{{ info.commandCount === null ? "not reported" : info.commandCount + " load command(s)" }}</small>
+                    </article>
+                    <article class="oida-card">
+                        <span class="oida-card-label">FNV-1a</span>
+                        <b class="oida-card-value oida-card-value--hash" :title="info.hash">{{ info.hash }}</b>
+                        <small class="oida-card-note" :title="info.path">{{ info.path }}</small>
+                    </article>
+                </div>
+                <p class="oida-empty oida-empty--block" v-else>No binary open. Type a path and choose Open.</p>
+
+                <article class="oida-panel">
+                    <header class="oida-panel-head">
+                        <h2>Sections</h2>
+                        <span class="oida-count">{{ sections.length }}</span>
+                    </header>
+                    <div class="oida-table-wrap" v-if="sections.length">
+                        <table class="oida-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Name</th>
+                                    <th scope="col">Virtual address</th>
+                                    <th scope="col">Virtual size</th>
+                                    <th scope="col">File offset</th>
+                                    <th scope="col">File size</th>
+                                    <th scope="col">Access</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="section in sections" :key="sectionKey(section)">
+                                    <td class="oida-mono">{{ section.name || "(unnamed)" }}</td>
+                                    <td class="oida-mono">{{ hex(section.virtualAddress) }}</td>
+                                    <td class="oida-mono">{{ hex(section.virtualSize) }}</td>
+                                    <td class="oida-mono">{{ hex(section.rawPointer) }}</td>
+                                    <td class="oida-mono">{{ hex(section.rawSize) }}</td>
+                                    <td class="oida-mono oida-access">{{ access(section) }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="oida-empty" v-else>No section table loaded. Section tables come from PE and ELF files; Mach-O is header-only.</p>
+                </article>
+
+                <article class="oida-panel oida-panel--dump">
+                    <header class="oida-panel-head">
+                        <h2>Hex dump</h2>
+                        <div class="oida-inline-fields">
+                            <label>Offset <input type="text" spellcheck="false" :value="dumpOffset" @input="onDumpOffsetInput" /></label>
+                            <label>Length <input type="text" spellcheck="false" :value="dumpLength" @input="onDumpLengthInput" /></label>
+                            <button type="button" class="oida-btn" :disabled="!hostReady || !info" @click="refreshHexdump">Read</button>
+                        </div>
+                    </header>
+                    <pre class="oida-dump" v-if="dump">{{ dump }}</pre>
+                    <p class="oida-empty" v-else>No bytes loaded. Open a binary and choose Read.</p>
+                </article>
+            </section>
+
+            <aside class="oida-side" aria-label="Inspector">
+                <article class="oida-panel">
+                    <header class="oida-panel-head">
+                        <h2>Strings</h2>
+                        <span class="oida-count">{{ stringHits.length }} / {{ stringTotal }}</span>
+                    </header>
+                    <div class="oida-inline-fields oida-inline-fields--wrap">
+                        <label>Min <input type="text" spellcheck="false" :value="stringsMin" @input="onStringsMinInput" /></label>
+                        <label>Limit <input type="text" spellcheck="false" :value="stringsLimit" @input="onStringsLimitInput" /></label>
+                        <button type="button" class="oida-btn" :disabled="!hostReady || !info" @click="refreshStrings">Extract</button>
+                    </div>
+                    <ul class="oida-strings" v-if="stringHits.length">
+                        <li v-for="hit in stringHits" :key="hitKey(hit)">
+                            <code class="oida-hit-offset">{{ hex(hit.offset) }}</code>
+                            <span class="oida-hit-text">{{ hit.value }}</span>
+                        </li>
+                    </ul>
+                    <p class="oida-empty" v-else>No strings loaded. Extraction reports printable ASCII runs only.</p>
+                    <p class="oida-note" v-if="stringsTruncated">The list is truncated at the requested limit; the total count is real.</p>
+                </article>
+
+                <article class="oida-panel">
+                    <header class="oida-panel-head">
+                        <h2>Patch</h2>
+                        <span class="oida-chip">atomic</span>
+                    </header>
+                    <label class="oida-field">
+                        <span>Offset</span>
+                        <input type="text" spellcheck="false" :value="patchOffset" @input="onPatchOffsetInput" />
+                    </label>
+                    <label class="oida-field">
+                        <span>Bytes</span>
+                        <input type="text" spellcheck="false" :value="patchBytes" placeholder="90,90" @input="onPatchBytesInput" />
+                    </label>
+                    <label class="oida-field">
+                        <span>Output</span>
+                        <input type="text" spellcheck="false" :value="patchOut" placeholder="optional patched copy" @input="onPatchOutInput" />
+                    </label>
+                    <p class="oida-note">
+                        The engine writes a sibling temporary file and renames it into place. With an output path the
+                        open file is not modified.
+                    </p>
+                    <button type="button" class="oida-btn oida-btn--primary oida-btn--block" :disabled="!hostReady || !info" @click="applyPatch">Apply patch</button>
+
+                    <dl class="oida-facts" v-if="patchReport">
+                        <div><dt>Target</dt><dd class="oida-mono" :title="patchReport.path">{{ patchReport.path }}</dd></div>
+                        <div><dt>Offset</dt><dd class="oida-mono">{{ hex(patchReport.offset) }} · {{ patchReport.length }} byte(s)</dd></div>
+                        <div><dt>Before</dt><dd class="oida-mono">{{ patchReport.beforeHash }}</dd></div>
+                        <div><dt>After</dt><dd class="oida-mono">{{ patchReport.afterHash }}</dd></div>
+                    </dl>
+                    <p class="oida-empty" v-else>No patch applied in this session.</p>
+                </article>
+
+                <article class="oida-panel">
+                    <header class="oida-panel-head">
+                        <h2>Capabilities</h2>
+                        <span class="oida-chip">{{ hostVersion ? "v" + hostVersion : "unknown" }}</span>
+                    </header>
+                    <div v-if="capabilities">
+                        <dl class="oida-facts">
+                            <div><dt>Engine</dt><dd class="oida-mono">{{ capabilities.engine.package }} {{ capabilities.engine.version }}</dd></div>
+                            <div><dt>Formats</dt><dd>{{ capabilityLine(capabilities.formats) }}</dd></div>
+                            <div><dt>Features</dt><dd>{{ supportedLine(capabilities.features) }}</dd></div>
+                        </dl>
+                        <p class="oida-note">Not implemented: {{ unsupportedLine() }}.</p>
+                    </div>
+                    <p class="oida-empty" v-else>Capabilities load when the host connects. Nothing is assumed meanwhile.</p>
+                </article>
+            </aside>
+        </div>
+
+        <footer class="oida-statusbar">
+            <span :class="{ 'oida-error-text': errorText }">{{ errorText || status }}</span>
+            <span class="oida-spacer"></span>
+            <span v-if="info">{{ info.format }} · {{ info.architecture }} · {{ info.sectionCount }} section(s)</span>
+            <span>{{ hostReady ? "host connected" : "host disconnected" }}</span>
+            <span>requests {{ requestsSent }}</span>
+        </footer>
+    </div>
+</template>
+
+<style>
+.oida-studio {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--oida-bg);
+    color: var(--oida-ink);
+    font-family: var(--oida-sans);
+    font-size: 12px;
+}
+
+.oida-studio :focus-visible {
+    outline: 2px solid var(--oida-accent);
+    outline-offset: 2px;
+}
+
+.oida-mono {
+    font-family: var(--oida-mono);
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+}
+
+.oida-titlebar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--oida-line);
+    background: var(--oida-panel);
+}
+
+.oida-brand {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+    flex: none;
+}
+
+.oida-mark {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    flex: none;
+    border-radius: 7px;
+    background: linear-gradient(140deg, var(--oida-accent), #2c7f7a);
+    color: #071413;
+    font-family: var(--oida-mono);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.oida-brand-copy {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.oida-brand-copy h1 {
+    font-size: 13px;
+    line-height: 1.2;
+}
+
+.oida-sub {
+    margin: 0;
+    max-width: 300px;
+    overflow: hidden;
+    color: var(--oida-muted);
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.oida-chip {
+    padding: 1px 7px;
+    border: 1px solid var(--oida-line);
+    border-radius: 999px;
+    background: var(--oida-panel-2);
+    color: var(--oida-muted);
+    font-family: var(--oida-mono);
+    font-size: 9px;
+    white-space: nowrap;
+}
+
+.oida-titlebar-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+}
+
+.oida-titlebar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: none;
+}
+
+.oida-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 4px 9px;
+    border: 1px solid transparent;
+    border-radius: var(--oida-radius-sm);
+    background: transparent;
+    color: var(--oida-ink);
+    font-size: 11px;
+    line-height: 1.4;
+    white-space: nowrap;
+    transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.oida-btn:hover:not(:disabled) {
+    border-color: var(--oida-line);
+    background: var(--oida-panel-2);
+}
+
+.oida-btn:disabled {
+    color: var(--oida-muted);
+    opacity: 0.5;
+    cursor: default;
+}
+
+.oida-btn--primary {
+    border-color: var(--oida-accent);
+    background: var(--oida-accent);
+    color: #071413;
+    font-weight: 600;
+}
+
+.oida-btn--primary:hover:not(:disabled) {
+    border-color: var(--oida-accent);
+    background: #63d8d0;
+}
+
+.oida-btn--block {
+    width: 100%;
+    margin-top: 3px;
+}
+
+.oida-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border: 1px solid var(--oida-line);
+    border-radius: 999px;
+    color: var(--oida-muted);
+    font-size: 10px;
+    white-space: nowrap;
+}
+
+.oida-pill--live {
+    border-color: var(--oida-accent-soft);
+    background: var(--oida-accent-soft);
+    color: var(--oida-accent);
+}
+
+.oida-dot {
+    width: 6px;
+    height: 6px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--oida-muted);
+}
+
+.oida-dot--on {
+    background: var(--oida-accent);
+    box-shadow: 0 0 0 3px rgba(76, 201, 192, 0.14);
+}
+
+.oida-context {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--oida-line);
+    background: var(--oida-bg);
+}
+
+.oida-path {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+    max-width: 620px;
+}
+
+.oida-path > span {
+    flex: none;
+    color: var(--oida-muted);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.oida-path-input {
+    flex: 1;
+    min-width: 0;
+    padding: 5px 9px;
+    border: 1px solid var(--oida-line);
+    border-radius: var(--oida-radius-sm);
+    background: var(--oida-panel);
+    color: var(--oida-ink);
+    font-family: var(--oida-mono);
+    font-size: 10px;
+    user-select: text;
+}
+
+.oida-spacer {
+    flex: 1;
+    min-width: 0;
+}
+
+.oida-banner {
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--oida-line);
+    background: var(--oida-accent-soft);
+    color: var(--oida-accent);
+    font-size: 10px;
+    line-height: 1.55;
+}
+
+.oida-banner code {
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: rgba(76, 201, 192, 0.12);
+    font-family: var(--oida-mono);
+}
+
+.oida-workspace {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+}
+
+.oida-main {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+    min-height: 0;
+    padding: 10px 12px;
+    overflow: auto;
+}
+
+.oida-side {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 0;
+    padding: 10px 12px;
+    overflow: auto;
+    border-left: 1px solid var(--oida-line);
+    background: var(--oida-panel);
+}
+
+.oida-cards {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.oida-card {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    padding: 9px 10px;
+    border: 1px solid var(--oida-line);
+    border-radius: var(--oida-radius);
+    background: var(--oida-panel);
+}
+
+.oida-card-label {
+    color: var(--oida-muted);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.oida-card-value {
+    overflow: hidden;
+    font-family: var(--oida-mono);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.oida-card-value--hash {
+    font-size: 11px;
+    color: var(--oida-accent);
+}
+
+.oida-card-note {
+    overflow: hidden;
+    color: var(--oida-muted);
+    font-size: 9px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.oida-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 10px 12px 12px;
+    border: 1px solid var(--oida-line);
+    border-radius: var(--oida-radius);
+    background: var(--oida-panel);
+}
+
+.oida-panel--dump {
+    flex: 1;
+    min-height: 260px;
+}
+
+.oida-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.oida-panel-head h2 {
+    color: var(--oida-muted);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.oida-count {
+    color: var(--oida-muted);
+    font-family: var(--oida-mono);
+    font-size: 9px;
+}
+
+.oida-table-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    border: 1px solid var(--oida-line);
+    border-radius: var(--oida-radius-sm);
+}
+
+.oida-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+}
+
+.oida-table th,
+.oida-table td {
+    padding: 5px 9px;
+    border-bottom: 1px solid var(--oida-line);
+    text-align: left;
+    white-space: nowrap;
+}
+
+.oida-table thead th {
+    position: sticky;
+    top: 0;
+    background: var(--oida-panel-2);
+    color: var(--oida-muted);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.oida-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.oida-table tbody tr:hover td {
+    background: var(--oida-panel-2);
+}
+
+.oida-access {
+    color: var(--oida-accent);
+}
+
+.oida-inline-fields {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.oida-inline-fields--wrap {
+    flex-wrap: wrap;
+}
+
+.oida-inline-fields label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--oida-muted);
+    font-size: 9px;
+}
+
+.oida-inline-fields input {
+    width: 64px;
+    padding: 3px 5px;
+    border: 1px solid var(--oida-line);
+    border-radius: 4px;
+    background: var(--oida-bg);
+    color: var(--oida-ink);
+    font-family: var(--oida-mono);
+    font-size: 10px;
+    user-select: text;
+}
+
+.oida-dump {
+    flex: 1;
+    min-height: 0;
+    margin: 0;
+    padding: 9px 10px;
+    overflow: auto;
+    border: 1px solid var(--oida-line);
+    border-radius: var(--oida-radius-sm);
+    background: #0a0d11;
+    color: #b9c7d4;
+    font-family: var(--oida-mono);
+    font-size: 10px;
+    line-height: 1.55;
+    white-space: pre;
+    user-select: text;
+}
+
+.oida-strings {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    margin: 0;
+    padding: 0;
+    max-height: 280px;
+    overflow: auto;
+    list-style: none;
+}
+
+.oida-strings li {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 10px;
+}
+
+.oida-strings li:hover {
+    background: var(--oida-panel-2);
+}
+
+.oida-hit-offset {
+    flex: none;
+    color: var(--oida-accent);
+    font-family: var(--oida-mono);
+    font-size: 9px;
+}
+
+.oida-hit-text {
+    min-width: 0;
+    overflow: hidden;
+    font-family: var(--oida-mono);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    user-select: text;
+}
+
+.oida-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+}
+
+.oida-field > span {
+    flex: none;
+    width: 44px;
+    color: var(--oida-muted);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.oida-field input {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 7px;
+    border: 1px solid var(--oida-line);
+    border-radius: 4px;
+    background: var(--oida-bg);
+    color: var(--oida-ink);
+    font-family: var(--oida-mono);
+    font-size: 10px;
+    user-select: text;
+}
+
+.oida-note {
+    margin: 0;
+    color: var(--oida-muted);
+    font-size: 9px;
+    line-height: 1.55;
+}
+
+.oida-facts {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin: 2px 0 0;
+}
+
+.oida-facts > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+    font-size: 10px;
+}
+
+.oida-facts dt {
+    flex: none;
+    color: var(--oida-muted);
+    font-size: 9px;
+}
+
+.oida-facts dd {
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.oida-empty {
+    margin: 0;
+    color: var(--oida-muted);
+    font-size: 10px;
+    line-height: 1.55;
+}
+
+.oida-empty--block {
+    padding: 18px;
+    border: 1px dashed var(--oida-line);
+    border-radius: var(--oida-radius);
+    text-align: center;
+}
+
+.oida-statusbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 12px;
+    border-top: 1px solid var(--oida-line);
+    background: var(--oida-panel);
+    color: var(--oida-muted);
+    font-size: 9px;
+}
+
+.oida-statusbar .oida-error-text {
+    color: var(--oida-danger);
+}
+
+@media (max-width: 1180px) {
+    .oida-cards {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .oida-workspace {
+        grid-template-columns: minmax(0, 1fr) 300px;
+    }
+}
+
+@media (max-width: 900px) {
+    .oida-workspace {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .oida-side {
+        border-left: 0;
+        border-top: 1px solid var(--oida-line);
+    }
+
+    .oida-titlebar-actions {
+        flex-wrap: wrap;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .oida-studio * {
+        transition: none !important;
+        animation: none !important;
+    }
+}
+</style>
+
+<script client>
+function idaBridge() {
+    const view = typeof window === "undefined" ? null : window;
+    const bridge = view ? view.__IDA__ : null;
+    return bridge && typeof bridge.request === "function" ? bridge : null;
+}
+
+function parseAddress(value) {
+    const text = String(value).trim();
+    if (text.length === 0) {
+        return null;
+    }
+    const parsed = /^0x/i.test(text) ? Number.parseInt(text.slice(2), 16) : Number.parseInt(text, 10);
+    return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function parseCount(value, fallback) {
+    const parsed = Number.parseInt(String(value), 10);
+    return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+export default class StudioPage {
+    hostReady = false;
+    connection = "disconnected";
+    status = "Native host not connected";
+    errorText = "";
+    hostVersion = "";
+
+    path = "";
+    handle = 0;
+    info = null;
+    sections = [];
+    dump = "";
+    dumpOffset = "0";
+    dumpLength = "256";
+    stringHits = [];
+    stringTotal = 0;
+    stringsTruncated = false;
+    stringsMin = "4";
+    stringsLimit = "100";
+    patchOffset = "0";
+    patchBytes = "";
+    patchOut = "";
+    patchReport = null;
+    capabilities = null;
+    requestsSent = 0;
+
+    onMount() {
+        // Static render has no window; in the WebView (or a browser tab) the
+        // client mount takes over and asks the host for real data.
+        if (typeof window === "undefined") {
+            return;
+        }
+        if (!idaBridge()) {
+            this.hostReady = false;
+            this.connection = "disconnected";
+            this.status = "Native host not connected";
+            return;
+        }
+        this.hostReady = true;
+        this.connection = "connected";
+        this.status = "Host connected";
+        void this.start();
+    }
+
+    async start() {
+        try {
+            const ready = await this.call("ready", {});
+            this.hostVersion = ready && ready.version ? String(ready.version) : "";
+            const response = await this.call("capabilities", {});
+            this.capabilities = response && response.capabilities ? response.capabilities : null;
+            this.status = "Host connected";
+            this.errorText = "";
+        } catch (error) {
+            this.fail(error);
+        }
+    }
+
+    call(type, payload) {
+        const bridge = idaBridge();
+        if (!bridge) {
+            return Promise.reject(new Error("binary/io: native host not connected"));
+        }
+        this.requestsSent += 1;
+        return Promise.resolve(bridge.request(type, payload || {}));
+    }
+
+    async open() {
+        if (!this.hostReady) {
+            this.warn("The native host is not connected.");
+            return;
+        }
+        const target = this.path.trim();
+        if (!target) {
+            this.warn("Type a binary path before opening.");
+            return;
+        }
+        try {
+            const opened = await this.call("binary.open", { path: target });
+            if (!opened || typeof opened.handle !== "number" || !opened.info) {
+                this.warn("The host returned no binary handle.");
+                return;
+            }
+            this.handle = opened.handle;
+            this.info = opened.info;
+            this.patchOffset = opened.info.entryRva === null ? "0" : `0x${opened.info.entryRva.toString(16)}`;
+            this.patchReport = null;
+            this.errorText = "";
+            this.status = `Opened ${opened.info.format} (${opened.info.architecture})`;
+            await this.loadSections();
+            await this.loadStrings();
+            await this.loadHexdump();
+        } catch (error) {
+            this.fail(error);
+        }
+    }
+
+    async reload() {
+        if (!this.hostReady) {
+            this.warn("The native host is not connected.");
+            return;
+        }
+        await this.closeBinary();
+        await this.open();
+    }
+
+    async closeBinary() {
+        if (!this.handle) {
+            this.status = "No binary open";
+            return;
+        }
+        try {
+            await this.call("binary.close", { handle: this.handle });
+            this.handle = 0;
+            this.info = null;
+            this.sections = [];
+            this.stringHits = [];
+            this.stringTotal = 0;
+            this.stringsTruncated = false;
+            this.dump = "";
+            this.patchReport = null;
+            this.errorText = "";
+            this.status = "Binary closed";
+        } catch (error) {
+            this.fail(error);
+        }
+    }
+
+    async loadSections() {
+        if (!this.handle) {
+            return;
+        }
+        try {
+            const response = await this.call("binary.sections", { handle: this.handle });
+            this.sections = response && Array.isArray(response.sections) ? response.sections : [];
+        } catch (error) {
+            this.sections = [];
+            this.fail(error);
+        }
+    }
+
+    async loadStrings() {
+        if (!this.handle) {
+            return;
+        }
+        const minLen = parseCount(this.stringsMin, 4);
+        const limit = parseCount(this.stringsLimit, 100);
+        try {
+            const response = await this.call("binary.strings", { handle: this.handle, minLen, limit });
+            this.stringHits = response && Array.isArray(response.hits) ? response.hits : [];
+            this.stringTotal = response && typeof response.total === "number" ? response.total : this.stringHits.length;
+            this.stringsTruncated = Boolean(response && response.truncated);
+        } catch (error) {
+            this.stringHits = [];
+            this.stringTotal = 0;
+            this.stringsTruncated = false;
+            this.fail(error);
+        }
+    }
+
+    async loadHexdump() {
+        if (!this.handle) {
+            return;
+        }
+        const offset = parseAddress(this.dumpOffset);
+        const length = parseAddress(this.dumpLength);
+        if (offset === null || length === null) {
+            this.warn("Offset and length must be non-negative integers.");
+            return;
+        }
+        try {
+            const response = await this.call("binary.hexdump", { handle: this.handle, offset, length });
+            this.dump = response && typeof response.text === "string" ? response.text : "";
+            this.errorText = "";
+        } catch (error) {
+            this.dump = "";
+            this.fail(error);
+        }
+    }
+
+    async refreshStrings() {
+        if (!this.handle) {
+            this.warn("Open a binary before extracting strings.");
+            return;
+        }
+        await this.loadStrings();
+        this.status = `Extracted ${this.stringHits.length} of ${this.stringTotal} string(s)`;
+    }
+
+    async refreshHexdump() {
+        if (!this.handle) {
+            this.warn("Open a binary before reading bytes.");
+            return;
+        }
+        await this.loadHexdump();
+    }
+
+    async applyPatch() {
+        if (!this.handle) {
+            this.warn("Open a binary before patching.");
+            return;
+        }
+        const offset = parseAddress(this.patchOffset);
+        if (offset === null) {
+            this.warn("Patch offset must be a non-negative integer.");
+            return;
+        }
+        const bytes = this.patchBytes.trim();
+        if (!bytes) {
+            this.warn("Patch bytes are required, such as 90,90.");
+            return;
+        }
+        const output = this.patchOut.trim();
+        try {
+            const report = await this.call("binary.patch", {
+                handle: this.handle,
+                offset,
+                hexBytes: bytes,
+                outputPath: output.length > 0 ? output : undefined,
+            });
+            if (!report) {
+                this.warn("The host returned no patch report.");
+                return;
+            }
+            this.patchReport = report;
+            this.errorText = "";
+            this.status = `Patched ${report.length} byte(s) at ${this.hex(report.offset)}`;
+            await this.loadHexdump();
+        } catch (error) {
+            this.fail(error);
+        }
+    }
+
+    async quit() {
+        this.status = "Close requested";
+        try {
+            await this.call("close", {});
+        } catch (error) {
+            this.fail(error);
+        }
+    }
+
+    fail(error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.errorText = message;
+        this.status = "Request rejected";
+    }
+
+    warn(message) {
+        this.errorText = message;
+        this.status = "Needs input";
+    }
+
+    onPathInput(event) {
+        const target = event.target;
+        if (target) {
+            this.path = target.value;
+        }
+    }
+
+    onDumpOffsetInput(event) {
+        const target = event.target;
+        if (target) {
+            this.dumpOffset = target.value;
+        }
+    }
+
+    onDumpLengthInput(event) {
+        const target = event.target;
+        if (target) {
+            this.dumpLength = target.value;
+        }
+    }
+
+    onStringsMinInput(event) {
+        const target = event.target;
+        if (target) {
+            this.stringsMin = target.value;
+        }
+    }
+
+    onStringsLimitInput(event) {
+        const target = event.target;
+        if (target) {
+            this.stringsLimit = target.value;
+        }
+    }
+
+    onPatchOffsetInput(event) {
+        const target = event.target;
+        if (target) {
+            this.patchOffset = target.value;
+        }
+    }
+
+    onPatchBytesInput(event) {
+        const target = event.target;
+        if (target) {
+            this.patchBytes = target.value;
+        }
+    }
+
+    onPatchOutInput(event) {
+        const target = event.target;
+        if (target) {
+            this.patchOut = target.value;
+        }
+    }
+
+    binaryLine() {
+        if (this.info) {
+            return `${String(this.info.format).toUpperCase()} · ${this.info.architecture} · ${this.info.magic || "header"}`;
+        }
+        return this.path || "No binary open";
+    }
+
+    handleLabel() {
+        return this.handle ? `handle ${this.handle}` : "no handle";
+    }
+
+    engineLabel() {
+        if (this.capabilities && this.capabilities.engine) {
+            return `${this.capabilities.engine.package} ${this.capabilities.engine.version}`;
+        }
+        return "engine not connected";
+    }
+
+    sizeLabel(value) {
+        return `${Number(value).toLocaleString()} B`;
+    }
+
+    hex(value) {
+        return `0x${Number(value).toString(16)}`;
+    }
+
+    access(section) {
+        return `${section.readable ? "r" : "-"}${section.writable ? "w" : "-"}${section.executable ? "x" : "-"}`;
+    }
+
+    sectionKey(section) {
+        return `${section.name}:${section.virtualAddress}`;
+    }
+
+    hitKey(hit) {
+        return `${hit.offset}:${hit.length}`;
+    }
+
+    capabilityLine(map) {
+        if (!map) {
+            return "unknown";
+        }
+        return Object.keys(map)
+            .map((name) => `${name} ${map[name]}`)
+            .join(" · ");
+    }
+
+    supportedLine(map) {
+        if (!map) {
+            return "none";
+        }
+        const names = Object.keys(map).filter((name) => map[name] === "supported");
+        return names.length > 0 ? names.join(" · ") : "none";
+    }
+
+    unsupportedLine() {
+        if (!this.capabilities || !this.capabilities.unsupported) {
+            return "unknown";
+        }
+        return Object.keys(this.capabilities.unsupported).join(", ");
+    }
+}
+</script>

@@ -1,0 +1,150 @@
+<template>
+    <footer class="site-footer">
+        <div class="site-footer__inner">
+            <div class="site-footer__brand">
+                <span class="site-footer__mark">OpenIDA</span>
+                <p class="site-footer__tag">
+                    Binary inspection for people and agents: headers, sections,
+                    strings, bytes and a checkable patch trail.
+                </p>
+            </div>
+            <nav aria-label="Product" class="footer-group">
+                <b>Product</b>
+                <Link to="FeaturesPage">
+                    Features
+                </Link>
+                <Link to="RoadmapPage">
+                    Roadmap
+                </Link>
+            </nav>
+            <nav aria-label="Developers" class="footer-group">
+                <b>Developers</b>
+                <a href="https://github.com/nyar-os/OpenIDA" rel="noopener">
+                    CLI
+                </a>
+                <a href="https://github.com/nyar-os/OpenIDA" rel="noopener">
+                    SDK
+                </a>
+                <a href="https://github.com/nyar-os/OpenIDA" rel="noopener">
+                    Skills
+                </a>
+            </nav>
+            <nav aria-label="Project" class="footer-group">
+                <b>Project</b>
+                <a href="https://github.com/nyar-os/OpenIDA" rel="noopener">
+                    Source code
+                </a>
+                <a href="https://github.com/nyar-os/OpenIDA/issues" rel="noopener">
+                    Issues
+                </a>
+                <a href="https://github.com/nyar-os/OpenIDA/releases" rel="noopener">
+                    Releases
+                </a>
+            </nav>
+            <p class="site-footer__note">
+                <span>Apache-2.0 licensed · Built with VMZ</span>
+                <span class="site-footer__release">No public release yet</span>
+            </p>
+        </div>
+    </footer>
+</template>
+
+<style>
+.site-footer {
+    margin-top: 64px;
+    border-top: 1px solid var(--ida-line);
+    background: var(--ida-surface);
+}
+
+.site-footer__inner {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 30px;
+    max-width: var(--ida-maxw);
+    margin: 0 auto;
+    padding: 40px 24px 28px;
+}
+
+.site-footer__mark {
+    font-weight: 650;
+    font-size: 17px;
+}
+
+.site-footer__tag {
+    margin: 8px 0 0;
+    max-width: 310px;
+    color: var(--ida-muted);
+    font-size: 14px;
+}
+
+.footer-group {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.footer-group b {
+    margin-bottom: 3px;
+    color: var(--ida-muted);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.footer-group a {
+    color: var(--ida-ink);
+    font-size: 14px;
+}
+
+.site-footer__note {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin: 6px 0 0;
+    padding-top: 15px;
+    border-top: 1px solid var(--ida-line);
+    color: var(--ida-muted);
+    font-size: 13px;
+}
+
+.site-footer__release {
+    padding: 2px 9px;
+    border: 1px solid var(--ida-line);
+    border-radius: 999px;
+    background: var(--ida-surface-2);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+    .site-footer__inner {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .site-footer__brand {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 620px) {
+    .site-footer__inner {
+        grid-template-columns: 1fr;
+        gap: 22px;
+        padding: 32px 18px 24px;
+    }
+
+    .site-footer__note {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+}
+</style>
+
+<script client>
+export default class SiteFooter {}
+</script>

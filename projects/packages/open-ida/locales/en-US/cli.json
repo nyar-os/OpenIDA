@@ -1,0 +1,23 @@
+{
+    "cli": {
+        "intro": "OpenIDA — inspect binary headers, sections, strings, bytes and patches.",
+        "cmd": {
+            "capabilities": "Print what this build supports, honestly",
+            "info": "Open a binary and print its format, architecture, entry point and hash",
+            "sections": "Print the section table with addresses, file offsets and access flags",
+            "strings": "Extract printable ASCII runs with their file offsets",
+            "hexdump": "Print a canonical hex dump of one byte range",
+            "rva": "Map an RVA or virtual address onto a file offset",
+            "patch": "Write bytes atomically and report the before/after hashes",
+            "gui": "Open the OpenIDA Studio window"
+        },
+        "opt": {
+            "min": "Minimum printable run length (default 4)",
+            "limit": "Maximum number of strings to return (default 100)",
+            "offset": "File offset to inspect, decimal or 0x-prefixed",
+            "length": "Number of bytes to read (default 256)",
+            "bytes": "Hex bytes to write, such as 90,90 or 0x90 0x90",
+            "out": "Write the patched copy here instead of the source file"
+        }
+    }
+}

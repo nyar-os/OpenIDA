@@ -1,0 +1,16 @@
+{
+    "name": "@wae/open-ida-darwin-arm64",
+    "version": "0.0.0",
+    "description": "macOS ARM64 native addon for @wae/open-ida",
+    "license": "Apache-2.0",
+    "os": ["darwin"],
+    "cpu": ["arm64"],
+    "main": "open-ida.darwin-arm64.node",
+    "files": ["open-ida.darwin-arm64.node", "README.md", "License.md"],
+    "engines": { "node": ">=18" },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/nyar-os/OpenIDA.git",
+        "directory": "projects/packages/open-ida-darwin-arm64"
+    }
+}

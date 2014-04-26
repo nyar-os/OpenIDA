@@ -1,0 +1,564 @@
+<template>
+    <SiteShell page="home">
+        <section class="hero">
+            <div class="hero__copy">
+                <span class="eyebrow">In development · no public release</span>
+                <h1>
+                    See what is inside a binary —<br />without a toolchain.
+                </h1>
+                <p class="hero__sub">
+                    OpenIDA decodes PE and ELF headers and sections, extracts strings,
+                    maps addresses onto file offsets and patches bytes with a
+                    before/after hash. It is one small engine behind a command line
+                    and a studio, and it says plainly where it stops.
+                </p>
+                <div class="hero__cta">
+                    <Link to="FeaturesPage" class="btn btn--primary">
+                        Explore features
+                    </Link>
+                    <Link to="RoadmapPage" class="btn btn--ghost">
+                        Read the roadmap
+                    </Link>
+                </div>
+                <p class="hero__note">
+                    PE · ELF · Mach-O detection · no disassembler · no decompiler · no debugger
+                </p>
+            </div>
+
+            <div class="frame" aria-label="Capability preview">
+                <div class="frame__titlebar">
+                    <span class="frame__mark">ID</span>
+                    <span class="frame__name">OpenIDA Studio</span>
+                    <span class="frame__doc">No binary open</span>
+                    <span class="frame__chip">preview</span>
+                </div>
+                <div class="frame__body">
+                    <div class="frame__row">
+                        <span class="frame__label">PE</span>
+                        <span class="frame__state frame__state--on">headers · sections · RVA · patch</span>
+                    </div>
+                    <div class="frame__row">
+                        <span class="frame__label">ELF</span>
+                        <span class="frame__state frame__state--on">32/64 little-endian · sections · RVA</span>
+                    </div>
+                    <div class="frame__row">
+                        <span class="frame__label">Mach-O</span>
+                        <span class="frame__state frame__state--part">header basics only</span>
+                    </div>
+                    <div class="frame__row">
+                        <span class="frame__label">Unknown</span>
+                        <span class="frame__state">detected, not analysed</span>
+                    </div>
+                    <div class="frame__rule"></div>
+                    <div class="frame__line">
+                        <span class="mono">sections</span>
+                        <span>virtual address · file offset · r/w/x</span>
+                    </div>
+                    <div class="frame__line">
+                        <span class="mono">strings</span>
+                        <span>printable ASCII runs with offsets</span>
+                    </div>
+                    <div class="frame__line">
+                        <span class="mono">hexdump</span>
+                        <span>canonical offset · bytes · |ascii|</span>
+                    </div>
+                    <div class="frame__line">
+                        <span class="mono">patch</span>
+                        <span>atomic write · before/after FNV-1a</span>
+                    </div>
+                </div>
+                <div class="frame__status">
+                    <span>Ready</span>
+                    <span class="spacer"></span>
+                    <span>preview</span>
+                    <span>host disconnected</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="work">
+            <div class="section-head">
+                <div>
+                    <span class="eyebrow">Current state</span>
+                    <h2>What works today</h2>
+                </div>
+                <p>Three buckets, no rounding up. Green tests are not a feature list.</p>
+            </div>
+            <div class="cols-3">
+                <article class="work-card">
+                    <header>
+                        <span class="status-dot" data-state="done"></span>
+                        <h3>Implemented</h3>
+                        <span class="chip chip--accent">available</span>
+                    </header>
+                    <ul>
+                        <li>PE32 and PE32+ headers, sections, image base and entry RVA.</li>
+                        <li>ELF32/ELF64 little-endian headers and named sections.</li>
+                        <li>Mach-O magic, CPU type, file type and command count.</li>
+                        <li>Strings, hex dumps, byte reads and RVA mapping.</li>
+                        <li>Atomic patches with before/after hashes.</li>
+                    </ul>
+                </article>
+                <article class="work-card">
+                    <header>
+                        <span class="status-dot" data-state="active"></span>
+                        <h3>Surfaces</h3>
+                        <span class="chip chip--accent">available</span>
+                    </header>
+                    <ul>
+                        <li>One command line for every operation.</li>
+                        <li>Studio shell that stays empty until a host connects.</li>
+                        <li>Capability matrix shared by both surfaces.</li>
+                        <li>Stable error codes for every rejection.</li>
+                        <li>Agent skill that documents the same limits.</li>
+                    </ul>
+                </article>
+                <article class="work-card work-card--quiet">
+                    <header>
+                        <span class="status-dot" data-state="planned"></span>
+                        <h3>Not yet</h3>
+                        <span class="chip">not implemented</span>
+                    </header>
+                    <ul>
+                        <li>Disassembly and instruction decoding.</li>
+                        <li>Decompilation and control-flow graphs.</li>
+                        <li>Debugger attach, breakpoints and process inspection.</li>
+                        <li>Imports, exports, symbols and relocations.</li>
+                        <li>Mach-O sections beyond the header.</li>
+                    </ul>
+                </article>
+            </div>
+        </section>
+
+        <section class="matrix">
+            <div class="section-head">
+                <div>
+                    <span class="eyebrow">Declared surface</span>
+                    <h2>Capability matrix</h2>
+                </div>
+                <p>Every cell comes from the same matrix the CLI and studio read at runtime.</p>
+            </div>
+            <div class="table-wrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Container</th>
+                            <th scope="col">Header</th>
+                            <th scope="col">Sections</th>
+                            <th scope="col">RVA mapping</th>
+                            <th scope="col">Patch</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="row in matrixRows" :key="row.container">
+                            <td class="mono">{{ row.container }}</td>
+                            <td>{{ row.header }}</td>
+                            <td>{{ row.sections }}</td>
+                            <td>{{ row.rva }}</td>
+                            <td>{{ row.patch }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="matrix__note">A suffix is not a support claim. Mach-O is header-only until section decoding lands.</p>
+        </section>
+
+        <section class="loop">
+            <div class="section-head">
+                <div>
+                    <span class="eyebrow">Intended loop</span>
+                    <h2>Open, map, read, verify</h2>
+                </div>
+                <p>Each step is tagged by what exists, not by what is planned.</p>
+            </div>
+            <ol class="steps">
+                <li class="step">
+                    <span class="step__index">01</span>
+                    <div>
+                        <div class="step__top">
+                            <h3>Open</h3>
+                            <span class="chip chip--accent">available</span>
+                        </div>
+                        <p>Detect the container and architecture, then read the entry point, image base and hash.</p>
+                    </div>
+                </li>
+                <li class="step">
+                    <span class="step__index">02</span>
+                    <div>
+                        <div class="step__top">
+                            <h3>Map</h3>
+                            <span class="chip chip--accent">available</span>
+                        </div>
+                        <p>List sections with their virtual addresses, file offsets, sizes and access flags.</p>
+                    </div>
+                </li>
+                <li class="step">
+                    <span class="step__index">03</span>
+                    <div>
+                        <div class="step__top">
+                            <h3>Read</h3>
+                            <span class="chip chip--accent">available</span>
+                        </div>
+                        <p>Pull printable strings and render bytes around any offset in a canonical hex layout.</p>
+                    </div>
+                </li>
+                <li class="step">
+                    <span class="step__index">04</span>
+                    <div>
+                        <div class="step__top">
+                            <h3>Verify</h3>
+                            <span class="chip chip--accent">available</span>
+                        </div>
+                        <p>Patch bytes atomically and compare the whole-file hash before and after the change.</p>
+                    </div>
+                </li>
+            </ol>
+            <p class="loop__note">There is no instruction view, no pseudo-code and no debugger in this loop.</p>
+        </section>
+
+        <section class="band">
+            <div>
+                <span class="eyebrow">Status</span>
+                <h2>In development · no public release</h2>
+                <p>
+                    The kernel is real and tested. The analysis family above it is not.
+                    The roadmap keeps that boundary visible in every phase.
+                </p>
+            </div>
+            <Link to="RoadmapPage" class="btn btn--ghost">
+                See the phases
+            </Link>
+        </section>
+
+        <section class="cta-band">
+            <div>
+                <h2>Follow the work</h2>
+                <p>The source repository is the only distribution today. There are no installers and no public release.</p>
+            </div>
+            <div class="cta-band__actions">
+                <Link to="FeaturesPage" class="btn btn--primary">
+                    Features
+                </Link>
+                <a class="btn btn--ghost" href="https://github.com/nyar-os/OpenIDA" rel="noopener">
+                    Source
+                </a>
+            </div>
+        </section>
+    </SiteShell>
+</template>
+
+<style>
+.hero {
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 46px;
+    align-items: center;
+    padding: 40px 0 8px;
+}
+
+.hero h1 {
+    margin: 14px 0 16px;
+    font-size: 39px;
+}
+
+.hero__sub {
+    max-width: 570px;
+    margin: 0 0 24px;
+    color: var(--ida-muted);
+    font-size: 16px;
+}
+
+.hero__cta {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.hero__note {
+    margin: 18px 0 0;
+    color: var(--ida-muted);
+    font-family: var(--ida-mono);
+    font-size: 10px;
+    line-height: 1.6;
+}
+
+.frame {
+    overflow: hidden;
+    border: 1px solid var(--ida-line);
+    border-radius: 12px;
+    background: #11181d;
+    color: #dbe6ea;
+    box-shadow: 0 24px 48px rgba(16, 26, 31, 0.2);
+}
+
+.frame__titlebar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-bottom: 1px solid #26333a;
+    background: #151e24;
+}
+
+.frame__mark {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    flex: none;
+    border-radius: 5px;
+    background: var(--ida-accent);
+    color: #071413;
+    font-family: var(--ida-mono);
+    font-size: 8px;
+    font-weight: 700;
+}
+
+.frame__name {
+    flex: none;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.frame__doc {
+    min-width: 0;
+    overflow: hidden;
+    color: #7f9099;
+    font-size: 8px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.frame__chip {
+    margin-left: auto;
+    padding: 1px 6px;
+    border: 1px solid #2a3941;
+    border-radius: 999px;
+    color: #94a5ae;
+    font-family: var(--ida-mono);
+    font-size: 7px;
+    white-space: nowrap;
+}
+
+.frame__body {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 12px 12px 14px;
+}
+
+.frame__row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #202b31;
+    font-size: 9px;
+}
+
+.frame__label {
+    width: 54px;
+    flex: none;
+    color: #8fa1aa;
+    font-family: var(--ida-mono);
+    font-size: 9px;
+}
+
+.frame__state {
+    color: #8a9aa2;
+    font-size: 9px;
+    line-height: 1.5;
+}
+
+.frame__state--on {
+    color: #5fd0c7;
+}
+
+.frame__state--part {
+    color: #d9b45c;
+}
+
+.frame__rule {
+    height: 1px;
+    margin: 2px 0;
+    background: #2a3840;
+}
+
+.frame__line {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-size: 8px;
+    color: #8a9aa2;
+}
+
+.frame__line .mono {
+    width: 54px;
+    flex: none;
+    color: #c8d5db;
+    font-size: 8px;
+}
+
+.frame__status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px;
+    border-top: 1px solid #26333a;
+    background: #151e24;
+    color: #7f9099;
+    font-size: 7px;
+}
+
+.frame__status .spacer {
+    flex: 1;
+}
+
+.work {
+    margin-top: 58px;
+}
+
+.work-card {
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+    padding: 22px 20px;
+    border: 1px solid var(--ida-line);
+    border-radius: var(--ida-radius);
+    background: var(--ida-surface);
+}
+
+.work-card--quiet {
+    background: var(--ida-surface-2);
+}
+
+.work-card header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.work-card h3 {
+    margin: 0;
+    font-size: 19px;
+}
+
+.work-card header .chip {
+    margin-left: auto;
+}
+
+.work-card ul {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--ida-muted);
+    font-size: 14px;
+}
+
+.work-card li {
+    margin: 5px 0;
+}
+
+.matrix,
+.loop {
+    margin-top: 54px;
+    padding-top: 30px;
+    border-top: 1px solid var(--ida-line);
+}
+
+.matrix__note,
+.loop__note {
+    margin: 12px 0 0;
+    color: var(--ida-muted);
+    font-size: 13px;
+}
+
+.steps {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.step {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 10px;
+    padding: 18px 20px;
+    border: 1px solid var(--ida-line);
+    border-radius: var(--ida-radius);
+    background: var(--ida-surface);
+}
+
+.step__index {
+    color: var(--ida-accent);
+    font-family: var(--ida-mono);
+    font-size: 14px;
+}
+
+.step__top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.step__top h3 {
+    margin: 0;
+    font-size: 17px;
+}
+
+.step p {
+    margin: 6px 0 0;
+    color: var(--ida-muted);
+    font-size: 14px;
+}
+
+@media (max-width: 900px) {
+    .hero {
+        grid-template-columns: 1fr;
+        gap: 30px;
+    }
+
+    .hero h1 {
+        font-size: 33px;
+    }
+
+    .frame {
+        max-width: 560px;
+    }
+
+    .steps {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 620px) {
+    .hero h1 {
+        font-size: 29px;
+    }
+
+    .hero__sub {
+        font-size: 15px;
+    }
+}
+</style>
+
+<script client>
+export default class IndexPage {
+    matrixRows = [
+        { container: "pe", header: "PE32 / PE32+", sections: "supported", rva: "supported", patch: "supported" },
+        { container: "elf", header: "ELF32 / ELF64 LE", sections: "supported", rva: "supported", patch: "supported" },
+        { container: "macho", header: "magic, CPU, type, commands", sections: "not implemented", rva: "not implemented", patch: "supported" },
+        { container: "unknown", header: "detected only", sections: "not implemented", rva: "not implemented", patch: "supported" },
+    ];
+
+    static meta() {
+        return {
+            title: "OpenIDA — binary inspection without a toolchain",
+            description:
+                "OpenIDA decodes PE and ELF headers and sections, extracts strings, maps RVAs and patches bytes atomically. Disassembly, decompilation and debugging are not implemented.",
+        };
+    }
+}
+</script>
