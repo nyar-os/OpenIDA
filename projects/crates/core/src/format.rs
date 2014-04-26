@@ -53,21 +53,11 @@ impl Architecture {
     }
 }
 
-/// Mach-O magic families: `(is_64_bit, is_big_endian)`.
-pub(crate) fn macho_magic(bytes: &[u8]) -> Option<(bool, bool)> {
-    match bytes.get(0..4)? {
-        [0xcf, 0xfa, 0xed, 0xfe] => Some((true, false)),
-        [0xce, 0xfa, 0xed, 0xfe] => Some((false, false)),
-        [0xfe, 0xed, 0xfa, 0xcf] => Some((true, true)),
-        [0xfe, 0xed, 0xfa, 0xce] => Some((false, true)),
-        _ => None,
-    }
-}
-
 /// Names the container from its leading bytes.
 ///
-/// PE validation is delegated to the shared `boost.rs` reader, so a file that
-/// merely starts with `MZ` is not reported as an executable image.
+/// PE validation and Mach-O magic detection are delegated to the shared
+/// `boost.rs` readers, so a file that merely starts with `MZ` is not reported
+/// as an executable image.
 pub fn detect(bytes: &[u8]) -> BinaryFormat {
     if data_binary_pe::pe::parse_pe(bytes).is_ok() {
         return BinaryFormat::Pe;
@@ -75,7 +65,7 @@ pub fn detect(bytes: &[u8]) -> BinaryFormat {
     if bytes.starts_with(b"\x7fELF") {
         return BinaryFormat::Elf;
     }
-    if macho_magic(bytes).is_some() {
+    if data_binary_mach_o::mach_o::macho_magic(bytes).is_some() {
         return BinaryFormat::MachO;
     }
     BinaryFormat::Unknown

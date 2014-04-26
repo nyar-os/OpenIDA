@@ -8,7 +8,6 @@
 
 #![deny(missing_docs)]
 
-mod bytes;
 mod elf;
 mod error;
 mod format;
@@ -313,6 +312,7 @@ pub fn capabilities() -> serde_json::Value {
         "engine": { "package": "open-ida-core", "version": env!("CARGO_PKG_VERSION") },
         "upstream": {
             "binary": "boost.rs/data-binary-pe",
+            "machO": "boost.rs/data-binary-mach-o",
             "digest": "boost.rs/data-checksum",
         },
         "formats": {
