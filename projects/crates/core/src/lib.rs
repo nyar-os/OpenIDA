@@ -21,7 +21,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 pub use error::{IdaError, Result};
@@ -306,10 +306,147 @@ impl BinaryView {
     }
 }
 
+/// Bounded result of [`BinaryView::strings`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StringsReport {
+    /// Hits that survived the limit, in file order.
+    pub hits: Vec<StringHit>,
+    /// Number of hits before the limit was applied.
+    pub total: usize,
+    /// Whether the limit removed hits.
+    pub truncated: bool,
+}
+
+fn default_min_string_len() -> usize {
+    4
+}
+
+fn default_strings_limit() -> Option<usize> {
+    Some(100)
+}
+
+fn default_hexdump_length() -> u64 {
+    256
+}
+
+/// Inputs of one [`OpenIda`] session.
+///
+/// Serialized as JSON with camelCase keys, so `{ "path": "...", "minStringLen": 4 }`
+/// is the wire form the addon and the TypeScript client both use.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenIdaOptions {
+    /// Binary to open.
+    pub path: PathBuf,
+    /// Minimum printable run length used by [`OpenIda::strings`] when no override is given.
+    #[serde(default = "default_min_string_len")]
+    pub min_string_len: usize,
+    /// Default hit limit used by [`OpenIda::strings`]; `null` means unlimited.
+    #[serde(default = "default_strings_limit")]
+    pub strings_limit: Option<usize>,
+    /// Default byte count used by [`OpenIda::hexdump`].
+    #[serde(default = "default_hexdump_length")]
+    pub hexdump_length: u64,
+}
+
+impl OpenIdaOptions {
+    /// Builds options with the documented defaults for one path.
+    pub fn new(path: impl Into<PathBuf>) -> Self {
+        Self {
+            path: path.into(),
+            min_string_len: default_min_string_len(),
+            strings_limit: default_strings_limit(),
+            hexdump_length: default_hexdump_length(),
+        }
+    }
+}
+
+/// One open binary plus the defaults every operation should use.
+///
+/// This is the product API: construct it with [`OpenIdaOptions`], then call the
+/// orthogonal methods. Explicit arguments win over the defaults carried by the
+/// options, so a session can be reused for several bounded queries.
+#[derive(Debug, Clone)]
+pub struct OpenIda {
+    view: BinaryView,
+    options: OpenIdaOptions,
+}
+
+impl OpenIda {
+    /// Opens the binary named by `options`.
+    pub fn new(options: OpenIdaOptions) -> Result<Self> {
+        let view = BinaryView::open(&options.path)?;
+        Ok(Self { view, options })
+    }
+
+    /// Builds a session from its JSON wire form.
+    pub fn from_options_json(raw: &str) -> Result<Self> {
+        let options: OpenIdaOptions =
+            serde_json::from_str(raw).map_err(|error| IdaError::parse(format!("invalid OpenIdaOptions: {error}")))?;
+        Self::new(options)
+    }
+
+    /// Options this session was built from.
+    pub fn options(&self) -> &OpenIdaOptions {
+        &self.options
+    }
+
+    /// Path of the open binary.
+    pub fn path(&self) -> &Path {
+        self.view.path()
+    }
+
+    /// Header summary.
+    pub fn info(&self) -> Result<BinaryInfo> {
+        self.view.info()
+    }
+
+    /// Section table.
+    pub fn sections(&self) -> Result<Vec<Section>> {
+        self.view.sections()
+    }
+
+    /// Extracts printable strings, falling back to the session defaults.
+    pub fn strings(&self, min_len: Option<usize>, limit: Option<usize>) -> StringsReport {
+        let mut hits = self.view.strings(min_len.unwrap_or(self.options.min_string_len));
+        let total = hits.len();
+        let limit = limit.or(self.options.strings_limit).unwrap_or(usize::MAX);
+        let truncated = total > limit;
+        hits.truncate(limit);
+        StringsReport { hits, total, truncated }
+    }
+
+    /// Renders a hex dump, falling back to the session defaults.
+    pub fn hexdump(&self, offset: Option<u64>, length: Option<u64>) -> Result<String> {
+        self.view.hexdump(offset.unwrap_or(0), length.unwrap_or(self.options.hexdump_length))
+    }
+
+    /// Reads a byte range from the file.
+    pub fn read(&self, offset: u64, length: u64) -> Result<&[u8]> {
+        self.view.read_bytes(offset, length)
+    }
+
+    /// Writes patched bytes back to the source, or to `output` when given.
+    pub fn patch(&mut self, offset: u64, data: &[u8], output: Option<&Path>) -> Result<PatchReport> {
+        self.view.patch_to(offset, data, output)
+    }
+
+    /// Maps an RVA or virtual address onto a file offset.
+    pub fn rva(&self, address: u64) -> Result<u64> {
+        self.view.rva_to_offset(address)
+    }
+
+    /// Borrows the underlying view for kernel-level callers.
+    pub fn view(&self) -> &BinaryView {
+        &self.view
+    }
+}
+
 /// Reports what this build implements and what it explicitly does not.
 pub fn capabilities() -> serde_json::Value {
     json!({
-        "engine": { "package": "open-ida-core", "version": env!("CARGO_PKG_VERSION") },
+        "engine": { "package": "open-ida-core", "version": env!("CARGO_PKG_VERSION"), "api": "OpenIda" },
         "upstream": {
             "binary": "boost.rs/data-binary-pe",
             "machO": "boost.rs/data-binary-mach-o",

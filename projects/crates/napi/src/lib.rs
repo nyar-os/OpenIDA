@@ -19,7 +19,7 @@ use std::{
     time::Instant,
 };
 
-use open_ida_core::{BinaryView, IdaError};
+use open_ida_core::{IdaError, OpenIda, OpenIdaOptions};
 use serde::Serialize;
 use serde_json::{Value, json};
 use wae::{
@@ -74,15 +74,15 @@ fn encoded<T: Serialize>(value: &T) -> std::result::Result<Value, IdaError> {
     serde_json::to_value(value).map_err(|error| IdaError::parse(error.to_string()))
 }
 
-// One live handle table per process shared by every surface.
+// One live engine table per process shared by every surface.
 struct Registry {
     next: u64,
-    views: HashMap<u64, BinaryView>,
+    engines: HashMap<u64, OpenIda>,
 }
 
 fn registry() -> &'static Mutex<Registry> {
     static REGISTRY: OnceLock<Mutex<Registry>> = OnceLock::new();
-    REGISTRY.get_or_init(|| Mutex::new(Registry { next: 1, views: HashMap::new() }))
+    REGISTRY.get_or_init(|| Mutex::new(Registry { next: 1, engines: HashMap::new() }))
 }
 
 fn lock() -> std::result::Result<MutexGuard<'static, Registry>, IdaError> {
@@ -93,57 +93,60 @@ fn missing(handle: u64) -> IdaError {
     IdaError::new("handle/invalid", format!("no live binary has handle {handle}"))
 }
 
-fn with_view(
+fn with_engine(
     handle: u64,
-    work: impl FnOnce(&BinaryView) -> std::result::Result<Value, IdaError>,
+    work: impl FnOnce(&OpenIda) -> std::result::Result<Value, IdaError>,
 ) -> std::result::Result<Value, IdaError> {
     let registry = lock()?;
-    let view = registry.views.get(&handle).ok_or_else(|| missing(handle))?;
-    work(view)
+    let engine = registry.engines.get(&handle).ok_or_else(|| missing(handle))?;
+    work(engine)
 }
 
-fn with_view_mut(
+fn with_engine_mut(
     handle: u64,
-    work: impl FnOnce(&mut BinaryView) -> std::result::Result<Value, IdaError>,
+    work: impl FnOnce(&mut OpenIda) -> std::result::Result<Value, IdaError>,
 ) -> std::result::Result<Value, IdaError> {
     let mut registry = lock()?;
-    let view = registry.views.get_mut(&handle).ok_or_else(|| missing(handle))?;
-    work(view)
+    let engine = registry.engines.get_mut(&handle).ok_or_else(|| missing(handle))?;
+    work(engine)
 }
 
-fn open_view(path: &str) -> std::result::Result<Value, IdaError> {
-    let view = BinaryView::open(path)?;
-    let info = encoded(&view.info()?)?;
+fn open_engine(options: OpenIdaOptions) -> std::result::Result<Value, IdaError> {
+    let engine = OpenIda::new(options)?;
+    let info = encoded(&engine.info()?)?;
     let mut registry = lock()?;
     let handle = registry.next;
     registry.next += 1;
-    registry.views.insert(handle, view);
+    registry.engines.insert(handle, engine);
     Ok(json!({ "handle": handle, "info": info }))
 }
 
 fn section_report(handle: u64) -> std::result::Result<Value, IdaError> {
-    with_view(handle, |view| Ok(json!({ "sections": encoded(&view.sections()?)? })))
+    with_engine(handle, |engine| Ok(json!({ "sections": encoded(&engine.sections()?)? })))
 }
 
-fn strings_report(handle: u64, min_len: u64, limit: Option<u64>) -> std::result::Result<Value, IdaError> {
-    with_view(handle, |view| {
-        let min_len = usize::try_from(min_len).map_err(|_| IdaError::range("`minLen` is too large"))?;
-        let mut hits = view.strings(min_len);
-        let total = hits.len();
-        let limit = limit.map_or(usize::MAX, |value| usize::try_from(value).unwrap_or(usize::MAX));
-        let truncated = total > limit;
-        hits.truncate(limit);
-        Ok(json!({ "hits": encoded(&hits)?, "total": total, "truncated": truncated }))
+fn strings_report(handle: u64, min_len: Option<u64>, limit: Option<u64>) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| {
+        let min_len = min_len
+            .map(|value| usize::try_from(value).map_err(|_| IdaError::range("`minLen` is too large")))
+            .transpose()?;
+        let limit = limit.map(|value| usize::try_from(value).unwrap_or(usize::MAX));
+        encoded(&engine.strings(min_len, limit))
     })
 }
 
-fn hexdump_report(handle: u64, offset: u64, length: u64) -> std::result::Result<Value, IdaError> {
-    with_view(handle, |view| Ok(json!({ "offset": offset, "length": length, "text": view.hexdump(offset, length)? })))
+fn hexdump_report(handle: u64, offset: Option<u64>, length: Option<u64>) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| {
+        let resolved_offset = offset.unwrap_or(0);
+        let resolved_length = length.unwrap_or(engine.options().hexdump_length);
+        let text = engine.hexdump(Some(resolved_offset), Some(resolved_length))?;
+        Ok(json!({ "offset": resolved_offset, "length": resolved_length, "text": text }))
+    })
 }
 
 fn read_report(handle: u64, offset: u64, length: u64) -> std::result::Result<Value, IdaError> {
-    with_view(handle, |view| {
-        let bytes = view.read_bytes(offset, length)?;
+    with_engine(handle, |engine| {
+        let bytes = engine.read(offset, length)?;
         let mut hex = String::with_capacity(bytes.len() * 2);
         for byte in bytes {
             hex.push_str(&format!("{byte:02x}"));
@@ -154,16 +157,16 @@ fn read_report(handle: u64, offset: u64, length: u64) -> std::result::Result<Val
 
 fn patch_report(handle: u64, offset: u64, hex_bytes: &str, output: Option<&Path>) -> std::result::Result<Value, IdaError> {
     let bytes = open_ida_core::parse_hex(hex_bytes)?;
-    with_view_mut(handle, |view| encoded(&view.patch_to(offset, &bytes, output)?))
+    with_engine_mut(handle, |engine| encoded(&engine.patch(offset, &bytes, output)?))
 }
 
 fn rva_report(handle: u64, rva: u64) -> std::result::Result<Value, IdaError> {
-    with_view(handle, |view| Ok(json!({ "rva": rva, "offset": view.rva_to_offset(rva)? })))
+    with_engine(handle, |engine| Ok(json!({ "rva": rva, "offset": engine.rva(rva)? })))
 }
 
-fn close_view(handle: u64) -> std::result::Result<(), IdaError> {
+fn close_engine(handle: u64) -> std::result::Result<(), IdaError> {
     let mut registry = lock()?;
-    registry.views.remove(&handle).map(|_| ()).ok_or_else(|| missing(handle))
+    registry.engines.remove(&handle).map(|_| ()).ok_or_else(|| missing(handle))
 }
 
 /// Library version of the native binding.
@@ -179,11 +182,13 @@ fn capabilities(ctx: CallContext) -> Result<JsValue> {
     ctx.env().string(&matrix)
 }
 
-/// Opens a binary and returns its handle and header summary.
+/// Opens a binary session from its options JSON and returns its handle and header summary.
 #[function]
 fn binary_open(ctx: CallContext) -> Result<JsValue> {
-    let path = text(&ctx, 0)?;
-    match open_view(&path) {
+    let raw = text(&ctx, 0)?;
+    let options = serde_json::from_str::<OpenIdaOptions>(&raw)
+        .map_err(|error| Error::new(format!("binary/parse: invalid options: {error}")))?;
+    match open_engine(options) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
@@ -193,7 +198,7 @@ fn binary_open(ctx: CallContext) -> Result<JsValue> {
 #[function]
 fn binary_info(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
-    match with_view(handle, |view| encoded(&view.info()?)) {
+    match with_engine(handle, |engine| encoded(&engine.info()?)) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
@@ -213,7 +218,7 @@ fn binary_sections(ctx: CallContext) -> Result<JsValue> {
 #[function]
 fn binary_strings(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
-    let min_len = number(&ctx, 1)?;
+    let min_len = optional_number(&ctx, 1)?;
     let limit = optional_number(&ctx, 2)?;
     match strings_report(handle, min_len, limit) {
         Ok(value) => respond(&ctx, &value),
@@ -225,8 +230,8 @@ fn binary_strings(ctx: CallContext) -> Result<JsValue> {
 #[function]
 fn binary_hexdump(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
-    let offset = number(&ctx, 1)?;
-    let length = number(&ctx, 2)?;
+    let offset = optional_number(&ctx, 1)?;
+    let length = optional_number(&ctx, 2)?;
     match hexdump_report(handle, offset, length) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
@@ -274,7 +279,7 @@ fn binary_rva(ctx: CallContext) -> Result<JsValue> {
 #[function]
 fn binary_close(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
-    match close_view(handle) {
+    match close_engine(handle) {
         Ok(()) => ctx.env().boolean(true),
         Err(error) => Err(failure(error)),
     }
@@ -317,12 +322,22 @@ impl IpcHandler for IdaIpcHandler {
             }
             "ready" => reply(id, "readyResult", json!({ "version": env!("CARGO_PKG_VERSION"), "platform": platform_name() })),
             "capabilities" => reply(id, "capabilitiesResult", json!({ "capabilities": open_ida_core::capabilities() })),
-            "binary.open" => match string_field(&value, "path") {
-                Some(path) => outcome(id, "openResult", open_view(&path)),
-                None => failure_reply(id, "binary/range: `path` is required".to_string()),
-            },
+            "binary.open" => {
+                let options = value
+                    .get("options")
+                    .filter(|raw| raw.is_object())
+                    .cloned()
+                    .or_else(|| string_field(&value, "path").map(|path| json!({ "path": path })));
+                match options {
+                    Some(raw) => match serde_json::from_value::<OpenIdaOptions>(raw) {
+                        Ok(options) => outcome(id, "openResult", open_engine(options)),
+                        Err(error) => failure_reply(id, format!("binary/parse: invalid options: {error}")),
+                    },
+                    None => failure_reply(id, "binary/range: `options` or `path` is required".to_string()),
+                }
+            }
             "binary.info" => match handle_field(&value) {
-                Some(handle) => outcome(id, "infoResult", with_view(handle, |view| encoded(&view.info()?))),
+                Some(handle) => outcome(id, "infoResult", with_engine(handle, |engine| encoded(&engine.info()?))),
                 None => failure_reply(id, "handle/invalid: `handle` is required".to_string()),
             },
             "binary.sections" => match handle_field(&value) {
@@ -331,7 +346,7 @@ impl IpcHandler for IdaIpcHandler {
             },
             "binary.strings" => match handle_field(&value) {
                 Some(handle) => {
-                    let min_len = value.get("minLen").and_then(Value::as_u64).unwrap_or(4);
+                    let min_len = value.get("minLen").and_then(Value::as_u64);
                     let limit = value.get("limit").and_then(Value::as_u64);
                     outcome(id, "stringsResult", strings_report(handle, min_len, limit))
                 }
@@ -339,8 +354,8 @@ impl IpcHandler for IdaIpcHandler {
             },
             "binary.hexdump" => match handle_field(&value) {
                 Some(handle) => {
-                    let offset = value.get("offset").and_then(Value::as_u64).unwrap_or(0);
-                    let length = value.get("length").and_then(Value::as_u64).unwrap_or(256);
+                    let offset = value.get("offset").and_then(Value::as_u64);
+                    let length = value.get("length").and_then(Value::as_u64);
                     outcome(id, "hexdumpResult", hexdump_report(handle, offset, length))
                 }
                 None => failure_reply(id, "handle/invalid: `handle` is required".to_string()),
@@ -370,7 +385,7 @@ impl IpcHandler for IdaIpcHandler {
                 None => failure_reply(id, "handle/invalid: `handle` is required".to_string()),
             },
             "binary.close" => match handle_field(&value) {
-                Some(handle) => outcome(id, "closeResult", close_view(handle).map(|()| json!({ "closed": true }))),
+                Some(handle) => outcome(id, "closeResult", close_engine(handle).map(|()| json!({ "closed": true }))),
                 None => failure_reply(id, "handle/invalid: `handle` is required".to_string()),
             },
             _ => IpcOutcome::Ignored,
