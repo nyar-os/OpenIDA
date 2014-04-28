@@ -8,9 +8,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { OpenIDA, capabilities } from './api.js';
 import { IdaError, errorCodes, isIdaError, translateNativeError } from './errors.js';
 import { nativeBinding } from './native.js';
-import * as service from './service.js';
 
 test('stable error codes are present', () => {
     for (const code of ['binary/parse', 'binary/range', 'binary/unsupported', 'handle/invalid', 'capability/not-implemented']) {
@@ -38,8 +38,7 @@ test('IdaError keeps its code and recovers through translation', () => {
 });
 
 test('an absent addon reports capability/not-implemented', { skip: nativeBinding() !== undefined }, () => {
-    assert.throws(
-        () => service.open('anything.bin'),
-        (error: unknown) => isIdaError(error) && error.code === 'capability/not-implemented',
-    );
+    const notImplemented = (error: unknown) => isIdaError(error) && error.code === 'capability/not-implemented';
+    assert.throws(() => new OpenIDA({ path: 'anything.bin' }), notImplemented);
+    assert.throws(() => capabilities(), notImplemented);
 });

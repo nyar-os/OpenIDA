@@ -61,7 +61,7 @@ export interface PatchReport {
 
 /** What the installed engine implements and what it does not. */
 export interface Capabilities {
-    readonly engine: { readonly package: string; readonly version: string };
+    readonly engine: { readonly package: string; readonly version: string; readonly api: string };
     readonly formats: Readonly<Record<string, string>>;
     readonly features: Readonly<Record<string, string>>;
     readonly unsupported: Readonly<Record<string, string>>;
