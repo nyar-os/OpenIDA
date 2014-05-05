@@ -86,6 +86,98 @@ export interface StringsReport {
     readonly truncated: boolean;
 }
 
+/** One imported function. */
+export interface ImportEntry {
+    readonly module: string;
+    readonly name: string | null;
+    readonly ordinal: number | null;
+    readonly address: number | null;
+}
+
+/** Bounded import listing. */
+export interface ImportsReport {
+    readonly entries: readonly ImportEntry[];
+    readonly total: number;
+    readonly truncated: boolean;
+}
+
+/** One exported symbol. */
+export interface ExportEntry {
+    readonly name: string | null;
+    readonly ordinal: number | null;
+    readonly address: number | null;
+    readonly forwarder: string | null;
+}
+
+/** Bounded export listing. */
+export interface ExportsReport {
+    readonly entries: readonly ExportEntry[];
+    readonly total: number;
+    readonly truncated: boolean;
+}
+
+/** One debug or dynamic symbol. */
+export interface SymbolEntry {
+    readonly name: string;
+    readonly address: number;
+    readonly size: number;
+    readonly kind: string;
+    readonly binding: string;
+    readonly section: string | null;
+}
+
+/** Bounded symbol listing. */
+export interface SymbolsReport {
+    readonly entries: readonly SymbolEntry[];
+    readonly total: number;
+    readonly truncated: boolean;
+}
+
+/** Pattern kinds accepted by `search()`. */
+export type SearchMode = 'hex' | 'ascii' | 'utf16le';
+
+/** Inputs of one `search()` call. */
+export interface SearchOptions {
+    readonly mode: SearchMode;
+    readonly pattern: string;
+    /** Whether ASCII letters must match case. Defaults to false. */
+    readonly caseSensitive?: boolean;
+    /** Whether matches must be surrounded by non-word characters. Defaults to false. */
+    readonly wholeWord?: boolean;
+    /** Maximum number of hits to return. Defaults to 100; `null` means unlimited. */
+    readonly limit?: number | null;
+    /** First file offset to scan. */
+    readonly start?: number;
+    /** One past the last file offset to scan. */
+    readonly end?: number;
+}
+
+/** One pattern match. */
+export interface SearchHit {
+    readonly offset: number;
+    readonly preview: string;
+}
+
+/** Bounded search result. */
+export interface SearchReport {
+    readonly mode: string;
+    readonly hits: readonly SearchHit[];
+    readonly total: number;
+    readonly truncated: boolean;
+}
+
+/** File offset mapped onto an absolute virtual address. */
+export interface OffsetToVaReport {
+    readonly offset: number;
+    readonly va: number;
+}
+
+/** File offset mapped onto a PE image-relative address. */
+export interface OffsetToRvaReport {
+    readonly offset: number;
+    readonly rva: number;
+}
+
 /** Hex dump of one byte range. */
 export interface HexdumpReport {
     readonly offset: number;

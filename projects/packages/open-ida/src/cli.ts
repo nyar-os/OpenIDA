@@ -14,7 +14,17 @@ import { createCli } from '@wae/commander';
 
 import { OpenIDA, capabilities } from './api.js';
 import { runGui } from './gui.js';
-import type { BinaryInfo, Capabilities, Section, StringsReport } from './types.js';
+import type {
+    BinaryInfo,
+    Capabilities,
+    ExportsReport,
+    ImportsReport,
+    SearchOptions,
+    SearchReport,
+    Section,
+    StringsReport,
+    SymbolsReport,
+} from './types.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -105,6 +115,65 @@ function describeStrings(report: StringsReport): string {
     const lines = [header];
     for (const hit of report.hits) {
         lines.push(`  ${hex(hit.offset).padStart(10)}  ${String(hit.length).padStart(4)}  ${hit.value}`);
+    }
+    return lines.join('\n');
+}
+
+function entriesHeader(count: number, total: number, noun: string, truncated: boolean): string {
+    return `${count} of ${total} ${noun}${truncated ? ' (truncated)' : ''}`;
+}
+
+function describeImports(report: ImportsReport): string {
+    const header = entriesHeader(report.entries.length, report.total, 'import(s)', report.truncated);
+    if (report.entries.length === 0) {
+        return `${header}\n  no imports`;
+    }
+    const lines = [header];
+    for (const entry of report.entries) {
+        const symbol = entry.name ?? `#${entry.ordinal ?? '?'}`;
+        const module = entry.module.length > 0 ? `${entry.module}!` : '';
+        const address = entry.address === null ? '' : `  ${hex(entry.address)}`;
+        lines.push(`  ${`${module}${symbol}`.padEnd(40)}${address}`);
+    }
+    return lines.join('\n');
+}
+
+function describeExports(report: ExportsReport): string {
+    const header = entriesHeader(report.entries.length, report.total, 'export(s)', report.truncated);
+    if (report.entries.length === 0) {
+        return `${header}\n  no exports`;
+    }
+    const lines = [header];
+    for (const entry of report.entries) {
+        const symbol = entry.name ?? `#${entry.ordinal ?? '?'}`;
+        const address = entry.address === null ? '' : `  ${hex(entry.address)}`;
+        const forwarder = entry.forwarder === null ? '' : `  -> ${entry.forwarder}`;
+        lines.push(`  ${symbol.padEnd(40)}${address}${forwarder}`);
+    }
+    return lines.join('\n');
+}
+
+function describeSymbols(report: SymbolsReport): string {
+    const header = entriesHeader(report.entries.length, report.total, 'symbol(s)', report.truncated);
+    if (report.entries.length === 0) {
+        return `${header}\n  no symbols`;
+    }
+    const lines = [header];
+    for (const entry of report.entries) {
+        const section = entry.section === null ? '' : `  (${entry.section})`;
+        lines.push(`  ${hex(entry.address).padStart(12)}  ${entry.kind.padEnd(9)} ${entry.binding.padEnd(6)} ${entry.name}${section}`);
+    }
+    return lines.join('\n');
+}
+
+function describeSearch(report: SearchReport): string {
+    const header = `${report.hits.length} of ${report.total} ${report.mode} hit(s)${report.truncated ? ' (truncated)' : ''}`;
+    if (report.hits.length === 0) {
+        return `${header}\n  no matches`;
+    }
+    const lines = [header];
+    for (const hit of report.hits) {
+        lines.push(`  ${hex(hit.offset).padStart(10)}  ${hit.preview}`);
     }
     return lines.join('\n');
 }
@@ -227,6 +296,166 @@ cli.command('rva', 'cli.cmd.rva').actionCtx(async (options, _args, ctx) => {
     try {
         const report = ida.rva(address);
         ctx.emitResult(report, `RVA ${hex(report.rva)} -> file offset ${hex(report.offset)}`);
+        return 0;
+    } finally {
+        ida.close();
+    }
+});
+
+cli
+    .command('imports', 'cli.cmd.imports')
+    .option('--limit <count>', 'cli.opt.limit')
+    .actionCtx(async (options, _args, ctx) => {
+        const file = input(options);
+        if (file === undefined) {
+            ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+            return 2;
+        }
+        const limitText = text(options, 'limit');
+        const limit = limitText === undefined ? undefined : parseNumber(limitText);
+        if (limitText !== undefined && (limit === undefined || limit < 1)) {
+            ctx.fail('open-ida.cli.limit', { message: '`--limit <count>` must be a positive integer' });
+            return 2;
+        }
+        const ida = new OpenIDA({ path: file });
+        try {
+            const report = ida.imports(limit);
+            ctx.emitResult(report, describeImports(report));
+            return 0;
+        } finally {
+            ida.close();
+        }
+    });
+
+cli
+    .command('exports', 'cli.cmd.exports')
+    .option('--limit <count>', 'cli.opt.limit')
+    .actionCtx(async (options, _args, ctx) => {
+        const file = input(options);
+        if (file === undefined) {
+            ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+            return 2;
+        }
+        const limitText = text(options, 'limit');
+        const limit = limitText === undefined ? undefined : parseNumber(limitText);
+        if (limitText !== undefined && (limit === undefined || limit < 1)) {
+            ctx.fail('open-ida.cli.limit', { message: '`--limit <count>` must be a positive integer' });
+            return 2;
+        }
+        const ida = new OpenIDA({ path: file });
+        try {
+            const report = ida.exports(limit);
+            ctx.emitResult(report, describeExports(report));
+            return 0;
+        } finally {
+            ida.close();
+        }
+    });
+
+cli
+    .command('symbols', 'cli.cmd.symbols')
+    .option('--limit <count>', 'cli.opt.limit')
+    .actionCtx(async (options, _args, ctx) => {
+        const file = input(options);
+        if (file === undefined) {
+            ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+            return 2;
+        }
+        const limitText = text(options, 'limit');
+        const limit = limitText === undefined ? undefined : parseNumber(limitText);
+        if (limitText !== undefined && (limit === undefined || limit < 1)) {
+            ctx.fail('open-ida.cli.limit', { message: '`--limit <count>` must be a positive integer' });
+            return 2;
+        }
+        const ida = new OpenIDA({ path: file });
+        try {
+            const report = ida.symbols(limit);
+            ctx.emitResult(report, describeSymbols(report));
+            return 0;
+        } finally {
+            ida.close();
+        }
+    });
+
+cli
+    .command('search', 'cli.cmd.search')
+    .option('--mode <mode>', 'cli.opt.mode')
+    .option('--case-sensitive', 'cli.opt.case')
+    .option('--whole-word', 'cli.opt.word')
+    .option('--limit <count>', 'cli.opt.limit')
+    .option('--start <offset>', 'cli.opt.start')
+    .option('--end <offset>', 'cli.opt.end')
+    .actionCtx(async (options, _args, ctx) => {
+        const file = options._?.[0];
+        const pattern = options._?.[1];
+        if (file === undefined || pattern === undefined) {
+            ctx.fail('open-ida.cli.search-args', { message: 'a binary file and a pattern are required' });
+            return 2;
+        }
+        const modes = ['hex', 'ascii', 'utf16le'] as const;
+        const modeText = text(options, 'mode') ?? 'ascii';
+        if (!(modes as readonly string[]).includes(modeText)) {
+            ctx.fail('open-ida.cli.mode', { message: '`--mode` must be hex, ascii or utf16le' });
+            return 2;
+        }
+        const limitText = text(options, 'limit');
+        const limit = limitText === undefined ? undefined : parseNumber(limitText);
+        if (limitText !== undefined && (limit === undefined || limit < 1)) {
+            ctx.fail('open-ida.cli.limit', { message: '`--limit <count>` must be a positive integer' });
+            return 2;
+        }
+        const start = text(options, 'start') === undefined ? undefined : parseNumber(text(options, 'start'));
+        if (text(options, 'start') !== undefined && start === undefined) {
+            ctx.fail('open-ida.cli.offset', { message: '`--start <offset>` must be a non-negative integer' });
+            return 2;
+        }
+        const end = text(options, 'end') === undefined ? undefined : parseNumber(text(options, 'end'));
+        if (text(options, 'end') !== undefined && end === undefined) {
+            ctx.fail('open-ida.cli.offset', { message: '`--end <offset>` must be a non-negative integer' });
+            return 2;
+        }
+        const searchOptions: SearchOptions = {
+            mode: modeText as SearchOptions['mode'],
+            pattern,
+            caseSensitive: options['case-sensitive'] === true,
+            wholeWord: options['whole-word'] === true,
+            ...(limit === undefined ? {} : { limit }),
+            ...(start === undefined ? {} : { start }),
+            ...(end === undefined ? {} : { end }),
+        };
+        const ida = new OpenIDA({ path: file });
+        try {
+            const report = ida.search(searchOptions);
+            ctx.emitResult(report, describeSearch(report));
+            return 0;
+        } finally {
+            ida.close();
+        }
+    });
+
+cli.command('offset', 'cli.cmd.offset').actionCtx(async (options, _args, ctx) => {
+    const file = options._?.[0];
+    const offsetText = options._?.[1];
+    if (file === undefined || offsetText === undefined) {
+        ctx.fail('open-ida.cli.offset-args', { message: 'a binary file and a file offset are required' });
+        return 2;
+    }
+    const offset = parseNumber(offsetText);
+    if (offset === undefined) {
+        ctx.fail('open-ida.cli.offset', { message: 'the offset must be a non-negative integer, decimal or 0x-prefixed' });
+        return 2;
+    }
+    const ida = new OpenIDA({ path: file });
+    try {
+        const mapped = ida.offsetToVa(offset);
+        let rva: number | null = null;
+        try {
+            rva = ida.offsetToRva(offset).rva;
+        } catch {
+            rva = null;
+        }
+        const detail = rva === null ? `offset ${hex(offset)} -> VA ${hex(mapped.va)}` : `offset ${hex(offset)} -> RVA ${hex(rva)} · VA ${hex(mapped.va)}`;
+        ctx.emitResult({ offset, rva, va: mapped.va }, detail);
         return 0;
     } finally {
         ida.close();

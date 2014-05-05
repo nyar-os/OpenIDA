@@ -18,7 +18,7 @@ repository = "https://github.com/nyar-os/OpenIDA"
 wae = { git = "https://github.com/doki-land/wae-framework.git", rev = "f92f818fde7174154d77a87b55a5e44b367034c9", default-features = false, features = ["webview"] }
 # Shared binary framework. Keep the same `boost.rs` revision as the rest of the
 # OpenX applications so parsing and target models do not drift.
-data-binary-inspect = { git = "https://github.com/oovm/boost.rs", rev = "1fff20a073965419f84f879cd89a04d52dcaafb0" }
+data-binary-inspect = { git = "https://github.com/oovm/boost.rs", rev = "5ed79ccd125d035b7286c8073b6c9b4ee384dbfb" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

@@ -22,6 +22,12 @@ export interface NativeBinding {
     binary_read(handle: number, offset: number, length: number): string;
     binary_patch(handle: number, offset: number, hexBytes: string, outputPath?: string): string;
     binary_rva(handle: number, rva: number): string;
+    binary_imports(handle: number, limit?: number): string;
+    binary_exports(handle: number, limit?: number): string;
+    binary_symbols(handle: number, limit?: number): string;
+    binary_search(handle: number, optionsJson: string): string;
+    binary_offset_to_va(handle: number, offset: number): string;
+    binary_offset_to_rva(handle: number, offset: number): string;
     binary_close(handle: number): boolean;
     openGui(options?: { title?: string; contentDir?: string; width?: number; height?: number }): string;
     pumpEvents(): string;

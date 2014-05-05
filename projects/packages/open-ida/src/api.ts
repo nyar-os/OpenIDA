@@ -13,12 +13,19 @@ import type {
     BinaryHandle,
     BinaryInfo,
     Capabilities,
+    ExportsReport,
     HexdumpReport,
+    ImportsReport,
+    OffsetToRvaReport,
+    OffsetToVaReport,
     PatchReport,
     ReadReport,
     RvaReport,
+    SearchOptions,
+    SearchReport,
     SectionsReport,
     StringsReport,
+    SymbolsReport,
 } from './types.js';
 
 /** Inputs of one engine session. Defaults mirror `open-ida-core`. */
@@ -84,6 +91,26 @@ export class OpenIDA {
         return decode<StringsReport>(() => binding('binary.strings').binary_strings(this.id, minLen, limit));
     }
 
+    /** Lists imported functions. */
+    imports(limit?: number): ImportsReport {
+        return decode<ImportsReport>(() => binding('binary.imports').binary_imports(this.id, limit));
+    }
+
+    /** Lists exported symbols. */
+    exports(limit?: number): ExportsReport {
+        return decode<ExportsReport>(() => binding('binary.exports').binary_exports(this.id, limit));
+    }
+
+    /** Lists debug or dynamic symbols. */
+    symbols(limit?: number): SymbolsReport {
+        return decode<SymbolsReport>(() => binding('binary.symbols').binary_symbols(this.id, limit));
+    }
+
+    /** Searches for a hex, ASCII or UTF-16LE pattern. */
+    search(options: SearchOptions): SearchReport {
+        return decode<SearchReport>(() => binding('binary.search').binary_search(this.id, JSON.stringify(options)));
+    }
+
     /** Renders a hex dump, falling back to the session defaults. */
     hexdump(offset?: number, length?: number): HexdumpReport {
         return decode<HexdumpReport>(() => binding('binary.hexdump').binary_hexdump(this.id, offset, length));
@@ -106,6 +133,16 @@ export class OpenIDA {
     /** Maps an RVA or virtual address onto a file offset. */
     rva(address: number): RvaReport {
         return decode<RvaReport>(() => binding('binary.rva').binary_rva(this.id, address));
+    }
+
+    /** Maps a file offset onto an absolute virtual address. */
+    offsetToVa(offset: number): OffsetToVaReport {
+        return decode<OffsetToVaReport>(() => binding('binary.offset_to_va').binary_offset_to_va(this.id, offset));
+    }
+
+    /** Maps a file offset onto a PE image-relative address. */
+    offsetToRva(offset: number): OffsetToRvaReport {
+        return decode<OffsetToRvaReport>(() => binding('binary.offset_to_rva').binary_offset_to_rva(this.id, offset));
     }
 
     /** Releases the native handle. Closing twice is reported by the engine. */
