@@ -127,9 +127,8 @@ fn section_report(handle: u64) -> std::result::Result<Value, IdaError> {
 
 fn strings_report(handle: u64, min_len: Option<u64>, limit: Option<u64>) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| {
-        let min_len = min_len
-            .map(|value| usize::try_from(value).map_err(|_| IdaError::range("`minLen` is too large")))
-            .transpose()?;
+        let min_len =
+            min_len.map(|value| usize::try_from(value).map_err(|_| IdaError::range("`minLen` is too large"))).transpose()?;
         let limit = limit.map(|value| usize::try_from(value).unwrap_or(usize::MAX));
         encoded(&engine.strings(min_len, limit))
     })
@@ -178,6 +177,10 @@ fn exports_report(handle: u64, limit: Option<u64>) -> std::result::Result<Value,
 
 fn symbols_report(handle: u64, limit: Option<u64>) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.symbols(limit_value(limit))?))
+}
+
+fn debug_report(handle: u64, limit: Option<u64>) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.debug(limit_value(limit))?))
 }
 
 fn search_report(handle: u64, options_json: &str) -> std::result::Result<Value, IdaError> {
@@ -338,6 +341,17 @@ fn binary_symbols(ctx: CallContext) -> Result<JsValue> {
     }
 }
 
+/// Lists PE debug directory entries and `CodeView` PDB records.
+#[function]
+fn binary_debug(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    let limit = optional_number(&ctx, 1)?;
+    match debug_report(handle, limit) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
 /// Searches for a hex, ASCII or UTF-16LE pattern described by an options JSON.
 #[function]
 fn binary_search(ctx: CallContext) -> Result<JsValue> {
@@ -481,15 +495,25 @@ impl IpcHandler for IdaIpcHandler {
                 None => failure_reply(id, "handle/invalid: `handle` is required".to_string()),
             },
             "binary.imports" => match handle_field(&value) {
-                Some(handle) => outcome(id, "importsResult", imports_report(handle, value.get("limit").and_then(Value::as_u64))),
+                Some(handle) => {
+                    outcome(id, "importsResult", imports_report(handle, value.get("limit").and_then(Value::as_u64)))
+                }
                 None => failure_reply(id, "handle/invalid: `handle` is required".to_string()),
             },
             "binary.exports" => match handle_field(&value) {
-                Some(handle) => outcome(id, "exportsResult", exports_report(handle, value.get("limit").and_then(Value::as_u64))),
+                Some(handle) => {
+                    outcome(id, "exportsResult", exports_report(handle, value.get("limit").and_then(Value::as_u64)))
+                }
                 None => failure_reply(id, "handle/invalid: `handle` is required".to_string()),
             },
             "binary.symbols" => match handle_field(&value) {
-                Some(handle) => outcome(id, "symbolsResult", symbols_report(handle, value.get("limit").and_then(Value::as_u64))),
+                Some(handle) => {
+                    outcome(id, "symbolsResult", symbols_report(handle, value.get("limit").and_then(Value::as_u64)))
+                }
+                None => failure_reply(id, "handle/invalid: `handle` is required".to_string()),
+            },
+            "binary.debug" => match handle_field(&value) {
+                Some(handle) => outcome(id, "debugResult", debug_report(handle, value.get("limit").and_then(Value::as_u64))),
                 None => failure_reply(id, "handle/invalid: `handle` is required".to_string()),
             },
             "binary.search" => match (handle_field(&value), string_field(&value, "optionsJson")) {
@@ -783,6 +807,7 @@ register_module![
     binary_imports,
     binary_exports,
     binary_symbols,
+    binary_debug,
     binary_search,
     binary_offset_to_va,
     binary_offset_to_rva,

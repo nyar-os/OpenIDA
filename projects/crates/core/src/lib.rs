@@ -6,11 +6,13 @@
 //! imports, exports, symbols, pattern search, string scanning, hex dumps,
 //! address mapping and atomic patching are not re-implemented here.
 //!
-//! Disassembly, decompilation and debugging stay declared as unsupported
-//! instead of being approximated.
+//! The `PE` debug directory and `CodeView` records are parsed here because the
+//! pinned upstream release does not expose them. Disassembly, decompilation and
+//! debugging stay declared as unsupported instead of being approximated.
 
 #![deny(missing_docs)]
 
+mod debug;
 mod error;
 
 use std::path::{Path, PathBuf};
@@ -19,10 +21,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 pub use data_binary_inspect::{
-    Architecture, BinaryFormat, BinaryInfo, BinarySession, ExportEntry, ExportsReport, ImportEntry, ImportsReport, InspectOptions,
-    PatchReport, SearchHit, SearchMode, SearchOptions, SearchReport, SectionInfo as Section, StringHit, StringsReport, SymbolEntry,
-    SymbolsReport,
+    Architecture, BinaryFormat, BinaryInfo, BinarySession, ExportEntry, ExportsReport, ImportEntry, ImportsReport,
+    InspectOptions, PatchReport, SearchHit, SearchMode, SearchOptions, SearchReport, SectionInfo as Section, StringHit,
+    StringsReport, SymbolEntry, SymbolsReport,
 };
+pub use debug::{CodeViewInfo, DebugEntry, DebugReport};
 pub use error::{IdaError, Result};
 
 impl From<data_binary_inspect::InspectError> for IdaError {
@@ -105,6 +108,11 @@ impl BinaryView {
     /// Lists debug or dynamic symbols.
     pub fn symbols(&self, limit: Option<usize>) -> Result<SymbolsReport> {
         self.session.symbols(limit).map_err(IdaError::from)
+    }
+
+    /// Lists PE debug directory entries and `CodeView` PDB records.
+    pub fn debug(&self, limit: Option<usize>) -> Result<DebugReport> {
+        debug::analyze(&self.session, limit)
     }
 
     /// Searches for a hex, ASCII or UTF-16LE pattern.
@@ -266,6 +274,11 @@ impl OpenIda {
         self.session.symbols(limit).map_err(IdaError::from)
     }
 
+    /// Lists PE debug directory entries and `CodeView` PDB records.
+    pub fn debug(&self, limit: Option<usize>) -> Result<DebugReport> {
+        debug::analyze(&self.session, limit)
+    }
+
     /// Searches for a hex, ASCII or UTF-16LE pattern.
     pub fn search(&self, options: &SearchOptions) -> Result<SearchReport> {
         self.session.search(options).map_err(IdaError::from)
@@ -334,6 +347,7 @@ pub fn capabilities() -> serde_json::Value {
             "imports": "supported",
             "exports": "supported",
             "symbols": "supported",
+            "debug": "supported",
             "search": "supported",
             "offset-to-va": "supported",
             "offset-to-rva": "supported",

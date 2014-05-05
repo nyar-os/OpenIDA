@@ -13,6 +13,7 @@ import type {
     BinaryHandle,
     BinaryInfo,
     Capabilities,
+    DebugReport,
     ExportsReport,
     HexdumpReport,
     ImportsReport,
@@ -104,6 +105,11 @@ export class OpenIDA {
     /** Lists debug or dynamic symbols. */
     symbols(limit?: number): SymbolsReport {
         return decode<SymbolsReport>(() => binding('binary.symbols').binary_symbols(this.id, limit));
+    }
+
+    /** Lists PE debug directory entries and `CodeView` PDB records. */
+    debug(limit?: number): DebugReport {
+        return decode<DebugReport>(() => binding('binary.debug').binary_debug(this.id, limit));
     }
 
     /** Searches for a hex, ASCII or UTF-16LE pattern. */

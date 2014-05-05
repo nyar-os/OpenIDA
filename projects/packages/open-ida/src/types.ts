@@ -133,6 +133,37 @@ export interface SymbolsReport {
     readonly truncated: boolean;
 }
 
+/** One `CodeView` payload from a PE debug directory. */
+export interface CodeViewInfo {
+    readonly signature: string;
+    readonly guid: string | null;
+    readonly age: number;
+    /** `NB10` record offset; `null` for `RSDS`. */
+    readonly offset: number | null;
+    /** `NB10` timestamp; `null` for `RSDS`. */
+    readonly timestamp: number | null;
+    readonly path: string;
+}
+
+/** One PE debug directory entry. */
+export interface DebugEntry {
+    readonly debugType: string;
+    readonly timestamp: number;
+    readonly majorVersion: number;
+    readonly minorVersion: number;
+    readonly sizeOfData: number;
+    readonly addressOfRawData: number;
+    readonly pointerToRawData: number;
+    readonly codeView: CodeViewInfo | null;
+}
+
+/** Bounded PE debug directory listing. */
+export interface DebugReport {
+    readonly entries: readonly DebugEntry[];
+    readonly total: number;
+    readonly truncated: boolean;
+}
+
 /** Pattern kinds accepted by `search()`. */
 export type SearchMode = 'hex' | 'ascii' | 'utf16le';
 

@@ -17,6 +17,7 @@ import { runGui } from './gui.js';
 import type {
     BinaryInfo,
     Capabilities,
+    DebugReport,
     ExportsReport,
     ImportsReport,
     SearchOptions,
@@ -162,6 +163,28 @@ function describeSymbols(report: SymbolsReport): string {
     for (const entry of report.entries) {
         const section = entry.section === null ? '' : `  (${entry.section})`;
         lines.push(`  ${hex(entry.address).padStart(12)}  ${entry.kind.padEnd(9)} ${entry.binding.padEnd(6)} ${entry.name}${section}`);
+    }
+    return lines.join('\n');
+}
+
+function describeDebug(report: DebugReport): string {
+    const header = entriesHeader(report.entries.length, report.total, 'debug entry(ies)', report.truncated);
+    if (report.entries.length === 0) {
+        return `${header}\n  no debug directory entries`;
+    }
+    const lines = [header];
+    for (const entry of report.entries) {
+        lines.push(
+            `  ${entry.debugType.padEnd(20)} ts=${hex(entry.timestamp)} v${entry.majorVersion}.${entry.minorVersion} size=${entry.sizeOfData} raw=${hex(entry.pointerToRawData)} rva=${hex(entry.addressOfRawData)}`,
+        );
+        if (entry.codeView !== null) {
+            const record = entry.codeView;
+            const identity =
+                record.guid !== null
+                    ? `guid=${record.guid}`
+                    : `offset=${hex(record.offset ?? 0)} timestamp=${hex(record.timestamp ?? 0)}`;
+            lines.push(`    ${record.signature} age=${record.age} ${identity} path=${record.path}`);
+        }
     }
     return lines.join('\n');
 }
@@ -371,6 +394,31 @@ cli
         try {
             const report = ida.symbols(limit);
             ctx.emitResult(report, describeSymbols(report));
+            return 0;
+        } finally {
+            ida.close();
+        }
+    });
+
+cli
+    .command('debug', 'cli.cmd.debug')
+    .option('--limit <count>', 'cli.opt.limit')
+    .actionCtx(async (options, _args, ctx) => {
+        const file = input(options);
+        if (file === undefined) {
+            ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+            return 2;
+        }
+        const limitText = text(options, 'limit');
+        const limit = limitText === undefined ? undefined : parseNumber(limitText);
+        if (limitText !== undefined && (limit === undefined || limit < 1)) {
+            ctx.fail('open-ida.cli.limit', { message: '`--limit <count>` must be a positive integer' });
+            return 2;
+        }
+        const ida = new OpenIDA({ path: file });
+        try {
+            const report = ida.debug(limit);
+            ctx.emitResult(report, describeDebug(report));
             return 0;
         } finally {
             ida.close();

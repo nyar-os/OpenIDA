@@ -88,6 +88,32 @@ fn pe_bytes() -> Vec<u8> {
     bytes
 }
 
+/// `pe_bytes()` plus one `CodeView` debug directory entry at RVA 0x2000.
+fn pe_debug_bytes() -> Vec<u8> {
+    let mut bytes = pe_bytes();
+    put_u32(&mut bytes, 0x98 + 112 + 6 * 8, 0x2000);
+    put_u32(&mut bytes, 0x98 + 112 + 6 * 8 + 4, 28);
+
+    let entry = 0x400;
+    put_u32(&mut bytes, entry + 4, 0x1122_3344);
+    put_u16(&mut bytes, entry + 8, 1);
+    put_u16(&mut bytes, entry + 10, 2);
+    put_u32(&mut bytes, entry + 12, 2);
+    put_u32(&mut bytes, entry + 16, 44);
+    put_u32(&mut bytes, entry + 20, 0x2040);
+    put_u32(&mut bytes, entry + 24, 0x440);
+
+    let record = 0x440;
+    bytes[record..record + 4].copy_from_slice(b"RSDS");
+    bytes[record + 4..record + 8].copy_from_slice(&0x1122_3344u32.to_le_bytes());
+    bytes[record + 8..record + 10].copy_from_slice(&0x5566u16.to_le_bytes());
+    bytes[record + 10..record + 12].copy_from_slice(&0x7788u16.to_le_bytes());
+    bytes[record + 12..record + 20].copy_from_slice(&[0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00]);
+    put_u32(&mut bytes, record + 20, 7);
+    bytes[record + 24..record + 44].copy_from_slice(b"C:\\build\\sample.pdb\0");
+    bytes
+}
+
 /// A three-section ELF64 little-endian image with a name table at 0x300.
 fn elf64_bytes() -> Vec<u8> {
     let mut bytes = vec![0u8; 0x400];
@@ -498,6 +524,53 @@ fn pe_imports_exports_and_symbols_flow_through_the_engine() {
     assert_eq!(symbols.entries[0].binding, "global");
     assert_eq!(symbols.entries[0].section.as_deref(), Some(".rdata"));
     assert_eq!(symbols.entries[0].address, 0x1_4000_1000);
+}
+
+#[test]
+fn pe_debug_directory_reports_codeview_records() {
+    let file = TempFile::new("pe-debug");
+    file.write(&pe_debug_bytes());
+    let view = BinaryView::open(file.path()).expect("open PE");
+
+    let report = view.debug(None).expect("debug");
+    assert_eq!(report.total, 1);
+    assert!(!report.truncated);
+    let entry = &report.entries[0];
+    assert_eq!(entry.debug_type, "codeview");
+    assert_eq!(entry.timestamp, 0x1122_3344);
+    assert_eq!(entry.major_version, 1);
+    assert_eq!(entry.minor_version, 2);
+    assert_eq!(entry.size_of_data, 44);
+    assert_eq!(entry.address_of_raw_data, 0x2040);
+    assert_eq!(entry.pointer_to_raw_data, 0x440);
+
+    let code_view = entry.code_view.as_ref().expect("RSDS record");
+    assert_eq!(code_view.signature, "RSDS");
+    assert_eq!(code_view.guid.as_deref(), Some("11223344-5566-7788-99aa-bbccddeeff00"));
+    assert_eq!(code_view.age, 7);
+    assert_eq!(code_view.offset, None);
+    assert_eq!(code_view.timestamp, None);
+    assert_eq!(code_view.path, "C:\\build\\sample.pdb");
+
+    let limited = view.debug(Some(0)).expect("bounded debug");
+    assert_eq!(limited.entries.len(), 0);
+    assert_eq!(limited.total, 1);
+    assert!(limited.truncated);
+}
+
+#[test]
+fn pe_without_a_debug_directory_reports_no_entries() {
+    let view = BinaryView::from_bytes("plain.exe", pe_bytes());
+    let report = view.debug(None).expect("debug");
+    assert_eq!(report.total, 0);
+    assert!(report.entries.is_empty());
+    assert!(!report.truncated);
+}
+
+#[test]
+fn debug_directory_is_unsupported_outside_pe() {
+    let view = BinaryView::from_bytes("note.txt", b"not a PE file".to_vec());
+    assert_eq!(view.debug(None).unwrap_err().code(), "binary/unsupported");
 }
 
 #[test]

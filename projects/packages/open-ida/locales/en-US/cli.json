@@ -8,6 +8,7 @@
             "imports": "Print imported functions with their modules and import-slot addresses",
             "exports": "Print exported symbols with ordinals, addresses and forwarders",
             "symbols": "Print debug or dynamic symbols with kind, binding and section",
+            "debug": "Print PE debug directory entries and CodeView PDB records",
             "search": "Search for hex bytes, ASCII text or UTF-16LE text",
             "offset": "Map a file offset onto an RVA and a virtual address",
             "strings": "Extract printable ASCII runs with their file offsets",
