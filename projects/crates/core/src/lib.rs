@@ -13,6 +13,7 @@
 #![deny(missing_docs)]
 
 mod debug;
+mod disasm;
 mod error;
 
 use std::path::{Path, PathBuf};
@@ -26,6 +27,7 @@ pub use data_binary_inspect::{
     StringsReport, SymbolEntry, SymbolsReport,
 };
 pub use debug::{CodeViewInfo, DebugEntry, DebugReport};
+pub use disasm::{DisassembleOptions, DisassemblyInstruction, DisassemblyReport, DisassemblySyntax};
 pub use error::{IdaError, Result};
 
 impl From<data_binary_inspect::InspectError> for IdaError {
@@ -113,6 +115,11 @@ impl BinaryView {
     /// Lists PE debug directory entries and `CodeView` PDB records.
     pub fn debug(&self, limit: Option<usize>) -> Result<DebugReport> {
         debug::analyze(&self.session, limit)
+    }
+
+    /// Decodes `x86` / `x64` instructions from one file offset.
+    pub fn disasm(&self, options: &DisassembleOptions) -> Result<DisassemblyReport> {
+        disasm::analyze(&self.session, options)
     }
 
     /// Searches for a hex, ASCII or UTF-16LE pattern.
@@ -279,6 +286,11 @@ impl OpenIda {
         debug::analyze(&self.session, limit)
     }
 
+    /// Decodes `x86` / `x64` instructions from one file offset.
+    pub fn disasm(&self, options: &DisassembleOptions) -> Result<DisassemblyReport> {
+        disasm::analyze(&self.session, options)
+    }
+
     /// Searches for a hex, ASCII or UTF-16LE pattern.
     pub fn search(&self, options: &SearchOptions) -> Result<SearchReport> {
         self.session.search(options).map_err(IdaError::from)
@@ -348,12 +360,12 @@ pub fn capabilities() -> serde_json::Value {
             "exports": "supported",
             "symbols": "supported",
             "debug": "supported",
+            "disassembly": "supported",
             "search": "supported",
             "offset-to-va": "supported",
             "offset-to-rva": "supported",
         },
         "unsupported": {
-            "disassembly": "not-implemented",
             "decompilation": "not-implemented",
             "debugger": "not-implemented",
             "macho-import-bindings": "not-implemented",

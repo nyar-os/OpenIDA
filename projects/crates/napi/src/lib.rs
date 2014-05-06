@@ -19,7 +19,7 @@ use std::{
     time::Instant,
 };
 
-use open_ida_core::{IdaError, OpenIda, OpenIdaOptions, SearchOptions};
+use open_ida_core::{DisassembleOptions, IdaError, OpenIda, OpenIdaOptions, SearchOptions};
 use serde::Serialize;
 use serde_json::{Value, json};
 use wae::{
@@ -181,6 +181,12 @@ fn symbols_report(handle: u64, limit: Option<u64>) -> std::result::Result<Value,
 
 fn debug_report(handle: u64, limit: Option<u64>) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.debug(limit_value(limit))?))
+}
+
+fn disasm_report(handle: u64, options_json: &str) -> std::result::Result<Value, IdaError> {
+    let options = serde_json::from_str::<DisassembleOptions>(options_json)
+        .map_err(|error| IdaError::parse(format!("invalid DisassembleOptions: {error}")))?;
+    with_engine(handle, |engine| encoded(&engine.disasm(&options)?))
 }
 
 fn search_report(handle: u64, options_json: &str) -> std::result::Result<Value, IdaError> {
@@ -352,6 +358,17 @@ fn binary_debug(ctx: CallContext) -> Result<JsValue> {
     }
 }
 
+/// Disassembles x86 / x64 instructions described by an options JSON.
+#[function]
+fn binary_disasm(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    let options = text(&ctx, 1)?;
+    match disasm_report(handle, &options) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
 /// Searches for a hex, ASCII or UTF-16LE pattern described by an options JSON.
 #[function]
 fn binary_search(ctx: CallContext) -> Result<JsValue> {
@@ -515,6 +532,10 @@ impl IpcHandler for IdaIpcHandler {
             "binary.debug" => match handle_field(&value) {
                 Some(handle) => outcome(id, "debugResult", debug_report(handle, value.get("limit").and_then(Value::as_u64))),
                 None => failure_reply(id, "handle/invalid: `handle` is required".to_string()),
+            },
+            "binary.disasm" => match (handle_field(&value), string_field(&value, "optionsJson")) {
+                (Some(handle), Some(options)) => outcome(id, "disasmResult", disasm_report(handle, &options)),
+                _ => failure_reply(id, "binary/parse: `handle` and `optionsJson` are required".to_string()),
             },
             "binary.search" => match (handle_field(&value), string_field(&value, "optionsJson")) {
                 (Some(handle), Some(options)) => outcome(id, "searchResult", search_report(handle, &options)),
@@ -808,6 +829,7 @@ register_module![
     binary_exports,
     binary_symbols,
     binary_debug,
+    binary_disasm,
     binary_search,
     binary_offset_to_va,
     binary_offset_to_rva,

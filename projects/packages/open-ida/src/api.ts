@@ -14,6 +14,8 @@ import type {
     BinaryInfo,
     Capabilities,
     DebugReport,
+    DisassembleOptions,
+    DisassemblyReport,
     ExportsReport,
     HexdumpReport,
     ImportsReport,
@@ -110,6 +112,11 @@ export class OpenIDA {
     /** Lists PE debug directory entries and `CodeView` PDB records. */
     debug(limit?: number): DebugReport {
         return decode<DebugReport>(() => binding('binary.debug').binary_debug(this.id, limit));
+    }
+
+    /** Decodes x86 / x64 instructions from one file offset. */
+    disasm(options: DisassembleOptions = {}): DisassemblyReport {
+        return decode<DisassemblyReport>(() => binding('binary.disasm').binary_disasm(this.id, JSON.stringify(options)));
     }
 
     /** Searches for a hex, ASCII or UTF-16LE pattern. */

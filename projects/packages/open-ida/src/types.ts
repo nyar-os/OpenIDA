@@ -164,6 +164,39 @@ export interface DebugReport {
     readonly truncated: boolean;
 }
 
+/** Assembly syntax accepted by `disasm()`. */
+export type DisassemblySyntax = 'intel' | 'masm' | 'nasm';
+
+/** Inputs of one `disasm()` call. */
+export interface DisassembleOptions {
+    /** File offset to start decoding from. Defaults to 0. */
+    readonly offset?: number;
+    /** Maximum number of instructions; defaults to 64 and is capped at 4096. */
+    readonly count?: number;
+    /** Rendered syntax; defaults to `intel`. */
+    readonly syntax?: DisassemblySyntax;
+}
+
+/** One decoded instruction. */
+export interface DisassemblyInstruction {
+    readonly address: number;
+    readonly offset: number;
+    readonly length: number;
+    readonly bytes: string;
+    readonly text: string;
+}
+
+/** Result of one disassembly request. */
+export interface DisassemblyReport {
+    readonly architecture: string;
+    readonly bitness: number;
+    readonly startOffset: number;
+    readonly startAddress: number;
+    readonly syntax: string;
+    readonly instructions: readonly DisassemblyInstruction[];
+    readonly truncated: boolean;
+}
+
 /** Pattern kinds accepted by `search()`. */
 export type SearchMode = 'hex' | 'ascii' | 'utf16le';
 

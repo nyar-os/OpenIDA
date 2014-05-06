@@ -9,7 +9,9 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use open_ida_core::{BinaryView, IdaError, OpenIda, OpenIdaOptions, SearchMode, SearchOptions};
+use open_ida_core::{
+    BinaryView, DisassembleOptions, DisassemblySyntax, IdaError, OpenIda, OpenIdaOptions, SearchMode, SearchOptions,
+};
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -85,6 +87,17 @@ fn pe_bytes() -> Vec<u8> {
     put_u32(&mut bytes, 0x98 + 60, 0x200);
     put_section(&mut bytes, 0x188, b".text", 0x100, 0x1000, 0x200, 0x200, 0x6000_0020);
     put_section(&mut bytes, 0x1b0, b".data", 0x100, 0x2000, 0x200, 0x400, 0xc000_0040);
+    bytes
+}
+
+/// A one-section PE64 whose `.text` payload is exactly `code`.
+fn pe_code_bytes(code: &[u8]) -> Vec<u8> {
+    let mut bytes = pe_bytes();
+    put_u16(&mut bytes, 0x86, 1);
+    put_u32(&mut bytes, 0x188 + 8, 0x10);
+    put_u32(&mut bytes, 0x188 + 16, code.len() as u32);
+    bytes.truncate(0x200);
+    bytes.extend_from_slice(code);
     bytes
 }
 
@@ -418,7 +431,7 @@ fn capabilities_declare_what_is_not_implemented() {
     assert_eq!(matrix["features"]["imports"], "supported");
     assert_eq!(matrix["features"]["symbols"], "supported");
     assert_eq!(matrix["features"]["search"], "supported");
-    assert_eq!(matrix["unsupported"]["disassembly"], "not-implemented");
+    assert_eq!(matrix["features"]["disassembly"], "supported");
     assert_eq!(matrix["unsupported"]["debugger"], "not-implemented");
 }
 
@@ -571,6 +584,75 @@ fn pe_without_a_debug_directory_reports_no_entries() {
 fn debug_directory_is_unsupported_outside_pe() {
     let view = BinaryView::from_bytes("note.txt", b"not a PE file".to_vec());
     assert_eq!(view.debug(None).unwrap_err().code(), "binary/unsupported");
+}
+
+#[test]
+fn x64_disassembly_decodes_mov_sub_ret() {
+    let bytes = pe_code_bytes(&[0x48, 0x89, 0xe5, 0x48, 0x83, 0xec, 0x20, 0xc3]);
+    let view = BinaryView::from_bytes("code.exe", bytes);
+
+    let report = view.disasm(&DisassembleOptions::new(0x200)).expect("x64 disasm");
+    assert_eq!(report.architecture, "x64");
+    assert_eq!(report.bitness, 64);
+    assert_eq!(report.start_offset, 0x200);
+    assert_eq!(report.start_address, 0x1_4000_1000);
+    assert_eq!(report.syntax, "intel");
+    assert!(!report.truncated);
+    assert_eq!(report.instructions.len(), 3);
+
+    assert_eq!(report.instructions[0].address, 0x1_4000_1000);
+    assert_eq!(report.instructions[0].offset, 0x200);
+    assert_eq!(report.instructions[0].length, 3);
+    assert_eq!(report.instructions[0].bytes, "4889e5");
+    assert_eq!(report.instructions[0].text, "mov rbp,rsp");
+    assert_eq!(report.instructions[1].text, "sub rsp,0x20");
+    assert_eq!(report.instructions[2].text, "ret");
+    assert_eq!(report.instructions[2].offset, 0x207);
+}
+
+#[test]
+fn x86_disassembly_uses_the_detected_bitness() {
+    let mut bytes = elf32_bytes();
+    bytes[0x200..0x204].copy_from_slice(&[0x55, 0x89, 0xe5, 0xc3]);
+    put_u32(&mut bytes, 0xbc, 4);
+    bytes.truncate(0x204);
+    let view = BinaryView::from_bytes("code.elf", bytes);
+
+    let report = view.disasm(&DisassembleOptions::new(0x200)).expect("x86 disasm");
+    assert_eq!(report.architecture, "x86");
+    assert_eq!(report.bitness, 32);
+    assert_eq!(report.start_address, 0x200);
+    assert_eq!(report.instructions.len(), 3);
+    assert_eq!(report.instructions[0].text, "push ebp");
+    assert_eq!(report.instructions[1].text, "mov ebp,esp");
+    assert_eq!(report.instructions[2].text, "ret");
+}
+
+#[test]
+fn disassembly_honours_the_count_and_syntax_options() {
+    let bytes = pe_code_bytes(&[0x48, 0x89, 0xe5, 0x48, 0x83, 0xec, 0x20, 0xc3]);
+    let view = BinaryView::from_bytes("code.exe", bytes);
+
+    let mut options = DisassembleOptions::new(0x200);
+    options.count = 2;
+    options.syntax = DisassemblySyntax::Nasm;
+    let report = view.disasm(&options).expect("bounded disasm");
+    assert_eq!(report.syntax, "nasm");
+    assert_eq!(report.instructions.len(), 2);
+    assert!(report.truncated);
+}
+
+#[test]
+fn disassembly_is_unsupported_outside_x86_and_x64() {
+    let mut bytes = vec![0u8; 32];
+    bytes[0..4].copy_from_slice(&[0xcf, 0xfa, 0xed, 0xfe]);
+    put_u32(&mut bytes, 4, 0x0100_000c);
+    put_u32(&mut bytes, 12, 2);
+    put_u32(&mut bytes, 16, 3);
+    let view = BinaryView::from_bytes("sample.macho", bytes);
+
+    let error = view.disasm(&DisassembleOptions::new(0)).unwrap_err();
+    assert_eq!(error.code(), "binary/unsupported");
 }
 
 #[test]

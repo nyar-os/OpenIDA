@@ -18,6 +18,7 @@ import type {
     BinaryInfo,
     Capabilities,
     DebugReport,
+    DisassemblyReport,
     ExportsReport,
     ImportsReport,
     SearchOptions,
@@ -185,6 +186,20 @@ function describeDebug(report: DebugReport): string {
                     : `offset=${hex(record.offset ?? 0)} timestamp=${hex(record.timestamp ?? 0)}`;
             lines.push(`    ${record.signature} age=${record.age} ${identity} path=${record.path}`);
         }
+    }
+    return lines.join('\n');
+}
+
+function describeDisassembly(report: DisassemblyReport): string {
+    const header = `${report.instructions.length} instruction(s) · ${report.architecture} ${report.bitness}-bit · ${report.syntax} · start ${hex(report.startOffset)} @ ${hex(report.startAddress)}${report.truncated ? ' (truncated)' : ''}`;
+    if (report.instructions.length === 0) {
+        return `${header}\n  no instructions`;
+    }
+    const lines = [header];
+    for (const instruction of report.instructions) {
+        lines.push(
+            `  ${hex(instruction.address).padStart(12)}  ${hex(instruction.offset).padStart(8)}  ${instruction.bytes.padEnd(18)}  ${instruction.text}`,
+        );
     }
     return lines.join('\n');
 }
@@ -419,6 +434,44 @@ cli
         try {
             const report = ida.debug(limit);
             ctx.emitResult(report, describeDebug(report));
+            return 0;
+        } finally {
+            ida.close();
+        }
+    });
+
+cli
+    .command('disasm', 'cli.cmd.disasm')
+    .option('--offset <offset>', 'cli.opt.offset')
+    .option('--count <count>', 'cli.opt.count')
+    .option('--syntax <syntax>', 'cli.opt.syntax')
+    .actionCtx(async (options, _args, ctx) => {
+        const file = input(options);
+        if (file === undefined) {
+            ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+            return 2;
+        }
+        const offsetText = text(options, 'offset');
+        const offset = offsetText === undefined ? 0 : parseNumber(offsetText);
+        if (offsetText !== undefined && offset === undefined) {
+            ctx.fail('open-ida.cli.offset', { message: '`--offset <offset>` must be a non-negative integer' });
+            return 2;
+        }
+        const countText = text(options, 'count');
+        const count = countText === undefined ? undefined : parseNumber(countText);
+        if (countText !== undefined && (count === undefined || count < 1)) {
+            ctx.fail('open-ida.cli.count', { message: '`--count <count>` must be a positive integer' });
+            return 2;
+        }
+        const syntax = text(options, 'syntax') ?? 'intel';
+        if (syntax !== 'intel' && syntax !== 'masm' && syntax !== 'nasm') {
+            ctx.fail('open-ida.cli.syntax', { message: '`--syntax` must be intel, masm or nasm' });
+            return 2;
+        }
+        const ida = new OpenIDA({ path: file });
+        try {
+            const report = ida.disasm({ offset, count, syntax });
+            ctx.emitResult(report, describeDisassembly(report));
             return 0;
         } finally {
             ida.close();
