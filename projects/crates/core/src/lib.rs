@@ -13,6 +13,7 @@
 #![deny(missing_docs)]
 
 mod debug;
+mod diff;
 mod disasm;
 mod error;
 
@@ -27,6 +28,7 @@ pub use data_binary_inspect::{
     StringsReport, SymbolEntry, SymbolsReport,
 };
 pub use debug::{CodeViewInfo, DebugEntry, DebugReport};
+pub use diff::{DiffRange, DiffReport};
 pub use disasm::{DisassembleOptions, DisassemblyInstruction, DisassemblyReport, DisassemblySyntax};
 pub use error::{IdaError, Result};
 
@@ -120,6 +122,11 @@ impl BinaryView {
     /// Decodes `x86` / `x64` instructions from one file offset.
     pub fn disasm(&self, options: &DisassembleOptions) -> Result<DisassemblyReport> {
         disasm::analyze(&self.session, options)
+    }
+
+    /// Compares this binary against another open binary.
+    pub fn diff(&self, other: &Self) -> Result<DiffReport> {
+        diff::compare(&self.session, &other.session)
     }
 
     /// Searches for a hex, ASCII or UTF-16LE pattern.
@@ -291,6 +298,11 @@ impl OpenIda {
         disasm::analyze(&self.session, options)
     }
 
+    /// Compares this binary against another open binary.
+    pub fn diff(&self, other: &Self) -> Result<DiffReport> {
+        diff::compare(&self.session, &other.session)
+    }
+
     /// Searches for a hex, ASCII or UTF-16LE pattern.
     pub fn search(&self, options: &SearchOptions) -> Result<SearchReport> {
         self.session.search(options).map_err(IdaError::from)
@@ -361,6 +373,7 @@ pub fn capabilities() -> serde_json::Value {
             "symbols": "supported",
             "debug": "supported",
             "disassembly": "supported",
+            "diff": "supported",
             "search": "supported",
             "offset-to-va": "supported",
             "offset-to-rva": "supported",

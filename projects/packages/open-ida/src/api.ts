@@ -14,6 +14,7 @@ import type {
     BinaryInfo,
     Capabilities,
     DebugReport,
+    DiffReport,
     DisassembleOptions,
     DisassemblyReport,
     ExportsReport,
@@ -117,6 +118,11 @@ export class OpenIDA {
     /** Decodes x86 / x64 instructions from one file offset. */
     disasm(options: DisassembleOptions = {}): DisassemblyReport {
         return decode<DisassemblyReport>(() => binding('binary.disasm').binary_disasm(this.id, JSON.stringify(options)));
+    }
+
+    /** Compares this binary against another open binary. */
+    diff(other: OpenIDA): DiffReport {
+        return decode<DiffReport>(() => binding('binary.diff').binary_diff(this.id, other.handle));
     }
 
     /** Searches for a hex, ASCII or UTF-16LE pattern. */

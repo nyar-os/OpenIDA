@@ -164,6 +164,26 @@ export interface DebugReport {
     readonly truncated: boolean;
 }
 
+/** One contiguous run of differing bytes. */
+export interface DiffRange {
+    readonly offset: number;
+    readonly length: number;
+}
+
+/** Result of one `diff()` call. */
+export interface DiffReport {
+    readonly leftSize: number;
+    readonly rightSize: number;
+    readonly leftHash: string;
+    readonly rightHash: string;
+    readonly identical: boolean;
+    readonly firstDifference: number | null;
+    readonly differences: readonly DiffRange[];
+    readonly total: number;
+    readonly truncated: boolean;
+    readonly comparedBytes: number;
+}
+
 /** Assembly syntax accepted by `disasm()`. */
 export type DisassemblySyntax = 'intel' | 'masm' | 'nasm';
 

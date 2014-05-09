@@ -18,6 +18,7 @@ import type {
     BinaryInfo,
     Capabilities,
     DebugReport,
+    DiffReport,
     DisassemblyReport,
     ExportsReport,
     ImportsReport,
@@ -200,6 +201,22 @@ function describeDisassembly(report: DisassemblyReport): string {
         lines.push(
             `  ${hex(instruction.address).padStart(12)}  ${hex(instruction.offset).padStart(8)}  ${instruction.bytes.padEnd(18)}  ${instruction.text}`,
         );
+    }
+    return lines.join('\n');
+}
+
+function describeDiff(report: DiffReport): string {
+    const header = `left ${report.leftSize} B · right ${report.rightSize} B · ${report.identical ? 'identical' : 'different'} · compared ${report.comparedBytes} B`;
+    if (report.identical) {
+        return header;
+    }
+    const lines = [header];
+    if (report.firstDifference !== null) {
+        lines.push(`  first difference at ${hex(report.firstDifference)}`);
+    }
+    lines.push(`  ${entriesHeader(report.differences.length, report.total, 'differing range(s)', report.truncated)}`);
+    for (const range of report.differences) {
+        lines.push(`  ${hex(range.offset)} + ${range.length} byte(s)`);
     }
     return lines.join('\n');
 }
@@ -477,6 +494,28 @@ cli
             ida.close();
         }
     });
+
+cli.command('diff', 'cli.cmd.diff').actionCtx(async (options, _args, ctx) => {
+    const leftPath = options._?.[0];
+    const rightPath = options._?.[1];
+    if (leftPath === undefined || rightPath === undefined) {
+        ctx.fail('open-ida.cli.file-required', { message: 'two binary files are required' });
+        return 2;
+    }
+    const left = new OpenIDA({ path: leftPath });
+    try {
+        const right = new OpenIDA({ path: rightPath });
+        try {
+            const report = left.diff(right);
+            ctx.emitResult(report, describeDiff(report));
+            return 0;
+        } finally {
+            right.close();
+        }
+    } finally {
+        left.close();
+    }
+});
 
 cli
     .command('search', 'cli.cmd.search')
