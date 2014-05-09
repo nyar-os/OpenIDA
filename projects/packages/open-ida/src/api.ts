@@ -17,6 +17,7 @@ import type {
     DiffReport,
     DisassembleOptions,
     DisassemblyReport,
+    EntropyReport,
     ExportsReport,
     HexdumpReport,
     ImportsReport,
@@ -123,6 +124,11 @@ export class OpenIDA {
     /** Compares this binary against another open binary. */
     diff(other: OpenIDA): DiffReport {
         return decode<DiffReport>(() => binding('binary.diff').binary_diff(this.id, other.handle));
+    }
+
+    /** Computes whole-file and per-section entropy plus the PE overlay. */
+    entropy(): EntropyReport {
+        return decode<EntropyReport>(() => binding('binary.entropy').binary_entropy(this.id));
     }
 
     /** Searches for a hex, ASCII or UTF-16LE pattern. */

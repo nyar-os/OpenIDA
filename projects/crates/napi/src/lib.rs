@@ -195,6 +195,10 @@ fn search_report(handle: u64, options_json: &str) -> std::result::Result<Value, 
     with_engine(handle, |engine| encoded(&engine.search(&options)?))
 }
 
+fn entropy_report(handle: u64) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.entropy()?))
+}
+
 fn diff_report(left: u64, right: u64) -> std::result::Result<Value, IdaError> {
     let registry = lock()?;
     let left_engine = registry.engines.get(&left).ok_or_else(|| missing(left))?;
@@ -387,6 +391,16 @@ fn binary_search(ctx: CallContext) -> Result<JsValue> {
     }
 }
 
+/// Computes whole-file and per-section entropy plus the PE overlay.
+#[function]
+fn binary_entropy(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    match entropy_report(handle) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
 /// Compares two open binaries byte for byte.
 #[function]
 fn binary_diff(ctx: CallContext) -> Result<JsValue> {
@@ -558,6 +572,10 @@ impl IpcHandler for IdaIpcHandler {
             "binary.search" => match (handle_field(&value), string_field(&value, "optionsJson")) {
                 (Some(handle), Some(options)) => outcome(id, "searchResult", search_report(handle, &options)),
                 _ => failure_reply(id, "binary/parse: `handle` and `optionsJson` are required".to_string()),
+            },
+            "binary.entropy" => match handle_field(&value) {
+                Some(handle) => outcome(id, "entropyResult", entropy_report(handle)),
+                None => failure_reply(id, "handle/invalid: `handle` is required".to_string()),
             },
             "binary.diff" => {
                 match (value.get("leftHandle").and_then(Value::as_u64), value.get("rightHandle").and_then(Value::as_u64)) {
@@ -855,6 +873,7 @@ register_module![
     binary_debug,
     binary_disasm,
     binary_diff,
+    binary_entropy,
     binary_search,
     binary_offset_to_va,
     binary_offset_to_rva,

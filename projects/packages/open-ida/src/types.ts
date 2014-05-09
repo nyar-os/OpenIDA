@@ -164,6 +164,28 @@ export interface DebugReport {
     readonly truncated: boolean;
 }
 
+/** Entropy of one section payload. */
+export interface SectionEntropy {
+    readonly name: string;
+    readonly offset: number;
+    readonly size: number;
+    readonly entropy: number;
+}
+
+/** Bytes that follow the last PE section payload. */
+export interface OverlayInfo {
+    readonly offset: number;
+    readonly size: number;
+}
+
+/** Entropy summary of one binary. */
+export interface EntropyReport {
+    readonly fileSize: number;
+    readonly fileEntropy: number;
+    readonly sections: readonly SectionEntropy[];
+    readonly overlay: OverlayInfo | null;
+}
+
 /** One contiguous run of differing bytes. */
 export interface DiffRange {
     readonly offset: number;
