@@ -20,7 +20,13 @@ service, an external SDK or a system toolchain at runtime.
 | Canonical hex dump and byte reads | Available |
 | RVA to file-offset mapping for PE and ELF | Available |
 | Atomic byte patching with before/after hashes | Available |
-| Disassembly, decompilation, debugging, symbols | Not implemented |
+| Imports, exports and symbols | Available |
+| Pattern search (hex, ASCII, UTF-16LE) | Available |
+| PE debug directory and CodeView PDB records | Available |
+| x86 / x64 disassembly | Available |
+| Byte-level binary diff | Available |
+| Section and whole-file entropy, PE overlay | Available |
+| Decompilation and debugging | Not implemented |
 
 `open-ida capabilities` prints the same matrix as JSON, including an explicit
 `unsupported` block. A suffix or a file name is never treated as a support claim.
@@ -67,11 +73,12 @@ data.
 
 ## 🚧 What this build does NOT do
 
-- **No disassembler.** There is no instruction decoder and no assembly view.
+- **No non-x86 disassembly.** The decoder covers x86 and x64 only; ARM and ARM64
+  return a stable unsupported error.
 - **No decompiler.** No pseudo-code, no control-flow graph and no type recovery.
 - **No debugger.** It does not attach, set breakpoints or inspect a running process.
-- **No symbol or import resolution.** Import tables, export tables, relocations,
-  debug directories and symbol tables are not parsed yet.
+- **No relocation resolution.** Import and export tables, symbols and PE debug
+  directories are parsed, but relocations are not applied.
 - **No Mach-O sections.** Mach-O files report header basics only; section tables
   and load commands beyond the header count are not decoded.
 - **No big-endian ELF.** Big-endian files are rejected with a stable unsupported
