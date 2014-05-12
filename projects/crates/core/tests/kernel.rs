@@ -11,6 +11,7 @@ use std::{
 
 use open_ida_core::{
     BinaryView, DisassembleOptions, DisassemblySyntax, IdaError, OpenIda, OpenIdaOptions, SearchMode, SearchOptions,
+    StringEncoding, StringsOptions,
 };
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
@@ -323,6 +324,145 @@ fn strings_report_offsets_and_honour_minimum_length() {
     assert_eq!(long.len(), 2);
     assert_eq!(long[0].value, "hello");
     assert_eq!(long[1].value, "world!");
+}
+
+#[test]
+fn encoded_strings_match_the_ascii_scanner() {
+    let view = BinaryView::from_bytes("encoded.bin", b"\x00hello\x00ab\x00world!\x00".to_vec());
+    let report = view
+        .strings_encoded(&StringsOptions { min_length: 2, encoding: StringEncoding::Ascii, ..StringsOptions::default() })
+        .expect("ascii encoded strings");
+
+    assert_eq!(report.encoding, StringEncoding::Ascii);
+    assert_eq!(report.min_length, 2);
+    assert_eq!(report.total, 3);
+    assert!(!report.truncated);
+    let values: Vec<&str> = report.hits.iter().map(|hit| hit.value.as_str()).collect();
+    assert_eq!(values, vec!["hello", "ab", "world!"]);
+    let legacy_hits = view.strings(2);
+    let legacy: Vec<&str> = legacy_hits.iter().map(|hit| hit.value.as_str()).collect();
+    assert_eq!(values, legacy);
+    assert!(report.hits.iter().all(|hit| hit.encoding == StringEncoding::Ascii));
+    assert_eq!(report.hits[0].offset, 1);
+    assert_eq!(report.hits[0].length, 5);
+}
+
+#[test]
+fn utf16le_strings_report_byte_offsets_and_lengths() {
+    let view = BinaryView::from_bytes("wide.bin", b"\xff\x00H\x00e\x00l\x00l\x00o\x00\xff".to_vec());
+    let options = StringsOptions { encoding: StringEncoding::Utf16Le, ..StringsOptions::default() };
+    let report = view.strings_encoded(&options).expect("utf16 strings");
+
+    assert_eq!(report.total, 1);
+    let hit = &report.hits[0];
+    assert_eq!(hit.value, "Hello");
+    assert_eq!(hit.offset, 2);
+    assert_eq!(hit.length, 10);
+    assert_eq!(hit.encoding, StringEncoding::Utf16Le);
+
+    let ascii_only = view
+        .strings_encoded(&StringsOptions { encoding: StringEncoding::Ascii, ..StringsOptions::default() })
+        .expect("ascii only");
+    assert_eq!(ascii_only.total, 0);
+}
+
+#[test]
+fn both_encodings_merge_in_offset_order() {
+    let mut bytes = b"abcde\x00\xff".to_vec();
+    bytes.extend_from_slice(b"H\x00e\x00l\x00l\x00o\x00");
+    let view = BinaryView::from_bytes("mixed.bin", bytes);
+    let report = view
+        .strings_encoded(&StringsOptions { encoding: StringEncoding::Both, ..StringsOptions::default() })
+        .expect("merged strings");
+
+    assert_eq!(report.encoding, StringEncoding::Both);
+    assert_eq!(report.total, 2);
+    assert_eq!(report.hits[0].offset, 0);
+    assert_eq!(report.hits[0].encoding, StringEncoding::Ascii);
+    assert_eq!(report.hits[0].value, "abcde");
+    assert_eq!(report.hits[1].offset, 7);
+    assert_eq!(report.hits[1].encoding, StringEncoding::Utf16Le);
+    assert_eq!(report.hits[1].value, "Hello");
+}
+
+#[test]
+fn encoded_strings_honour_the_minimum_length() {
+    let view = BinaryView::from_bytes("short-wide.bin", b"H\x00e\x00y\x00\x00\x00".to_vec());
+    let filtered = view
+        .strings_encoded(&StringsOptions { encoding: StringEncoding::Utf16Le, min_length: 4, ..StringsOptions::default() })
+        .expect("filtered utf16");
+    assert_eq!(filtered.total, 0);
+
+    let kept = view
+        .strings_encoded(&StringsOptions { encoding: StringEncoding::Utf16Le, min_length: 3, ..StringsOptions::default() })
+        .expect("kept utf16");
+    assert_eq!(kept.total, 1);
+    assert_eq!(kept.hits[0].value, "Hey");
+
+    let zero = view
+        .strings_encoded(&StringsOptions { encoding: StringEncoding::Utf16Le, min_length: 0, ..StringsOptions::default() })
+        .expect("zero minimum");
+    assert_eq!(zero.min_length, 1);
+    assert_eq!(zero.total, 1);
+}
+
+#[test]
+fn encoded_strings_apply_the_limit_once() {
+    let file = TempFile::new("encoded-limit");
+    file.write(b"\x00alpha\x00beta\x00gamma\x00");
+    let engine = open_engine(&file);
+    let report = engine
+        .strings_encoded(&StringsOptions { encoding: StringEncoding::Both, min_length: 3, limit: 2 })
+        .expect("bounded strings");
+
+    assert_eq!(report.total, 3);
+    assert_eq!(report.hits.len(), 2);
+    assert!(report.truncated);
+    assert_eq!(report.limit, 2);
+    assert_eq!(report.hits[0].value, "alpha");
+    assert_eq!(report.hits[1].value, "beta");
+}
+
+#[test]
+fn encoded_strings_tolerate_odd_endings_and_truncated_pairs() {
+    let view = BinaryView::from_bytes("odd.bin", b"\x00H\x00i\x00J".to_vec());
+    let report = view
+        .strings_encoded(&StringsOptions { encoding: StringEncoding::Both, min_length: 2, ..StringsOptions::default() })
+        .expect("odd ending");
+    assert_eq!(report.total, 1);
+    assert_eq!(report.hits[0].value, "Hi");
+    assert_eq!(report.hits[0].offset, 1);
+    assert_eq!(report.hits[0].length, 4);
+
+    let lone = BinaryView::from_bytes("lone.bin", b"\x00H".to_vec());
+    assert_eq!(
+        lone.strings_encoded(&StringsOptions { encoding: StringEncoding::Utf16Le, ..StringsOptions::default() })
+            .expect("truncated pair")
+            .total,
+        0
+    );
+}
+
+#[test]
+fn strings_options_use_camel_case_defaults() {
+    let defaults = serde_json::from_str::<StringsOptions>("{}").expect("default options");
+    assert_eq!(defaults, StringsOptions::default());
+    assert_eq!(defaults.min_length, 4);
+    assert_eq!(defaults.limit, 100);
+    assert_eq!(defaults.encoding, StringEncoding::Ascii);
+
+    let parsed = serde_json::from_str::<StringsOptions>(r#"{"minLength": 2, "limit": 5, "encoding": "both"}"#)
+        .expect("camelCase options");
+    assert_eq!(parsed.min_length, 2);
+    assert_eq!(parsed.limit, 5);
+    assert_eq!(parsed.encoding, StringEncoding::Both);
+
+    let report = BinaryView::from_bytes("json.bin", b"text".to_vec()).strings_encoded(&parsed).expect("json strings");
+    let value = serde_json::to_value(&report).expect("report json");
+    assert_eq!(value["minLength"], 2);
+    assert_eq!(value["limit"], 5);
+    assert_eq!(value["encoding"], "both");
+    assert_eq!(value["hits"][0]["encoding"], "ascii");
 }
 
 #[test]

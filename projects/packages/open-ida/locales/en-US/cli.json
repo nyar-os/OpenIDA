@@ -14,7 +14,7 @@
             "entropy": "Print whole-file and per-section entropy plus the PE overlay",
             "search": "Search for hex bytes, ASCII text or UTF-16LE text",
             "offset": "Map a file offset onto an RVA and a virtual address",
-            "strings": "Extract printable ASCII runs with their file offsets",
+            "strings": "Extract printable ASCII or UTF-16LE runs with their file offsets",
             "hexdump": "Print a canonical hex dump of one byte range",
             "rva": "Map an RVA or virtual address onto a file offset",
             "patch": "Write bytes atomically and report the before/after hashes",
@@ -23,6 +23,7 @@
         "opt": {
             "min": "Minimum printable run length (default 4)",
             "limit": "Maximum number of results to return (default 100 for strings and search)",
+            "encoding": "String encoding: ascii, utf16le or both (default ascii)",
             "mode": "Pattern kind: hex, ascii or utf16le (default ascii)",
             "case": "Require ASCII letters to match case",
             "word": "Only match patterns surrounded by non-word characters",
@@ -34,6 +35,9 @@
             "length": "Number of bytes to read (default 256)",
             "bytes": "Hex bytes to write, such as 90,90 or 0x90 0x90",
             "out": "Write the patched copy here instead of the source file"
+        },
+        "err": {
+            "encoding": "`--encoding` must be ascii, utf16le or both"
         }
     }
 }

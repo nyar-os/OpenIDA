@@ -17,6 +17,7 @@ import type {
     DiffReport,
     DisassembleOptions,
     DisassemblyReport,
+    EncodedStringsReport,
     EntropyReport,
     ExportsReport,
     HexdumpReport,
@@ -29,6 +30,7 @@ import type {
     SearchOptions,
     SearchReport,
     SectionsReport,
+    StringsOptions,
     StringsReport,
     SymbolsReport,
 } from './types.js';
@@ -94,6 +96,13 @@ export class OpenIDA {
     /** Extracts printable strings, falling back to the session defaults. */
     strings(minLen?: number, limit?: number): StringsReport {
         return decode<StringsReport>(() => binding('binary.strings').binary_strings(this.id, minLen, limit));
+    }
+
+    /** Extracts ASCII or ASCII-in-UTF-16LE strings with the requested encoding. */
+    stringsEncoded(options: StringsOptions = {}): EncodedStringsReport {
+        return decode<EncodedStringsReport>(() =>
+            binding('binary.strings_encoded').binary_strings_encoded(this.id, JSON.stringify(options)),
+        );
     }
 
     /** Lists imported functions. */

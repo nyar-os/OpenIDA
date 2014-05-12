@@ -17,6 +17,7 @@ mod diff;
 mod disasm;
 mod entropy;
 mod error;
+mod text;
 
 use std::path::{Path, PathBuf};
 
@@ -33,6 +34,7 @@ pub use diff::{DiffRange, DiffReport};
 pub use disasm::{DisassembleOptions, DisassemblyInstruction, DisassemblyReport, DisassemblySyntax};
 pub use entropy::{EntropyReport, OverlayInfo, SectionEntropy};
 pub use error::{IdaError, Result};
+pub use text::{EncodedStringHit, EncodedStringsReport, StringEncoding, StringsOptions};
 
 impl From<data_binary_inspect::InspectError> for IdaError {
     fn from(error: data_binary_inspect::InspectError) -> Self {
@@ -99,6 +101,11 @@ impl BinaryView {
     /// Extracts printable ASCII runs of at least `min_len` bytes.
     pub fn strings(&self, min_len: usize) -> Vec<StringHit> {
         self.session.strings(Some(min_len), None).hits
+    }
+
+    /// Extracts ASCII or ASCII-in-UTF-16LE runs with the requested encoding.
+    pub fn strings_encoded(&self, options: &StringsOptions) -> Result<EncodedStringsReport> {
+        text::scan(&self.session, options)
     }
 
     /// Lists imported functions.
@@ -278,6 +285,11 @@ impl OpenIda {
     /// Extracts printable strings, falling back to the session defaults.
     pub fn strings(&self, min_len: Option<usize>, limit: Option<usize>) -> StringsReport {
         self.session.strings(min_len, limit)
+    }
+
+    /// Extracts ASCII or ASCII-in-UTF-16LE strings described by `options`.
+    pub fn strings_encoded(&self, options: &StringsOptions) -> Result<EncodedStringsReport> {
+        text::scan(&self.session, options)
     }
 
     /// Lists imported functions.

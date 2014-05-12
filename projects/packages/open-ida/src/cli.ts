@@ -20,13 +20,14 @@ import type {
     DebugReport,
     DiffReport,
     DisassemblyReport,
+    EncodedStringsReport,
     EntropyReport,
     ExportsReport,
     ImportsReport,
     SearchOptions,
     SearchReport,
     Section,
-    StringsReport,
+    StringEncoding,
     SymbolsReport,
 } from './types.js';
 
@@ -111,14 +112,16 @@ function describeSections(sections: readonly Section[]): string {
     return lines.join('\n');
 }
 
-function describeStrings(report: StringsReport): string {
-    const header = `${report.hits.length} of ${report.total} string(s)${report.truncated ? ' (truncated)' : ''}`;
+function describeStrings(report: EncodedStringsReport): string {
+    const header = `${report.hits.length} of ${report.total} ${report.encoding} string(s)${report.truncated ? ' (truncated)' : ''}`;
     if (report.hits.length === 0) {
         return `${header}\n  no printable runs matched the minimum length`;
     }
     const lines = [header];
+    const tagEncoding = report.encoding === 'both';
     for (const hit of report.hits) {
-        lines.push(`  ${hex(hit.offset).padStart(10)}  ${String(hit.length).padStart(4)}  ${hit.value}`);
+        const tag = tagEncoding ? `  ${hit.encoding.padEnd(7)}` : '';
+        lines.push(`  ${hex(hit.offset).padStart(10)}  ${String(hit.length).padStart(4)}${tag}  ${hit.value}`);
     }
     return lines.join('\n');
 }
@@ -291,6 +294,7 @@ cli
     .command('strings', 'cli.cmd.strings')
     .option('--min <len>', 'cli.opt.min')
     .option('--limit <count>', 'cli.opt.limit')
+    .option('--encoding <encoding>', 'cli.opt.encoding')
     .actionCtx(async (options, _args, ctx) => {
         const file = input(options);
         if (file === undefined) {
@@ -309,9 +313,15 @@ cli
             ctx.fail('open-ida.cli.limit', { message: '`--limit <count>` must be a positive integer' });
             return 2;
         }
+        const encodings = ['ascii', 'utf16le', 'both'] as const;
+        const encodingText = text(options, 'encoding') ?? 'ascii';
+        if (!(encodings as readonly string[]).includes(encodingText)) {
+            ctx.fail('cli.err.encoding', { message: '`--encoding` must be ascii, utf16le or both' });
+            return 2;
+        }
         const ida = new OpenIDA({ path: file });
         try {
-            const report = ida.strings(min, limit);
+            const report = ida.stringsEncoded({ minLength: min, limit, encoding: encodingText as StringEncoding });
             ctx.emitResult(report, describeStrings(report));
             return 0;
         } finally {
