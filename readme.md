@@ -1,90 +1,127 @@
 # OpenIDA
 
 ![Binary formats](https://img.shields.io/badge/formats-PE%20%C2%B7%20ELF%20%C2%B7%20Mach--O-blue)
-![Static inspection](https://img.shields.io/badge/inspection-sections%20%C2%B7%20strings%20%C2%B7%20hex-blueviolet)
-![No system dependencies](https://img.shields.io/badge/runtime-zero%20system%20dependencies-brightgreen)
+![Built-in engine](https://img.shields.io/badge/runtime-zero%20system%20dependencies-brightgreen)
+![Auditable output](https://img.shields.io/badge/output-bounded%20reports-blueviolet)
 
-OpenIDA reads a compiled binary and tells you what is really inside it — formats, sections, strings, offsets and a verifiable patch trail — from one TypeScript-native command line and studio.
+## 💡 What is OpenIDA?
 
-## 🔎 What it does
+OpenIDA answers concrete questions about a compiled binary from one command
+line, one TypeScript session and one Studio window: what container and
+architecture is this, where does each section live, which strings and imports
+does it carry, what do these bytes decode to, how do two builds differ, and did
+this patch change only what I intended?
 
-OpenIDA ships a small built-in analysis engine. It does not need a disassembler
-service, an external SDK or a system toolchain at runtime.
+It ships a built-in analysis engine, so it needs no external disassembler
+service, SDK or system toolchain at runtime. Results are bounded reports with an
+explicit truncation flag, and every failure carries a stable code instead of
+prose you have to parse.
 
-| Capability | State |
-| --- | --- |
-| PE headers, sections, image base, entry RVA | Available |
-| ELF 32/64-bit little-endian headers and sections | Available |
-| Mach-O header basics (magic, CPU, file type, command count) | Detected only |
-| ASCII and UTF-16LE strings extraction | Available |
-| Canonical hex dump and byte reads | Available |
-| RVA to file-offset mapping for PE and ELF | Available |
-| Atomic byte patching with before/after hashes | Available |
-| Imports, exports and symbols | Available |
-| Pattern search (hex, ASCII, UTF-16LE) | Available |
-| PE debug directory and CodeView PDB records | Available |
-| x86 / x64 disassembly | Available |
-| Byte-level binary diff | Available |
-| Section and whole-file entropy, PE overlay | Available |
-| Decompilation and debugging | Not implemented |
+OpenIDA is not a decompiler and not a debugger. It does not produce pseudo-code,
+attach to a running process or resolve relocations. When a format or
+architecture is not implemented it says so instead of guessing.
 
-`open-ida capabilities` prints the same matrix as JSON, including an explicit
-`unsupported` block. A suffix or a file name is never treated as a support claim.
+## 🚀 Getting started
 
-## 🚀 Try it
+### 1. Agent path (recommended)
+
+```bash
+pnpm add @wae/open-ida-skills
+```
+
+Point your agent at
+`node_modules/@wae/open-ida-skills/skills/open-ida/SKILL.md`. The skill fixes
+the preflight checks, the order of inspection and the rules for safe patching,
+so the agent does not have to improvise. A realistic prompt:
+
+> Inspect `samples/app.exe`: report its format and architecture, list the
+> sections with their permissions, extract both ASCII and UTF-16LE strings, and
+> tell me whether anything is imported from `ws2_32.dll`.
+
+### 2. Manual install
+
+OpenIDA has no npm release yet: the application package is private and the
+platform addons are unpublished. Until the first release, run from a checkout
+built with the repository toolchain; the
+[build guide](documentation/README.md#build-and-test) lists the commands. Once
+the command is installed, the interface looks like this:
 
 ```bash
 open-ida capabilities
 open-ida info ./samples/app.exe
-open-ida strings ./samples/app.exe --min 4 --limit 100 --encoding both
+open-ida sections ./samples/app.exe
+open-ida strings ./samples/app.exe --encoding both
+open-ida imports ./samples/app.exe
+open-ida disasm ./samples/app.exe --offset 0x1000 --count 20
+open-ida entropy ./samples/app.exe
+open-ida diff build/app.exe build/app-patched.exe
 ```
 
-`capabilities` prints the implementation matrix, including the explicit
-`unsupported` block. `info` reports the detected format, architecture, entry
-point, image base, section count and whole-file hash. `strings` walks printable
-ASCII runs and, with `--encoding utf16le` or `both`, the ASCII-in-UTF-16LE runs
-that Windows binaries commonly embed; it reports their file offsets and byte
-lengths.
+Every command prints a human report. The same values are available as JSON from
+the TypeScript session, so a script and a person read the same result.
 
-The remaining commands follow the same shape: `sections` lists every section with
-its virtual address, raw offset, size and readable/writable/executable flags;
-`hexdump` prints the canonical `offset  bytes  |ascii|` layout; `rva` maps a PE
-relative virtual address or an ELF virtual address onto a file offset; `patch`
-writes bytes atomically, refuses a range that does not fit the file, and reports
-the before and after hash of the whole file. The source file is untouched unless
-you omit the output path.
+## ✨ Highlights
+
+- **Format-aware facts.** PE and ELF headers, sections, entry points, image
+  bases and hashes; Mach-O header basics are reported as partial, never as full
+  support.
+- **Strings in both encodings.** ASCII runs by default, plus the
+  ASCII-in-UTF-16LE runs that Windows binaries commonly embed.
+- **Address mapping both ways.** RVA or virtual address to file offset, and file
+  offset back to RVA and VA.
+- **Symbols where the format has them.** PE imports, exports, COFF symbols, and
+  PE debug directory entries with `RSDS` / `NB10` CodeView records.
+- **x86 and x64 disassembly.** Intel, MASM or NASM syntax, with the file offset
+  and virtual address of every instruction.
+- **Binary diff.** Size and hash for both sides, the first differing offset and
+  the differing ranges, or a clear `identical` verdict.
+- **Packing triage.** Whole-file and per-section Shannon entropy plus the PE
+  overlay.
+- **Patching you can audit.** Atomic writes with the before and after hash of
+  the whole file; pass `--out` to keep the original untouched.
+- **Bounded by default.** Every listing has a limit and reports
+  `truncated: true` when it cut results, so a huge binary cannot turn into an
+  unbounded report.
 
 ## 🧭 How it works
 
-```mermaid
-flowchart LR
-    A[Compiled binary] --> B[OpenIDA engine]
-    B --> C[Format and architecture]
-    B --> D[Sections and RVA map]
-    B --> E[Strings and hex dump]
-    B --> F[Atomic patch and hashes]
-    G[CLI] --> B
-    H[Studio] --> B
-```
+One engine answers every surface. The command line, the TypeScript session, the
+Studio window and the agent skill read the same handles and the same reports, so
+a section shown in the Studio is the section the command line printed. When the
+Studio is opened without a connected host it says so and stays empty instead of
+drawing sample data.
 
-One engine answers every surface. The command line, the studio window and the
-agent skill read the same file handles and the same reports, so a section shown
-in the studio is the section the command line printed. When the studio is opened
-outside a connected host it says so and stays empty instead of drawing sample
-data.
+## 🚧 What this build does not do
 
-## 🚧 What this build does NOT do
+- No decompiler: no pseudo-code, control-flow graph or type recovery.
+- No debugger: it does not attach, set breakpoints or inspect a running process.
+- No non-x86 disassembly: ARM and ARM64 return a stable unsupported error.
+- No Mach-O sections or symbols: header basics only.
+- No big-endian ELF: rejected with a stable code instead of a guessed layout.
+- No relocation resolution: import and export tables are parsed, not applied.
+- No release artifacts: the packages are private and no installer exists.
 
-- **No non-x86 disassembly.** The decoder covers x86 and x64 only; ARM and ARM64
-  return a stable unsupported error.
-- **No decompiler.** No pseudo-code, no control-flow graph and no type recovery.
-- **No debugger.** It does not attach, set breakpoints or inspect a running process.
-- **No relocation resolution.** Import and export tables, symbols and PE debug
-  directories are parsed, but relocations are not applied.
-- **No Mach-O sections.** Mach-O files report header basics only; section tables
-  and load commands beyond the header count are not decoded.
-- **No big-endian ELF.** Big-endian files are rejected with a stable unsupported
-  code instead of being guessed at.
-- **No in-place overwrite by default.** Patching writes a new file unless you
-  explicitly leave out the output path.
-- **No release artifacts.** The project is in development and has no installers.
+## 🧪 Examples
+
+- [Package usage](projects/packages/open-ida/README.md) — the session API, the
+  export map and the constraints.
+- [Smoke test](projects/packages/open-ida/tests/smoke.test.ts) — runnable
+  evidence for the error contract and the declared capability gap.
+- [CLI reference](documentation/cli.md) — every command, flag, default and exit
+  code.
+
+## 📚 Documentation
+
+- [Capabilities](documentation/capabilities.md) — the support matrix, every
+  limit and every unsupported boundary.
+- [CLI reference](documentation/cli.md) — all `open-ida` commands.
+- [Agent guide](documentation/agents.md) — capability discovery, stable codes
+  and guardrails for automation.
+- [Package README](projects/packages/open-ida/README.md) — the npm-facing API
+  surface.
+- [Maintainer guide](documentation/README.md) — layout, build, CI and release
+  state.
+
+## 📜 License
+
+[Apache-2.0](License.md)
