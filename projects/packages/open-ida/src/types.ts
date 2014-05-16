@@ -195,6 +195,38 @@ export interface DebugReport {
     readonly truncated: boolean;
 }
 
+/** Fixed part of a PE `VS_VERSIONINFO` resource. */
+export interface FixedFileInfo {
+    readonly signature: number;
+    readonly structVersion: number;
+    readonly fileVersion: string;
+    readonly productVersion: string;
+    readonly fileFlagsMask: number;
+    readonly fileFlags: number;
+    readonly fileOs: number;
+    readonly fileType: number;
+    readonly fileSubtype: number;
+    readonly fileDate: number;
+}
+
+/** One `StringFileInfo` key/value pair. */
+export interface VersionString {
+    readonly key: string;
+    readonly value: string;
+    readonly languageId: number;
+    readonly codepage: number;
+}
+
+/** Decoded PE version resource. */
+export interface VersionReport {
+    readonly present: boolean;
+    readonly fixed: FixedFileInfo | null;
+    readonly strings: readonly VersionString[];
+    readonly total: number;
+    readonly truncated: boolean;
+    readonly note: string | null;
+}
+
 /** One linked or identifying Mach-O dylib command. */
 export interface MachODylib {
     readonly kind: 'load' | 'id' | 'weak' | 'reexport' | 'lazy' | 'upward';

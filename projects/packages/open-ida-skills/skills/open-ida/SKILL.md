@@ -8,8 +8,8 @@ description: Inspect compiled binaries with OpenIDA. Use when a task involves PE
 ## Status
 
 `open-ida info`, `sections`, `strings`, `hexdump`, `rva`, `offset`, `imports`,
-`exports`, `symbols`, `debug`, `macho`, `disasm`, `entropy`, `diff`, `search`
-and `patch` are implemented for the cases listed below. Decompilation, debugging
+`exports`, `symbols`, `debug`, `version`, `macho`, `disasm`, `entropy`, `diff`,
+`search` and `patch` are implemented for the cases listed below. Decompilation, debugging
 and dyld bindings are **not** implemented and the capability matrix reports them
 as `unsupported` / `not-implemented`.
 
@@ -36,6 +36,7 @@ a second analysis engine. Report the stable code instead.
 | read | Show bytes around an offset | `hexdump` or `read` output |
 | resolve | Turn an RVA or virtual address into a file offset | `rva` mapping |
 | link | List imports, exports, symbols or the PDB path | `imports` / `exports` / `symbols` / `debug` report |
+| metadata | Read PE file/product version and string table | `version` report |
 | macho | Read UUID, platform, dylibs, segments and sections | `macho` report |
 | triage | Spot packing from entropy and the overlay | `entropy` report |
 | compare | Find the first difference between two builds | `diff` report |

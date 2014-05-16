@@ -9,6 +9,7 @@
             "exports": "Print exported symbols with ordinals, addresses and forwarders",
             "symbols": "Print debug or dynamic symbols with kind, binding and section",
             "debug": "Print PE debug directory entries and CodeView PDB records",
+            "version": "Print the PE version resource (file/product version and string table)",
             "macho": "Print Mach-O load commands, segments, sections, dylibs and image identity",
             "disasm": "Disassemble x86 or x64 instructions from a file offset",
             "diff": "Compare two binaries byte for byte and list differing ranges",

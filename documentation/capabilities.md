@@ -31,6 +31,7 @@ Big-endian ELF is rejected rather than decoded with a guessed byte order.
 | `exports` | `supported` | PE export table with ordinal, address and forwarder. |
 | `symbols` | `supported` | COFF symbols for PE; dynamic symbols for ELF. |
 | `debug` | `supported` | PE debug directory and CodeView records. Non-PE answers `binary/unsupported`. |
+| `version` | `supported` | PE `RT_VERSION` fixed file info and `StringFileInfo` pairs. A PE without the resource reports `present: false`; non-PE answers `binary/unsupported`. |
 | `macho` | `supported` | Mach-O header, file type, UUID, platform/min OS/SDK, dylibs, segments, sections and entry point. Non-Mach-O answers `binary/unsupported`. |
 | `disassembly` | `supported` | x86 and x64 only, Intel/MASM/NASM syntax. |
 | `diff` | `supported` | Byte-level comparison plus the first differing offset. |

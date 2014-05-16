@@ -72,6 +72,8 @@ the TypeScript session, so a script and a person read the same result.
   offset back to RVA and VA.
 - **Symbols where the format has them.** PE imports, exports, COFF symbols, and
   PE debug directory entries with `RSDS` / `NB10` CodeView records.
+- **Product metadata.** PE `RT_VERSION` file and product versions plus the
+  `StringFileInfo` pairs, when the resource exists.
 - **x86 and x64 disassembly.** Intel, MASM or NASM syntax, with the file offset
   and virtual address of every instruction.
 - **Binary diff.** Size and hash for both sides, the first differing offset and

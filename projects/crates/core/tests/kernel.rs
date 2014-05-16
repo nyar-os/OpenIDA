@@ -572,6 +572,7 @@ fn capabilities_declare_what_is_not_implemented() {
     assert_eq!(matrix["features"]["symbols"], "supported");
     assert_eq!(matrix["features"]["search"], "supported");
     assert_eq!(matrix["features"]["disassembly"], "supported");
+    assert_eq!(matrix["features"]["version"], "supported");
     assert_eq!(matrix["features"]["macho-dylibs"], "supported");
     assert_eq!(matrix["features"]["macho-sections"], "supported");
     assert_eq!(matrix["unsupported"]["debugger"], "not-implemented");
@@ -795,6 +796,131 @@ fn disassembly_is_unsupported_outside_x86_and_x64() {
 
     let error = view.disasm(&DisassembleOptions::new(0)).unwrap_err();
     assert_eq!(error.code(), "binary/unsupported");
+}
+
+fn utf16z(text: &str) -> Vec<u8> {
+    text.encode_utf16().chain([0]).flat_map(|unit| unit.to_le_bytes()).collect()
+}
+
+fn version_block(key: &str, value_length: u16, value_type: u16, value: &[u8], children: &[u8]) -> Vec<u8> {
+    let mut block = vec![0u8, 0];
+    block.extend_from_slice(&value_length.to_le_bytes());
+    block.extend_from_slice(&value_type.to_le_bytes());
+    block.extend_from_slice(&utf16z(key));
+    while block.len() % 4 != 0 {
+        block.push(0);
+    }
+    block.extend_from_slice(value);
+    while block.len() % 4 != 0 {
+        block.push(0);
+    }
+    block.extend_from_slice(children);
+    while block.len() % 4 != 0 {
+        block.push(0);
+    }
+    let length = block.len() as u16;
+    block[0..2].copy_from_slice(&length.to_le_bytes());
+    block
+}
+
+/// A `VS_VERSIONINFO` payload with fixed info 1.2.3.4 / 5.6.7.8 and two strings.
+fn version_payload() -> Vec<u8> {
+    let mut fixed = vec![0u8; 52];
+    put_u32(&mut fixed, 0, 0xFEEF_04BD);
+    put_u32(&mut fixed, 4, 0x0001_0000);
+    put_u32(&mut fixed, 8, 0x0001_0002);
+    put_u32(&mut fixed, 12, 0x0003_0004);
+    put_u32(&mut fixed, 16, 0x0005_0006);
+    put_u32(&mut fixed, 20, 0x0007_0008);
+    put_u32(&mut fixed, 24, 0x3f);
+    put_u32(&mut fixed, 32, 0x4);
+    put_u32(&mut fixed, 36, 0x1);
+
+    let company = version_block("CompanyName", 8, 1, &utf16z("OpenIDA"), &[]);
+    let description = version_block("FileDescription", 7, 1, &utf16z("Sample"), &[]);
+    let mut table_children = company;
+    table_children.extend_from_slice(&description);
+    let table = version_block("040904B0", 0, 1, &[], &table_children);
+    let string_file_info = version_block("StringFileInfo", 0, 1, &[], &table);
+    version_block("VS_VERSION_INFO", 52, 0, &fixed, &string_file_info)
+}
+
+/// A PE32+ image whose `.rsrc` section carries one `RT_VERSION` resource.
+fn pe_version_bytes() -> Vec<u8> {
+    let payload = version_payload();
+    let mut bytes = vec![0u8; 0x600];
+    bytes[0..2].copy_from_slice(b"MZ");
+    put_u32(&mut bytes, 0x3c, 0x80);
+    bytes[0x80..0x84].copy_from_slice(b"PE\0\0");
+    put_u16(&mut bytes, 0x84, 0x8664);
+    put_u16(&mut bytes, 0x86, 1);
+    put_u16(&mut bytes, 0x94, 0xf0);
+    put_u16(&mut bytes, 0x98, 0x20b);
+    put_u32(&mut bytes, 0x98 + 16, 0x1000);
+    put_u64(&mut bytes, 0x98 + 24, 0x1_4000_0000);
+    put_u32(&mut bytes, 0x98 + 56, 0x2000);
+    put_u32(&mut bytes, 0x98 + 60, 0x200);
+    put_u32(&mut bytes, 0x98 + 112 + 2 * 8, 0x1000);
+    put_u32(&mut bytes, 0x98 + 112 + 2 * 8 + 4, 0x400);
+    put_section(&mut bytes, 0x188, b".rsrc", 0x400, 0x1000, 0x400, 0x200, 0x4000_0040);
+
+    // Root -> type (16) -> name (1) -> language (0x0409) -> data entry.
+    put_u16(&mut bytes, 0x200 + 12, 0);
+    put_u16(&mut bytes, 0x200 + 14, 1);
+    put_u32(&mut bytes, 0x210, 16);
+    put_u32(&mut bytes, 0x210 + 4, 0x8000_0020);
+    put_u16(&mut bytes, 0x220 + 12, 0);
+    put_u16(&mut bytes, 0x220 + 14, 1);
+    put_u32(&mut bytes, 0x230, 1);
+    put_u32(&mut bytes, 0x230 + 4, 0x8000_0060);
+    put_u16(&mut bytes, 0x260 + 12, 0);
+    put_u16(&mut bytes, 0x260 + 14, 1);
+    put_u32(&mut bytes, 0x270, 0x0409);
+    put_u32(&mut bytes, 0x270 + 4, 0x80);
+    put_u32(&mut bytes, 0x280, 0x1090);
+    put_u32(&mut bytes, 0x280 + 4, payload.len() as u32);
+    put_u32(&mut bytes, 0x280 + 8, 0x04b0);
+    bytes[0x290..0x290 + payload.len()].copy_from_slice(&payload);
+    bytes
+}
+
+#[test]
+fn pe_version_resource_reports_fixed_info_and_strings() {
+    let view = BinaryView::from_bytes("version.exe", pe_version_bytes());
+    let report = view.version().expect("version report");
+
+    assert!(report.present);
+    let fixed = report.fixed.expect("fixed file info");
+    assert_eq!(fixed.file_version, "1.2.3.4");
+    assert_eq!(fixed.product_version, "5.6.7.8");
+    assert_eq!(fixed.file_flags_mask, 0x3f);
+    assert_eq!(fixed.file_os, 0x4);
+    assert_eq!(fixed.file_type, 0x1);
+
+    assert_eq!(report.total, 2);
+    assert!(!report.truncated);
+    let company = report.strings.iter().find(|entry| entry.key == "CompanyName").expect("CompanyName");
+    assert_eq!(company.value, "OpenIDA");
+    assert_eq!(company.language_id, 0x0409);
+    assert_eq!(company.codepage, 0x04b0);
+    let description = report.strings.iter().find(|entry| entry.key == "FileDescription").expect("FileDescription");
+    assert_eq!(description.value, "Sample");
+}
+
+#[test]
+fn pe_without_version_resource_reports_absence() {
+    let view = BinaryView::from_bytes("plain.exe", pe_bytes());
+    let report = view.version().expect("version report");
+    assert!(!report.present);
+    assert!(report.fixed.is_none());
+    assert!(report.strings.is_empty());
+    assert!(report.note.is_none());
+}
+
+#[test]
+fn version_resource_is_unsupported_outside_pe() {
+    let view = BinaryView::from_bytes("note.txt", b"not a PE file".to_vec());
+    assert_eq!(view.version().unwrap_err().code(), "binary/unsupported");
 }
 
 fn put_name16(bytes: &mut [u8], offset: usize, name: &[u8]) {

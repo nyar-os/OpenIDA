@@ -19,6 +19,7 @@ mod entropy;
 mod error;
 mod macho;
 mod text;
+mod version;
 
 use std::path::{Path, PathBuf};
 
@@ -37,6 +38,7 @@ pub use entropy::{EntropyReport, OverlayInfo, SectionEntropy};
 pub use error::{IdaError, Result};
 pub use macho::{MachODylib, MachOReport, MachOSection, MachOSegment};
 pub use text::{EncodedStringHit, EncodedStringsReport, StringEncoding, StringsOptions};
+pub use version::{FixedFileInfo, VersionReport, VersionString};
 
 impl From<data_binary_inspect::InspectError> for IdaError {
     fn from(error: data_binary_inspect::InspectError) -> Self {
@@ -128,6 +130,11 @@ impl BinaryView {
     /// Lists PE debug directory entries and `CodeView` PDB records.
     pub fn debug(&self, limit: Option<usize>) -> Result<DebugReport> {
         debug::analyze(&self.session, limit)
+    }
+
+    /// Decodes the PE version resource (`RT_VERSION`).
+    pub fn version(&self) -> Result<VersionReport> {
+        version::analyze(&self.session)
     }
 
     /// Decodes Mach-O load commands, segments, sections, dylibs and identity.
@@ -319,6 +326,11 @@ impl OpenIda {
         debug::analyze(&self.session, limit)
     }
 
+    /// Decodes the PE version resource (`RT_VERSION`).
+    pub fn version(&self) -> Result<VersionReport> {
+        version::analyze(&self.session)
+    }
+
     /// Decodes Mach-O load commands, segments, sections, dylibs and identity.
     pub fn macho(&self) -> Result<MachOReport> {
         macho::analyze(&self.session)
@@ -408,6 +420,7 @@ pub fn capabilities() -> serde_json::Value {
             "exports": "supported",
             "symbols": "supported",
             "debug": "supported",
+            "version": "supported",
             "macho-load-commands": "supported",
             "macho-segments": "supported",
             "macho-sections": "supported",

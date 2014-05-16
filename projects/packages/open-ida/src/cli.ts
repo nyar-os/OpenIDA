@@ -30,6 +30,7 @@ import type {
     Section,
     StringEncoding,
     SymbolsReport,
+    VersionReport,
 } from './types.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -192,6 +193,28 @@ function describeDebug(report: DebugReport): string {
                     : `offset=${hex(record.offset ?? 0)} timestamp=${hex(record.timestamp ?? 0)}`;
             lines.push(`    ${record.signature} age=${record.age} ${identity} path=${record.path}`);
         }
+    }
+    return lines.join('\n');
+}
+
+function describeVersion(report: VersionReport): string {
+    if (!report.present) {
+        return 'no RT_VERSION resource';
+    }
+    const lines: string[] = [];
+    if (report.fixed !== null) {
+        lines.push(`file version: ${report.fixed.fileVersion}`);
+        lines.push(`product version: ${report.fixed.productVersion}`);
+        lines.push(
+            `flags: ${hex(report.fixed.fileFlags)} / mask ${hex(report.fixed.fileFlagsMask)} · os ${hex(report.fixed.fileOs)} · type ${report.fixed.fileType}.${report.fixed.fileSubtype}`,
+        );
+    }
+    if (report.note !== null) {
+        lines.push(`note: ${report.note}`);
+    }
+    lines.push(`${report.strings.length} of ${report.total} string(s)${report.truncated ? ' (truncated)' : ''}`);
+    for (const entry of report.strings) {
+        lines.push(`  ${entry.key.padEnd(22)} ${entry.value}  (lang ${hex(entry.languageId)}, cp ${hex(entry.codepage)})`);
     }
     return lines.join('\n');
 }
@@ -527,6 +550,22 @@ cli
             ida.close();
         }
     });
+
+cli.command('version', 'cli.cmd.version').actionCtx(async (options, _args, ctx) => {
+    const file = input(options);
+    if (file === undefined) {
+        ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+        return 2;
+    }
+    const ida = new OpenIDA({ path: file });
+    try {
+        const report = ida.version();
+        ctx.emitResult(report, describeVersion(report));
+        return 0;
+    } finally {
+        ida.close();
+    }
+});
 
 cli.command('macho', 'cli.cmd.macho').actionCtx(async (options, _args, ctx) => {
     const file = input(options);
