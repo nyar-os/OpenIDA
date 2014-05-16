@@ -52,6 +52,7 @@ open-ida info ./samples/app.exe
 open-ida sections ./samples/app.exe
 open-ida strings ./samples/app.exe --encoding both
 open-ida imports ./samples/app.exe
+open-ida macho ./samples/app.macho
 open-ida disasm ./samples/app.exe --offset 0x1000 --count 20
 open-ida entropy ./samples/app.exe
 open-ida diff build/app.exe build/app-patched.exe
@@ -63,8 +64,8 @@ the TypeScript session, so a script and a person read the same result.
 ## ✨ Highlights
 
 - **Format-aware facts.** PE and ELF headers, sections, entry points, image
-  bases and hashes; Mach-O header basics are reported as partial, never as full
-  support.
+  bases and hashes; Mach-O load commands, segments, sections, dylibs, UUID and
+  build versions, reported as partial until the symbol table is decoded.
 - **Strings in both encodings.** ASCII runs by default, plus the
   ASCII-in-UTF-16LE runs that Windows binaries commonly embed.
 - **Address mapping both ways.** RVA or virtual address to file offset, and file
@@ -75,8 +76,8 @@ the TypeScript session, so a script and a person read the same result.
   and virtual address of every instruction.
 - **Binary diff.** Size and hash for both sides, the first differing offset and
   the differing ranges, or a clear `identical` verdict.
-- **Packing triage.** Whole-file and per-section Shannon entropy plus the PE
-  overlay.
+- **Packing triage.** Whole-file and per-section Shannon entropy for PE, ELF and
+  Mach-O, plus the PE overlay.
 - **Patching you can audit.** Atomic writes with the before and after hash of
   the whole file; pass `--out` to keep the original untouched.
 - **Bounded by default.** Every listing has a limit and reports
@@ -96,7 +97,8 @@ drawing sample data.
 - No decompiler: no pseudo-code, control-flow graph or type recovery.
 - No debugger: it does not attach, set breakpoints or inspect a running process.
 - No non-x86 disassembly: ARM and ARM64 return a stable unsupported error.
-- No Mach-O sections or symbols: header basics only.
+- No Mach-O symbol table or dyld bindings: load commands, segments, sections
+  and dylibs are decoded.
 - No big-endian ELF: rejected with a stable code instead of a guessed layout.
 - No relocation resolution: import and export tables are parsed, not applied.
 - No release artifacts: the packages are private and no installer exists.

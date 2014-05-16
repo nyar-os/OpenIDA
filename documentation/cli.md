@@ -126,6 +126,18 @@ PE only. Prints each debug directory entry (type, timestamp, version, data size,
 raw pointer, RVA) and, for CodeView entries, the signature, GUID or `NB10`
 offset/timestamp, age and PDB path. A non-PE file answers `binary/unsupported`.
 
+### `macho <file>`
+
+```bash
+open-ida macho ./samples/app.macho
+```
+
+Mach-O only. Prints the header (bitness, byte order, CPU, file type, flags,
+command count), `LC_UUID`, platform, minimum OS and SDK, the `LC_MAIN` entry
+offset mapped onto a virtual address, every dylib command with its version,
+and the segment and section tables with r/w/x access. Fat/universal containers
+answer `binary/unsupported`; select a slice first.
+
 ### `disasm <file>`
 
 ```bash
@@ -147,8 +159,8 @@ image base; other architectures answer `binary/unsupported`.
 open-ida entropy ./samples/app.exe
 ```
 
-Prints whole-file entropy in bits per byte, per-section entropy for PE and ELF,
-and the PE overlay offset and size when one exists.
+Prints whole-file entropy in bits per byte, per-section entropy for PE, ELF and
+Mach-O, and the PE overlay offset and size when one exists.
 
 ### `diff <left> <right>`
 

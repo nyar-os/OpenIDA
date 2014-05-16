@@ -572,6 +572,8 @@ fn capabilities_declare_what_is_not_implemented() {
     assert_eq!(matrix["features"]["symbols"], "supported");
     assert_eq!(matrix["features"]["search"], "supported");
     assert_eq!(matrix["features"]["disassembly"], "supported");
+    assert_eq!(matrix["features"]["macho-dylibs"], "supported");
+    assert_eq!(matrix["features"]["macho-sections"], "supported");
     assert_eq!(matrix["unsupported"]["debugger"], "not-implemented");
 }
 
@@ -793,6 +795,132 @@ fn disassembly_is_unsupported_outside_x86_and_x64() {
 
     let error = view.disasm(&DisassembleOptions::new(0)).unwrap_err();
     assert_eq!(error.code(), "binary/unsupported");
+}
+
+fn put_name16(bytes: &mut [u8], offset: usize, name: &[u8]) {
+    let length = name.len().min(16);
+    bytes[offset..offset + length].copy_from_slice(&name[..length]);
+}
+
+/// A thin arm64 Mach-O with `__TEXT,__text`, `LC_MAIN`, `LC_UUID`, one dylib
+/// and `LC_BUILD_VERSION`. The code payload starts at file offset 0x200.
+fn macho64_bytes() -> Vec<u8> {
+    let mut bytes = vec![0u8; 0x210];
+    bytes[0..4].copy_from_slice(&[0xcf, 0xfa, 0xed, 0xfe]);
+    put_u32(&mut bytes, 4, 0x0100_000c);
+    put_u32(&mut bytes, 8, 0);
+    put_u32(&mut bytes, 12, 2);
+    put_u32(&mut bytes, 16, 5);
+    put_u32(&mut bytes, 20, 280);
+    put_u32(&mut bytes, 24, 0x0020_0085);
+
+    let segment = 32;
+    put_u32(&mut bytes, segment, 0x19);
+    put_u32(&mut bytes, segment + 4, 152);
+    put_name16(&mut bytes, segment + 8, b"__TEXT");
+    put_u64(&mut bytes, segment + 24, 0x1000);
+    put_u64(&mut bytes, segment + 32, 0x200);
+    put_u64(&mut bytes, segment + 40, 0x200);
+    put_u64(&mut bytes, segment + 48, 0x10);
+    put_u32(&mut bytes, segment + 56, 5);
+    put_u32(&mut bytes, segment + 60, 5);
+    put_u32(&mut bytes, segment + 64, 1);
+
+    let section = segment + 72;
+    put_name16(&mut bytes, section, b"__text");
+    put_name16(&mut bytes, section + 16, b"__TEXT");
+    put_u64(&mut bytes, section + 32, 0x1000);
+    put_u64(&mut bytes, section + 40, 0x10);
+    put_u32(&mut bytes, section + 48, 0x200);
+    put_u32(&mut bytes, section + 52, 2);
+    put_u32(&mut bytes, section + 64, 0x8000_0400);
+
+    let main = segment + 152;
+    put_u32(&mut bytes, main, 0x8000_0028);
+    put_u32(&mut bytes, main + 4, 24);
+    put_u64(&mut bytes, main + 8, 0x200);
+
+    let uuid = main + 24;
+    put_u32(&mut bytes, uuid, 0x1b);
+    put_u32(&mut bytes, uuid + 4, 24);
+    bytes[uuid + 8..uuid + 24]
+        .copy_from_slice(&[0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff]);
+
+    let dylib = uuid + 24;
+    put_u32(&mut bytes, dylib, 0x0c);
+    put_u32(&mut bytes, dylib + 4, 56);
+    put_u32(&mut bytes, dylib + 8, 24);
+    put_u32(&mut bytes, dylib + 12, 2);
+    put_u32(&mut bytes, dylib + 16, 0x0001_0203);
+    put_u32(&mut bytes, dylib + 20, 0x0001_0000);
+    bytes[dylib + 24..dylib + 51].copy_from_slice(b"/usr/lib/libSystem.B.dylib\0");
+
+    let build = dylib + 56;
+    put_u32(&mut bytes, build, 0x32);
+    put_u32(&mut bytes, build + 4, 24);
+    put_u32(&mut bytes, build + 8, 1);
+    put_u32(&mut bytes, build + 12, 0x000d_0100);
+    put_u32(&mut bytes, build + 16, 0x000e_0000);
+
+    bytes[0x200..0x210].copy_from_slice(&[0xc0, 0x03, 0x5f, 0xd6, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8]);
+    bytes
+}
+
+#[test]
+fn macho_load_commands_report_identity_dylibs_and_entry() {
+    let view = BinaryView::from_bytes("sample.macho", macho64_bytes());
+    let report = view.macho().expect("Mach-O report");
+
+    assert!(report.is_64);
+    assert_eq!(report.endian, "little");
+    assert_eq!(report.architecture, "arm64");
+    assert_eq!(report.kind, "executable");
+    assert_eq!(report.file_type, 2);
+    assert_eq!(report.command_count, 5);
+    assert_eq!(report.uuid.as_deref(), Some("00112233-4455-6677-8899-aabbccddeeff"));
+    assert_eq!(report.platform.as_deref(), Some("macos"));
+    assert_eq!(report.min_os.as_deref(), Some("13.1.0"));
+    assert_eq!(report.sdk.as_deref(), Some("14.0.0"));
+    assert_eq!(report.entry_offset, Some(0x200));
+    assert_eq!(report.entry_address, Some(0x1000));
+
+    assert_eq!(report.dylibs.len(), 1);
+    assert_eq!(report.dylibs[0].kind, "load");
+    assert_eq!(report.dylibs[0].name, "/usr/lib/libSystem.B.dylib");
+    assert_eq!(report.dylibs[0].current_version, "1.2.3");
+    assert_eq!(report.dylibs[0].compatibility_version, "1.0.0");
+
+    assert_eq!(report.segments.len(), 1);
+    assert_eq!(report.segments[0].name, "__TEXT");
+    assert!(report.segments[0].readable && report.segments[0].executable && !report.segments[0].writable);
+
+    assert_eq!(report.sections.len(), 1);
+    assert_eq!(report.sections[0].segment, "__TEXT");
+    assert_eq!(report.sections[0].name, "__text");
+    assert_eq!(report.sections[0].address, 0x1000);
+    assert_eq!(report.sections[0].file_offset, 0x200);
+    assert!(report.sections[0].executable);
+}
+
+#[test]
+fn macho_sections_and_entropy_come_from_the_section_table() {
+    let view = BinaryView::from_bytes("sample.macho", macho64_bytes());
+    let sections = view.sections().expect("Mach-O sections");
+    assert_eq!(sections.len(), 1);
+    assert_eq!(sections[0].name, "__TEXT,__text");
+    assert_eq!(sections[0].raw_pointer, 0x200);
+
+    let entropy = view.entropy().expect("Mach-O entropy");
+    assert_eq!(entropy.sections.len(), 1);
+    assert_eq!(entropy.sections[0].name, "__TEXT,__text");
+    assert_eq!(entropy.sections[0].size, 0x10);
+    assert_eq!(entropy.overlay, None);
+}
+
+#[test]
+fn macho_report_is_unsupported_outside_macho() {
+    let view = BinaryView::from_bytes("plain.exe", pe_bytes());
+    assert_eq!(view.macho().unwrap_err().code(), "binary/unsupported");
 }
 
 fn open_engine(file: &TempFile) -> OpenIda {

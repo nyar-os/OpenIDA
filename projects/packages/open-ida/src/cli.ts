@@ -24,6 +24,7 @@ import type {
     EntropyReport,
     ExportsReport,
     ImportsReport,
+    MachOReport,
     SearchOptions,
     SearchReport,
     Section,
@@ -190,6 +191,50 @@ function describeDebug(report: DebugReport): string {
                     ? `guid=${record.guid}`
                     : `offset=${hex(record.offset ?? 0)} timestamp=${hex(record.timestamp ?? 0)}`;
             lines.push(`    ${record.signature} age=${record.age} ${identity} path=${record.path}`);
+        }
+    }
+    return lines.join('\n');
+}
+
+function describeMachO(report: MachOReport): string {
+    const bits = report.is64 ? 64 : 32;
+    const lines = [
+        `mach-o ${bits}-bit ${report.endian}-endian · ${report.architecture} · ${report.kind} (fileType ${report.fileType})`,
+        `commands: ${report.commandCount} (${report.sizeOfCommands} bytes) · flags ${hex(report.flags)}`,
+    ];
+    if (report.uuid !== null) {
+        lines.push(`uuid: ${report.uuid}`);
+    }
+    if (report.platform !== null) {
+        const sdk = report.sdk === null ? '' : ` · sdk ${report.sdk}`;
+        lines.push(`platform: ${report.platform}${report.minOs === null ? '' : ` · min ${report.minOs}`}${sdk}`);
+    }
+    if (report.entryOffset !== null) {
+        const address = report.entryAddress === null ? '' : ` -> ${hex(report.entryAddress)}`;
+        lines.push(`entry: file ${hex(report.entryOffset)}${address}`);
+    }
+    if (report.dylibs.length > 0) {
+        lines.push(`dylibs: ${report.dylibs.length}`);
+        for (const dylib of report.dylibs) {
+            lines.push(`  ${dylib.kind.padEnd(9)} ${dylib.name} (${dylib.currentVersion})`);
+        }
+    }
+    if (report.segments.length > 0) {
+        lines.push(`segments: ${report.segments.length}`);
+        for (const segment of report.segments) {
+            const access = `${segment.readable ? 'r' : '-'}${segment.writable ? 'w' : '-'}${segment.executable ? 'x' : '-'}`;
+            lines.push(
+                `  ${segment.name.padEnd(12)} vm=${hex(segment.vmAddress)}+${hex(segment.vmSize)} file=${hex(segment.fileOffset)}+${hex(segment.fileSize)} ${access}`,
+            );
+        }
+    }
+    if (report.sections.length > 0) {
+        lines.push(`sections: ${report.sections.length}`);
+        for (const section of report.sections) {
+            const access = `${section.readable ? 'r' : '-'}${section.writable ? 'w' : '-'}${section.executable ? 'x' : '-'}`;
+            lines.push(
+                `  ${`${section.segment},${section.name}`.padEnd(24)} addr=${hex(section.address)} size=${hex(section.size)} file=${hex(section.fileOffset)} ${access}`,
+            );
         }
     }
     return lines.join('\n');
@@ -482,6 +527,22 @@ cli
             ida.close();
         }
     });
+
+cli.command('macho', 'cli.cmd.macho').actionCtx(async (options, _args, ctx) => {
+    const file = input(options);
+    if (file === undefined) {
+        ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+        return 2;
+    }
+    const ida = new OpenIDA({ path: file });
+    try {
+        const report = ida.macho();
+        ctx.emitResult(report, describeMachO(report));
+        return 0;
+    } finally {
+        ida.close();
+    }
+});
 
 cli
     .command('disasm', 'cli.cmd.disasm')

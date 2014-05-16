@@ -195,6 +195,64 @@ export interface DebugReport {
     readonly truncated: boolean;
 }
 
+/** One linked or identifying Mach-O dylib command. */
+export interface MachODylib {
+    readonly kind: 'load' | 'id' | 'weak' | 'reexport' | 'lazy' | 'upward';
+    readonly name: string;
+    readonly timestamp: number;
+    readonly currentVersion: string;
+    readonly compatibilityVersion: string;
+}
+
+/** One Mach-O segment. */
+export interface MachOSegment {
+    readonly name: string;
+    readonly vmAddress: number;
+    readonly vmSize: number;
+    readonly fileOffset: number;
+    readonly fileSize: number;
+    readonly readable: boolean;
+    readonly writable: boolean;
+    readonly executable: boolean;
+}
+
+/** One Mach-O section with its owning segment. */
+export interface MachOSection {
+    readonly segment: string;
+    readonly name: string;
+    readonly address: number;
+    readonly size: number;
+    readonly fileOffset: number;
+    readonly alignment: number;
+    readonly flags: number;
+    readonly readable: boolean;
+    readonly writable: boolean;
+    readonly executable: boolean;
+}
+
+/** Full Mach-O image summary. */
+export interface MachOReport {
+    readonly is64: boolean;
+    readonly endian: 'little' | 'big';
+    readonly cpuType: number;
+    readonly cpuSubtype: number;
+    readonly architecture: string;
+    readonly fileType: number;
+    readonly kind: string;
+    readonly flags: number;
+    readonly commandCount: number;
+    readonly sizeOfCommands: number;
+    readonly uuid: string | null;
+    readonly platform: string | null;
+    readonly minOs: string | null;
+    readonly sdk: string | null;
+    readonly entryOffset: number | null;
+    readonly entryAddress: number | null;
+    readonly dylibs: readonly MachODylib[];
+    readonly segments: readonly MachOSegment[];
+    readonly sections: readonly MachOSection[];
+}
+
 /** Entropy of one section payload. */
 export interface SectionEntropy {
     readonly name: string;

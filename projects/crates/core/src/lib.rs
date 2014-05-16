@@ -17,6 +17,7 @@ mod diff;
 mod disasm;
 mod entropy;
 mod error;
+mod macho;
 mod text;
 
 use std::path::{Path, PathBuf};
@@ -34,6 +35,7 @@ pub use diff::{DiffRange, DiffReport};
 pub use disasm::{DisassembleOptions, DisassemblyInstruction, DisassemblyReport, DisassemblySyntax};
 pub use entropy::{EntropyReport, OverlayInfo, SectionEntropy};
 pub use error::{IdaError, Result};
+pub use macho::{MachODylib, MachOReport, MachOSection, MachOSegment};
 pub use text::{EncodedStringHit, EncodedStringsReport, StringEncoding, StringsOptions};
 
 impl From<data_binary_inspect::InspectError> for IdaError {
@@ -126,6 +128,11 @@ impl BinaryView {
     /// Lists PE debug directory entries and `CodeView` PDB records.
     pub fn debug(&self, limit: Option<usize>) -> Result<DebugReport> {
         debug::analyze(&self.session, limit)
+    }
+
+    /// Decodes Mach-O load commands, segments, sections, dylibs and identity.
+    pub fn macho(&self) -> Result<MachOReport> {
+        macho::analyze(&self.session)
     }
 
     /// Decodes `x86` / `x64` instructions from one file offset.
@@ -312,6 +319,11 @@ impl OpenIda {
         debug::analyze(&self.session, limit)
     }
 
+    /// Decodes Mach-O load commands, segments, sections, dylibs and identity.
+    pub fn macho(&self) -> Result<MachOReport> {
+        macho::analyze(&self.session)
+    }
+
     /// Decodes `x86` / `x64` instructions from one file offset.
     pub fn disasm(&self, options: &DisassembleOptions) -> Result<DisassemblyReport> {
         disasm::analyze(&self.session, options)
@@ -396,6 +408,11 @@ pub fn capabilities() -> serde_json::Value {
             "exports": "supported",
             "symbols": "supported",
             "debug": "supported",
+            "macho-load-commands": "supported",
+            "macho-segments": "supported",
+            "macho-sections": "supported",
+            "macho-dylibs": "supported",
+            "macho-build-version": "supported",
             "disassembly": "supported",
             "diff": "supported",
             "entropy": "supported",
