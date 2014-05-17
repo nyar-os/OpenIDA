@@ -575,6 +575,7 @@ fn capabilities_declare_what_is_not_implemented() {
     assert_eq!(matrix["features"]["version"], "supported");
     assert_eq!(matrix["features"]["macho-dylibs"], "supported");
     assert_eq!(matrix["features"]["macho-sections"], "supported");
+    assert_eq!(matrix["features"]["macho-symbols"], "supported");
     assert_eq!(matrix["unsupported"]["debugger"], "not-implemented");
 }
 
@@ -1047,6 +1048,95 @@ fn macho_sections_and_entropy_come_from_the_section_table() {
 fn macho_report_is_unsupported_outside_macho() {
     let view = BinaryView::from_bytes("plain.exe", pe_bytes());
     assert_eq!(view.macho().unwrap_err().code(), "binary/unsupported");
+}
+
+/// `macho64_bytes()` plus an `LC_SYMTAB` command, three `nlist_64` entries at
+/// 0x300 and a string table at 0x340.
+fn macho64_symbols_bytes() -> Vec<u8> {
+    let mut bytes = macho64_bytes();
+    bytes.resize(0x400, 0);
+    put_u32(&mut bytes, 16, 6);
+    put_u32(&mut bytes, 20, 304);
+
+    let symtab = 32 + 280;
+    put_u32(&mut bytes, symtab, 0x2);
+    put_u32(&mut bytes, symtab + 4, 24);
+    put_u32(&mut bytes, symtab + 8, 0x300);
+    put_u32(&mut bytes, symtab + 12, 3);
+    put_u32(&mut bytes, symtab + 16, 0x340);
+    put_u32(&mut bytes, symtab + 20, 0x40);
+
+    let strings = b"\0_main\0_printf\0Llabel\0";
+    bytes[0x340..0x340 + strings.len()].copy_from_slice(strings);
+
+    let main = 0x300;
+    put_u32(&mut bytes, main, 1);
+    bytes[main + 4] = 0x0f;
+    bytes[main + 5] = 1;
+    put_u16(&mut bytes, main + 6, 0);
+    put_u64(&mut bytes, main + 8, 0x1000);
+
+    let printf = main + 16;
+    put_u32(&mut bytes, printf, 7);
+    bytes[printf + 4] = 0x01;
+    bytes[printf + 5] = 0;
+    put_u16(&mut bytes, printf + 6, 0x0200);
+    put_u64(&mut bytes, printf + 8, 0);
+
+    let label = main + 32;
+    put_u32(&mut bytes, label, 15);
+    bytes[label + 4] = 0x0e;
+    bytes[label + 5] = 1;
+    put_u16(&mut bytes, label + 6, 0);
+    put_u64(&mut bytes, label + 8, 0x1004);
+    bytes
+}
+
+#[test]
+fn macho_symbols_decode_the_symtab() {
+    let view = BinaryView::from_bytes("symbols.macho", macho64_symbols_bytes());
+    let report = view.macho_symbols(None).expect("Mach-O symbols");
+
+    assert_eq!(report.total, 3);
+    assert!(!report.truncated);
+    assert_eq!(report.string_table_size, 0x40);
+    assert_eq!(report.symbols.len(), 3);
+
+    assert_eq!(report.symbols[0].name, "_main");
+    assert_eq!(report.symbols[0].kind, "section");
+    assert_eq!(report.symbols[0].address, 0x1000);
+    assert_eq!(report.symbols[0].section, Some(1));
+    assert!(report.symbols[0].external);
+    assert!(!report.symbols[0].debug);
+
+    assert_eq!(report.symbols[1].name, "_printf");
+    assert_eq!(report.symbols[1].kind, "undefined");
+    assert_eq!(report.symbols[1].section, None);
+    assert_eq!(report.symbols[1].descriptor, 0x0200);
+
+    assert_eq!(report.symbols[2].name, "Llabel");
+    assert_eq!(report.symbols[2].kind, "section");
+    assert!(!report.symbols[2].external);
+}
+
+#[test]
+fn macho_symbols_honour_the_limit() {
+    let view = BinaryView::from_bytes("symbols.macho", macho64_symbols_bytes());
+    let report = view.macho_symbols(Some(2)).expect("bounded Mach-O symbols");
+
+    assert_eq!(report.total, 3);
+    assert!(report.truncated);
+    assert_eq!(report.symbols.len(), 2);
+    assert_eq!(report.symbols[1].name, "_printf");
+}
+
+#[test]
+fn macho_symbols_require_a_symtab() {
+    let view = BinaryView::from_bytes("sample.macho", macho64_bytes());
+    assert_eq!(view.macho_symbols(None).unwrap_err().code(), "binary/unsupported");
+
+    let view = BinaryView::from_bytes("plain.exe", pe_bytes());
+    assert_eq!(view.macho_symbols(None).unwrap_err().code(), "binary/unsupported");
 }
 
 fn open_engine(file: &TempFile) -> OpenIda {

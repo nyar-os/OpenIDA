@@ -285,6 +285,25 @@ export interface MachOReport {
     readonly sections: readonly MachOSection[];
 }
 
+/** One `LC_SYMTAB` symbol. */
+export interface MachOSymbol {
+    readonly name: string;
+    readonly address: number;
+    readonly kind: 'undefined' | 'absolute' | 'section' | 'indirect' | 'prebound' | 'debug' | 'other';
+    readonly external: boolean;
+    readonly debug: boolean;
+    readonly section: number | null;
+    readonly descriptor: number;
+}
+
+/** Bounded Mach-O symbol table listing. */
+export interface MachOSymbolsReport {
+    readonly symbols: readonly MachOSymbol[];
+    readonly total: number;
+    readonly truncated: boolean;
+    readonly stringTableSize: number;
+}
+
 /** Entropy of one section payload. */
 export interface SectionEntropy {
     readonly name: string;

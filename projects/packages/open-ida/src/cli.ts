@@ -25,6 +25,7 @@ import type {
     ExportsReport,
     ImportsReport,
     MachOReport,
+    MachOSymbolsReport,
     SearchOptions,
     SearchReport,
     Section,
@@ -259,6 +260,22 @@ function describeMachO(report: MachOReport): string {
                 `  ${`${section.segment},${section.name}`.padEnd(24)} addr=${hex(section.address)} size=${hex(section.size)} file=${hex(section.fileOffset)} ${access}`,
             );
         }
+    }
+    return lines.join('\n');
+}
+
+function describeMachOSymbols(report: MachOSymbolsReport): string {
+    const header = entriesHeader(report.symbols.length, report.total, 'Mach-O symbol(s)', report.truncated);
+    if (report.symbols.length === 0) {
+        return `${header}\n  no symbols`;
+    }
+    const lines = [header, `string table: ${report.stringTableSize} bytes`];
+    for (const symbol of report.symbols) {
+        const flags = `${symbol.external ? 'ext' : 'int'}${symbol.debug ? ',dbg' : ''}`;
+        const section = symbol.section === null ? '' : `  sect ${symbol.section}`;
+        lines.push(
+            `  ${hex(symbol.address).padStart(12)}  ${symbol.kind.padEnd(9)} ${flags.padEnd(7)} ${symbol.name}${section}`,
+        );
     }
     return lines.join('\n');
 }
@@ -582,6 +599,31 @@ cli.command('macho', 'cli.cmd.macho').actionCtx(async (options, _args, ctx) => {
         ida.close();
     }
 });
+
+cli
+    .command('macho-symbols', 'cli.cmd.machoSymbols')
+    .option('--limit <count>', 'cli.opt.limit')
+    .actionCtx(async (options, _args, ctx) => {
+        const file = input(options);
+        if (file === undefined) {
+            ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+            return 2;
+        }
+        const limitText = text(options, 'limit');
+        const limit = limitText === undefined ? undefined : parseNumber(limitText);
+        if (limitText !== undefined && (limit === undefined || limit < 1)) {
+            ctx.fail('open-ida.cli.limit', { message: '`--limit <count>` must be a positive integer' });
+            return 2;
+        }
+        const ida = new OpenIDA({ path: file });
+        try {
+            const report = ida.machoSymbols(limit);
+            ctx.emitResult(report, describeMachOSymbols(report));
+            return 0;
+        } finally {
+            ida.close();
+        }
+    });
 
 cli
     .command('disasm', 'cli.cmd.disasm')

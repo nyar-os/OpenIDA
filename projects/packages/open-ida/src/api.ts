@@ -23,6 +23,7 @@ import type {
     HexdumpReport,
     ImportsReport,
     MachOReport,
+    MachOSymbolsReport,
     OffsetToRvaReport,
     OffsetToVaReport,
     PatchReport,
@@ -135,6 +136,11 @@ export class OpenIDA {
     /** Decodes Mach-O load commands, segments, sections, dylibs and identity. */
     macho(): MachOReport {
         return decode<MachOReport>(() => binding('binary.macho').binary_macho(this.id));
+    }
+
+    /** Lists the Mach-O `LC_SYMTAB` symbol table. */
+    machoSymbols(limit?: number): MachOSymbolsReport {
+        return decode<MachOSymbolsReport>(() => binding('binary.macho_symbols').binary_macho_symbols(this.id, limit));
     }
 
     /** Decodes x86 / x64 instructions from one file offset. */
