@@ -578,6 +578,7 @@ fn capabilities_declare_what_is_not_implemented() {
     assert_eq!(matrix["features"]["macho-symbols"], "supported");
     assert_eq!(matrix["features"]["macho-fat-slices"], "supported");
     assert_eq!(matrix["features"]["pe-mitigations"], "supported");
+    assert_eq!(matrix["features"]["pe-resources"], "supported");
     assert_eq!(matrix["unsupported"]["debugger"], "not-implemented");
 }
 
@@ -1239,6 +1240,78 @@ fn macho_slices_require_a_fat_container() {
 
     let view = BinaryView::from_bytes("plain.exe", pe_bytes());
     assert_eq!(view.macho_slices().unwrap_err().code(), "binary/unsupported");
+}
+
+#[test]
+fn pe_resources_walk_the_directory_tree() {
+    let mut bytes = pe_bytes();
+    put_u32(&mut bytes, 0x98 + 112 + 2 * 8, 0x2000);
+    put_u32(&mut bytes, 0x98 + 112 + 2 * 8 + 4, 0x100);
+
+    let base = 0x400;
+    put_u16(&mut bytes, base + 12, 1);
+    put_u16(&mut bytes, base + 14, 1);
+    put_u32(&mut bytes, base + 0x10, 0x8000_00c0);
+    put_u32(&mut bytes, base + 0x14, 0x8000_0020);
+    put_u32(&mut bytes, base + 0x18, 16);
+    put_u32(&mut bytes, base + 0x1c, 0x8000_0070);
+
+    put_u16(&mut bytes, base + 0x2c, 1);
+    put_u32(&mut bytes, base + 0x30, 1);
+    put_u32(&mut bytes, base + 0x34, 0x8000_0040);
+    put_u16(&mut bytes, base + 0x4c, 1);
+    put_u32(&mut bytes, base + 0x50, 0x409);
+    put_u32(&mut bytes, base + 0x54, 0x60);
+    put_u32(&mut bytes, base + 0x60, 0x1000);
+    put_u32(&mut bytes, base + 0x64, 0x10);
+    put_u32(&mut bytes, base + 0x68, 0);
+
+    put_u16(&mut bytes, base + 0x7c, 1);
+    put_u32(&mut bytes, base + 0x80, 1);
+    put_u32(&mut bytes, base + 0x84, 0x8000_0090);
+    put_u16(&mut bytes, base + 0x9c, 1);
+    put_u32(&mut bytes, base + 0xa0, 0x409);
+    put_u32(&mut bytes, base + 0xa4, 0xb0);
+    put_u32(&mut bytes, base + 0xb0, 0x1000);
+    put_u32(&mut bytes, base + 0xb4, 0x20);
+    put_u32(&mut bytes, base + 0xb8, 1200);
+
+    put_u16(&mut bytes, base + 0xc0, 4);
+    for (index, unit) in "TEST".encode_utf16().enumerate() {
+        put_u16(&mut bytes, base + 0xc2 + index * 2, unit);
+    }
+
+    let view = BinaryView::from_bytes("resources.exe", bytes);
+    let report = view.resources().expect("PE resources");
+
+    assert!(report.present);
+    assert_eq!(report.total, 2);
+    assert!(!report.truncated);
+    assert_eq!(report.resources.len(), 2);
+
+    assert_eq!(report.resources[0].resource_type, "TEST");
+    assert_eq!(report.resources[0].name, "#1");
+    assert_eq!(report.resources[0].language, 0x409);
+    assert_eq!(report.resources[0].data_rva, 0x1000);
+    assert_eq!(report.resources[0].size, 0x10);
+    assert_eq!(report.resources[0].code_page, 0);
+
+    assert_eq!(report.resources[1].resource_type, "VERSION");
+    assert_eq!(report.resources[1].language, 0x409);
+    assert_eq!(report.resources[1].size, 0x20);
+    assert_eq!(report.resources[1].code_page, 1200);
+}
+
+#[test]
+fn pe_resources_report_absence_and_reject_non_pe() {
+    let view = BinaryView::from_bytes("plain.exe", pe_bytes());
+    let report = view.resources().expect("PE resources");
+    assert!(!report.present);
+    assert_eq!(report.total, 0);
+    assert!(report.resources.is_empty());
+
+    let elf = BinaryView::from_bytes("sample.elf", elf64_bytes());
+    assert_eq!(elf.resources().unwrap_err().code(), "binary/unsupported");
 }
 
 #[test]

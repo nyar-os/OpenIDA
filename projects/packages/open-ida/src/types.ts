@@ -346,6 +346,24 @@ export interface MitigationsReport {
     readonly guardFlags: number | null;
 }
 
+/** One leaf entry of the PE resource directory. */
+export interface PeResource {
+    readonly resourceType: string;
+    readonly name: string;
+    readonly language: number;
+    readonly dataRva: number;
+    readonly size: number;
+    readonly codePage: number;
+}
+
+/** Bounded PE resource listing. */
+export interface ResourcesReport {
+    readonly present: boolean;
+    readonly resources: readonly PeResource[];
+    readonly total: number;
+    readonly truncated: boolean;
+}
+
 /** Entropy of one section payload. */
 export interface SectionEntropy {
     readonly name: string;

@@ -31,6 +31,7 @@ containers are rejected, and unknown containers are rejected.
 | Read product metadata | `open-ida version <file>` | File/product version and `StringFileInfo` pairs |
 | Profile Mach-O | `open-ida macho <file>` | UUID, platform, min OS/SDK, dylibs, segments, sections, entry |
 | Check PE hardening | `open-ida mitigations <file>` | ASLR, DEP, CFG, GS, W+X, relocations, certificate presence |
+| List PE resources | `open-ida resources <file>` | Type, name, language, RVA and size per leaf |
 | List fat slices | `open-ida macho-slices <file>` | CPU, architecture, offset, size and alignment per slice |
 | List Mach-O symbols | `open-ida macho-symbols <file> --limit <n>` | Name, address, kind, section and flags per `LC_SYMTAB` entry |
 | Decode code | `open-ida disasm <file> --offset <n> --count <n>` | Address, offset, bytes, mnemonic |

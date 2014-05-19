@@ -45,6 +45,8 @@ ida.close();
 
 - Instances are handles. A closed handle is rejected instead of being reopened
   silently, and every constructor call must be paired with `close()`.
+- `resources()` lists the PE resource tree leaves by type, name, language and
+  size. It reports `present: false` when the image has no resource directory.
 - `mitigations()` reads PE header and load-config facts (ASLR, DEP, CFG, GS,
   W+X sections, relocations, certificate-table presence). It does not verify
   Authenticode signatures.

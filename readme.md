@@ -55,6 +55,7 @@ open-ida imports ./samples/app.exe
 open-ida macho ./samples/app.macho
 open-ida macho-slices ./samples/universal.macho
 open-ida mitigations ./samples/app.exe
+open-ida resources ./samples/app.exe
 open-ida macho-symbols ./samples/app.macho --limit 200
 open-ida disasm ./samples/app.exe --offset 0x1000 --count 20
 open-ida entropy ./samples/app.exe
@@ -68,7 +69,7 @@ the TypeScript session, so a script and a person read the same result.
 
 - **Hardening facts.** ASLR, high-entropy VA, DEP, CFG, GS cookies, W+X
   sections, relocations and certificate-table presence, read from the PE header
-  and load config.
+  and load config. The PE resource tree is listed by type, name and language.
 - **Format-aware facts.** PE and ELF headers, sections, entry points, image
   bases and hashes; Mach-O load commands, segments, sections, dylibs, UUID,
   build versions and the `LC_SYMTAB` symbol table, plus the architecture table

@@ -205,6 +205,10 @@ fn mitigations_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.mitigations()?))
 }
 
+fn resources_report(handle: u64) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.resources()?))
+}
+
 fn version_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.version()?))
 }
@@ -421,6 +425,16 @@ fn binary_version(ctx: CallContext) -> Result<JsValue> {
 fn binary_macho(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     match macho_report(handle) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Lists the PE resource directory leaves.
+#[function]
+fn binary_resources(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    match resources_report(handle) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
@@ -976,6 +990,7 @@ register_module![
     binary_macho_symbols,
     binary_macho_slices,
     binary_mitigations,
+    binary_resources,
     binary_disasm,
     binary_diff,
     binary_entropy,

@@ -137,6 +137,19 @@ info (file and product versions, flags, OS and type) plus the `StringFileInfo`
 pairs with their language id and code page. A PE with no version resource prints
 `no RT_VERSION resource` and reports `present: false` rather than failing.
 
+### `resources <file>`
+
+```bash
+open-ida resources ./samples/app.exe
+```
+
+PE only. Walks the three-level resource tree (type, name, language) and prints
+each leaf with type, name, language id, data RVA, size and code page. Standard
+types are named (`VERSION`, `MANIFEST`, `GROUP_ICON`, ...); numeric names print
+as `#<id>` and custom names print as written. A PE without a resource directory
+prints `no resource directory`. The list is capped at 256 leaves, with `total`
+and `truncated` describing the cut.
+
 ### `mitigations <file>`
 
 ```bash
