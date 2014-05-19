@@ -147,7 +147,20 @@ Mach-O only. Prints the header (bitness, byte order, CPU, file type, flags,
 command count), `LC_UUID`, platform, minimum OS and SDK, the `LC_MAIN` entry
 offset mapped onto a virtual address, every dylib command with its version,
 and the segment and section tables with r/w/x access. Fat/universal containers
-answer `binary/unsupported`; select a slice first.
+answer `binary/unsupported`; run `macho-slices` to see their architecture table.
+
+### `macho-slices <file>`
+
+```bash
+open-ida macho-slices ./samples/universal.macho
+```
+
+Fat/universal Mach-O only. Prints the `fat_arch` or `fat_arch_64` layout and one
+line per slice: CPU type and subtype, architecture, file offset, size, alignment
+and the bitness read from the slice header. A thin Mach-O answers
+`binary/unsupported` and is inspected with `macho` directly. This build lists
+slices but does not extract them, so `macho` and `macho-symbols` still require a
+thin image.
 
 ### `macho-symbols <file>`
 

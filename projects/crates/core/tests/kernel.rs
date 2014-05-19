@@ -576,6 +576,7 @@ fn capabilities_declare_what_is_not_implemented() {
     assert_eq!(matrix["features"]["macho-dylibs"], "supported");
     assert_eq!(matrix["features"]["macho-sections"], "supported");
     assert_eq!(matrix["features"]["macho-symbols"], "supported");
+    assert_eq!(matrix["features"]["macho-fat-slices"], "supported");
     assert_eq!(matrix["unsupported"]["debugger"], "not-implemented");
 }
 
@@ -1137,6 +1138,106 @@ fn macho_symbols_require_a_symtab() {
 
     let view = BinaryView::from_bytes("plain.exe", pe_bytes());
     assert_eq!(view.macho_symbols(None).unwrap_err().code(), "binary/unsupported");
+}
+
+fn put_be_u32(bytes: &mut [u8], offset: usize, value: u32) {
+    bytes[offset..offset + 4].copy_from_slice(&value.to_be_bytes());
+}
+
+fn put_be_u64(bytes: &mut [u8], offset: usize, value: u64) {
+    bytes[offset..offset + 8].copy_from_slice(&value.to_be_bytes());
+}
+
+/// A `fat_arch` container with an x86_64 and an arm64 slice.
+fn fat32_bytes() -> Vec<u8> {
+    let mut bytes = vec![0u8; 0x2400];
+    put_be_u32(&mut bytes, 0, 0xcafe_babe);
+    put_be_u32(&mut bytes, 4, 2);
+
+    put_be_u32(&mut bytes, 8, 0x0100_0007);
+    put_be_u32(&mut bytes, 12, 3);
+    put_be_u32(&mut bytes, 16, 0x1000);
+    put_be_u32(&mut bytes, 20, 0x200);
+    put_be_u32(&mut bytes, 24, 12);
+
+    put_be_u32(&mut bytes, 28, 0x0100_000c);
+    put_be_u32(&mut bytes, 32, 0);
+    put_be_u32(&mut bytes, 36, 0x2000);
+    put_be_u32(&mut bytes, 40, 0x300);
+    put_be_u32(&mut bytes, 44, 14);
+
+    bytes[0x1000..0x1004].copy_from_slice(&[0xcf, 0xfa, 0xed, 0xfe]);
+    bytes[0x2000..0x2004].copy_from_slice(&[0xcf, 0xfa, 0xed, 0xfe]);
+    bytes
+}
+
+#[test]
+fn macho_fat_slices_report_architectures_and_ranges() {
+    let view = BinaryView::from_bytes("universal.macho", fat32_bytes());
+    let report = view.macho_slices().expect("fat slices");
+
+    assert!(!report.is_fat64);
+    assert_eq!(report.slices.len(), 2);
+
+    assert_eq!(report.slices[0].index, 0);
+    assert_eq!(report.slices[0].architecture, "x64");
+    assert_eq!(report.slices[0].cpu_type, 0x0100_0007);
+    assert_eq!(report.slices[0].offset, 0x1000);
+    assert_eq!(report.slices[0].size, 0x200);
+    assert_eq!(report.slices[0].alignment, 12);
+    assert_eq!(report.slices[0].bits, Some(64));
+
+    assert_eq!(report.slices[1].architecture, "arm64");
+    assert_eq!(report.slices[1].offset, 0x2000);
+    assert_eq!(report.slices[1].size, 0x300);
+
+    let message = view.macho().unwrap_err().message().to_string();
+    assert!(message.contains("macho-slices"), "unexpected message: {message}");
+}
+
+/// A `fat_arch_64` container with one arm64 slice and 64-bit ranges.
+fn fat64_bytes() -> Vec<u8> {
+    let mut bytes = vec![0u8; 0x1200];
+    put_be_u32(&mut bytes, 0, 0xcafe_babf);
+    put_be_u32(&mut bytes, 4, 1);
+    put_be_u32(&mut bytes, 8, 0x0100_000c);
+    put_be_u32(&mut bytes, 12, 2);
+    put_be_u64(&mut bytes, 16, 0x1000);
+    put_be_u64(&mut bytes, 24, 0x100);
+    put_be_u32(&mut bytes, 32, 12);
+    put_be_u32(&mut bytes, 36, 0);
+    bytes[0x1000..0x1004].copy_from_slice(&[0xcf, 0xfa, 0xed, 0xfe]);
+    bytes
+}
+
+#[test]
+fn macho_fat64_slices_use_64_bit_ranges() {
+    let view = BinaryView::from_bytes("universal.macho", fat64_bytes());
+    let report = view.macho_slices().expect("fat64 slices");
+
+    assert!(report.is_fat64);
+    assert_eq!(report.slices.len(), 1);
+    assert_eq!(report.slices[0].architecture, "arm64");
+    assert_eq!(report.slices[0].offset, 0x1000);
+    assert_eq!(report.slices[0].size, 0x100);
+    assert_eq!(report.slices[0].bits, Some(64));
+}
+
+#[test]
+fn macho_fat_slice_outside_the_file_is_a_parse_error() {
+    let mut bytes = fat32_bytes();
+    put_be_u32(&mut bytes, 20, 0x4000);
+    let view = BinaryView::from_bytes("truncated.macho", bytes);
+    assert_eq!(view.macho_slices().unwrap_err().code(), "binary/parse");
+}
+
+#[test]
+fn macho_slices_require_a_fat_container() {
+    let view = BinaryView::from_bytes("sample.macho", macho64_bytes());
+    assert_eq!(view.macho_slices().unwrap_err().code(), "binary/unsupported");
+
+    let view = BinaryView::from_bytes("plain.exe", pe_bytes());
+    assert_eq!(view.macho_slices().unwrap_err().code(), "binary/unsupported");
 }
 
 fn open_engine(file: &TempFile) -> OpenIda {

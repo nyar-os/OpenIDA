@@ -304,6 +304,24 @@ export interface MachOSymbolsReport {
     readonly stringTableSize: number;
 }
 
+/** One architecture slice of a fat/universal Mach-O. */
+export interface MachOSlice {
+    readonly index: number;
+    readonly cpuType: number;
+    readonly cpuSubtype: number;
+    readonly architecture: string;
+    readonly offset: number;
+    readonly size: number;
+    readonly alignment: number;
+    readonly bits: 32 | 64 | null;
+}
+
+/** Fat/universal Mach-O architecture table. */
+export interface MachOSlicesReport {
+    readonly isFat64: boolean;
+    readonly slices: readonly MachOSlice[];
+}
+
 /** Entropy of one section payload. */
 export interface SectionEntropy {
     readonly name: string;

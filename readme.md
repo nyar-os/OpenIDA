@@ -53,6 +53,7 @@ open-ida sections ./samples/app.exe
 open-ida strings ./samples/app.exe --encoding both
 open-ida imports ./samples/app.exe
 open-ida macho ./samples/app.macho
+open-ida macho-slices ./samples/universal.macho
 open-ida macho-symbols ./samples/app.macho --limit 200
 open-ida disasm ./samples/app.exe --offset 0x1000 --count 20
 open-ida entropy ./samples/app.exe
@@ -66,8 +67,8 @@ the TypeScript session, so a script and a person read the same result.
 
 - **Format-aware facts.** PE and ELF headers, sections, entry points, image
   bases and hashes; Mach-O load commands, segments, sections, dylibs, UUID,
-  build versions and the `LC_SYMTAB` symbol table, reported as partial until
-  dyld bindings are decoded.
+  build versions and the `LC_SYMTAB` symbol table, plus the architecture table
+  of fat containers. Mach-O stays partial until dyld bindings are decoded.
 - **Strings in both encodings.** ASCII runs by default, plus the
   ASCII-in-UTF-16LE runs that Windows binaries commonly embed.
 - **Address mapping both ways.** RVA or virtual address to file offset, and file
@@ -104,6 +105,8 @@ drawing sample data.
 - No Mach-O dyld bindings: load commands, segments, sections, dylibs, build
   versions and the `LC_SYMTAB` symbol table are decoded, but bind opcodes are
   not resolved.
+- No fat Mach-O slicing: `macho-slices` lists the architecture table, but a
+  universal container must be carved into a thin image before `macho` runs.
 - No big-endian ELF: rejected with a stable code instead of a guessed layout.
 - No relocation resolution: import and export tables are parsed, not applied.
 - No release artifacts: the packages are private and no installer exists.

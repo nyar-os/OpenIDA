@@ -25,6 +25,7 @@ import type {
     ExportsReport,
     ImportsReport,
     MachOReport,
+    MachOSlicesReport,
     MachOSymbolsReport,
     SearchOptions,
     SearchReport,
@@ -275,6 +276,21 @@ function describeMachOSymbols(report: MachOSymbolsReport): string {
         const section = symbol.section === null ? '' : `  sect ${symbol.section}`;
         lines.push(
             `  ${hex(symbol.address).padStart(12)}  ${symbol.kind.padEnd(9)} ${flags.padEnd(7)} ${symbol.name}${section}`,
+        );
+    }
+    return lines.join('\n');
+}
+
+function describeMachOSlices(report: MachOSlicesReport): string {
+    if (report.slices.length === 0) {
+        return 'no architecture slices';
+    }
+    const layout = report.isFat64 ? 'fat_arch_64' : 'fat_arch';
+    const lines = [`${report.slices.length} slice(s) · ${layout}`];
+    for (const slice of report.slices) {
+        const bits = slice.bits === null ? '' : ` ${slice.bits}-bit`;
+        lines.push(
+            `  [${slice.index}] ${slice.architecture.padEnd(6)} cpu=${hex(slice.cpuType)}/${hex(slice.cpuSubtype)}${bits} offset=${hex(slice.offset)} size=${hex(slice.size)} align=2^${slice.alignment}`,
         );
     }
     return lines.join('\n');
@@ -624,6 +640,22 @@ cli
             ida.close();
         }
     });
+
+cli.command('macho-slices', 'cli.cmd.machoSlices').actionCtx(async (options, _args, ctx) => {
+    const file = input(options);
+    if (file === undefined) {
+        ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+        return 2;
+    }
+    const ida = new OpenIDA({ path: file });
+    try {
+        const report = ida.machoSlices();
+        ctx.emitResult(report, describeMachOSlices(report));
+        return 0;
+    } finally {
+        ida.close();
+    }
+});
 
 cli
     .command('disasm', 'cli.cmd.disasm')

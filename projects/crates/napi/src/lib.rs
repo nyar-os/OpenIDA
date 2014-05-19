@@ -197,6 +197,10 @@ fn macho_symbols_report(handle: u64, limit: Option<u64>) -> std::result::Result<
     with_engine(handle, |engine| encoded(&engine.macho_symbols(limit_value(limit))?))
 }
 
+fn macho_slices_report(handle: u64) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.macho_slices()?))
+}
+
 fn version_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.version()?))
 }
@@ -424,6 +428,16 @@ fn binary_macho_symbols(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     let limit = optional_number(&ctx, 1)?;
     match macho_symbols_report(handle, limit) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Lists the architecture slices of a fat/universal Mach-O container.
+#[function]
+fn binary_macho_slices(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    match macho_slices_report(handle) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
@@ -946,6 +960,7 @@ register_module![
     binary_version,
     binary_macho,
     binary_macho_symbols,
+    binary_macho_slices,
     binary_disasm,
     binary_diff,
     binary_entropy,
