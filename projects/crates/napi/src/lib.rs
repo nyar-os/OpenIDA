@@ -201,6 +201,10 @@ fn macho_slices_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.macho_slices()?))
 }
 
+fn mitigations_report(handle: u64) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.mitigations()?))
+}
+
 fn version_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.version()?))
 }
@@ -417,6 +421,16 @@ fn binary_version(ctx: CallContext) -> Result<JsValue> {
 fn binary_macho(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     match macho_report(handle) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Summarises the PE mitigation posture.
+#[function]
+fn binary_mitigations(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    match mitigations_report(handle) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
@@ -961,6 +975,7 @@ register_module![
     binary_macho,
     binary_macho_symbols,
     binary_macho_slices,
+    binary_mitigations,
     binary_disasm,
     binary_diff,
     binary_entropy,

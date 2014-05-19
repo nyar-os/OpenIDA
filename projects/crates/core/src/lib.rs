@@ -18,6 +18,7 @@ mod disasm;
 mod entropy;
 mod error;
 mod macho;
+mod mitigations;
 mod text;
 mod version;
 
@@ -37,6 +38,7 @@ pub use disasm::{DisassembleOptions, DisassemblyInstruction, DisassemblyReport, 
 pub use entropy::{EntropyReport, OverlayInfo, SectionEntropy};
 pub use error::{IdaError, Result};
 pub use macho::{MachODylib, MachOReport, MachOSection, MachOSegment, MachOSlice, MachOSlicesReport, MachOSymbol, MachOSymbolsReport};
+pub use mitigations::{MitigationsReport, WritableExecutableSection};
 pub use text::{EncodedStringHit, EncodedStringsReport, StringEncoding, StringsOptions};
 pub use version::{FixedFileInfo, VersionReport, VersionString};
 
@@ -150,6 +152,11 @@ impl BinaryView {
     /// Lists the architecture slices of a fat/universal Mach-O container.
     pub fn macho_slices(&self) -> Result<MachOSlicesReport> {
         macho::slices(&self.session)
+    }
+
+    /// Summarises the PE mitigation posture.
+    pub fn mitigations(&self) -> Result<MitigationsReport> {
+        mitigations::analyze(&self.session)
     }
 
     /// Decodes `x86` / `x64` instructions from one file offset.
@@ -356,6 +363,11 @@ impl OpenIda {
         macho::slices(&self.session)
     }
 
+    /// Summarises the PE mitigation posture.
+    pub fn mitigations(&self) -> Result<MitigationsReport> {
+        mitigations::analyze(&self.session)
+    }
+
     /// Decodes `x86` / `x64` instructions from one file offset.
     pub fn disasm(&self, options: &DisassembleOptions) -> Result<DisassemblyReport> {
         disasm::analyze(&self.session, options)
@@ -448,6 +460,7 @@ pub fn capabilities() -> serde_json::Value {
             "macho-build-version": "supported",
             "macho-symbols": "supported",
             "macho-fat-slices": "supported",
+            "pe-mitigations": "supported",
             "disassembly": "supported",
             "diff": "supported",
             "entropy": "supported",

@@ -30,6 +30,7 @@ containers are rejected, and unknown containers are rejected.
 | Recover PDB path | `open-ida debug <file>` | CodeView signature, GUID or NB10 record, path |
 | Read product metadata | `open-ida version <file>` | File/product version and `StringFileInfo` pairs |
 | Profile Mach-O | `open-ida macho <file>` | UUID, platform, min OS/SDK, dylibs, segments, sections, entry |
+| Check PE hardening | `open-ida mitigations <file>` | ASLR, DEP, CFG, GS, W+X, relocations, certificate presence |
 | List fat slices | `open-ida macho-slices <file>` | CPU, architecture, offset, size and alignment per slice |
 | List Mach-O symbols | `open-ida macho-symbols <file> --limit <n>` | Name, address, kind, section and flags per `LC_SYMTAB` entry |
 | Decode code | `open-ida disasm <file> --offset <n> --count <n>` | Address, offset, bytes, mnemonic |
@@ -78,6 +79,9 @@ Branch on `code`, never on message text. CLI usage failures add
    user's explicit request.
 7. Report `truncated` results as truncated; do not present a partial listing as
    complete.
+8. `mitigations` reports header and load-config facts. A present certificate
+   table is not a verified signature, and a set CFG bit is not proof that every
+   indirect call is checked.
 
 ## Key files
 

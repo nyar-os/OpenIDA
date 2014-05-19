@@ -9,7 +9,7 @@ support claim.
 
 | Container | State | What is decoded |
 | --- | --- | --- |
-| PE (`MZ`) | `supported` | Headers, image base, entry RVA, sections, imports, exports, COFF symbols, debug directory, `RSDS` / `NB10` CodeView records, overlay. |
+| PE (`MZ`) | `supported` | Headers, image base, entry RVA, sections, imports, exports, COFF symbols, debug directory, `RSDS` / `NB10` CodeView records, `RT_VERSION`, overlay and the mitigation posture (ASLR/DEP/CFG/GS/W+X). |
 | ELF 32/64-bit little-endian | `supported` | Headers, sections, entry point, dynamic symbols and section entropy. |
 | Mach-O | `partial` | Headers, `LC_UUID`, `LC_BUILD_VERSION` / `LC_VERSION_MIN_*`, dylib commands, segments, sections and the `LC_SYMTAB` symbol table. Fat containers report their architecture table only. No dyld bindings. |
 | Mach-O fat/universal | `partial` | The `fat_arch` / `fat_arch_64` architecture table (CPU, range, alignment, slice bitness). Thin-image inspection and symbols still answer `binary/unsupported` until a slice is selected. |
@@ -35,6 +35,7 @@ Big-endian ELF is rejected rather than decoded with a guessed byte order.
 | `version` | `supported` | PE `RT_VERSION` fixed file info and `StringFileInfo` pairs. A PE without the resource reports `present: false`; non-PE answers `binary/unsupported`. |
 | `macho` | `supported` | Mach-O header, file type, UUID, platform/min OS/SDK, dylibs, segments, sections and entry point. Non-Mach-O answers `binary/unsupported`. |
 | `macho-symbols` | `supported` | Mach-O `LC_SYMTAB` entries with name, address, kind, external/debug flags, section index and descriptor. A Mach-O without `LC_SYMTAB` answers `binary/unsupported`. |
+| `pe-mitigations` | `supported` | PE `DllCharacteristics` (ASLR, high-entropy VA, DEP, CFG, force integrity, no-SEH, terminal-server-aware), load-config GS cookie and `GuardFlags`, base-relocation and certificate-table presence, and W+X sections. Non-PE answers `binary/unsupported`. |
 | `macho-fat-slices` | `supported` | Fat/universal architecture table: index, CPU type/subtype, architecture, offset, size, alignment and slice bitness. A thin image answers `binary/unsupported`. |
 | `disassembly` | `supported` | x86 and x64 only, Intel/MASM/NASM syntax. |
 | `diff` | `supported` | Byte-level comparison plus the first differing offset. |
@@ -83,6 +84,7 @@ Big-endian ELF is rejected rather than decoded with a guessed byte order.
 | --- | --- |
 | Mach-O dyld bindings | Not decoded; `formats.macho = partial`. Load commands, segments, sections, dylibs, build versions and the `LC_SYMTAB` symbol table are decoded. |
 | Fat/universal Mach-O | `macho-slices` lists the architecture table. `macho` and `macho-symbols` answer `binary/unsupported` until a slice is selected; this build does not carve slices. |
+| Authenticode verification | Not implemented. `pe-mitigations` reports whether the certificate table is present, not whether the signature is valid. |
 | Big-endian ELF | `binary/unsupported`. |
 | Unknown container | `binary/unsupported`. |
 | PE on a non-PE file | `debug` answers `binary/unsupported`. |

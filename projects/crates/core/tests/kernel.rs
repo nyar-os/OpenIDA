@@ -577,6 +577,7 @@ fn capabilities_declare_what_is_not_implemented() {
     assert_eq!(matrix["features"]["macho-sections"], "supported");
     assert_eq!(matrix["features"]["macho-symbols"], "supported");
     assert_eq!(matrix["features"]["macho-fat-slices"], "supported");
+    assert_eq!(matrix["features"]["pe-mitigations"], "supported");
     assert_eq!(matrix["unsupported"]["debugger"], "not-implemented");
 }
 
@@ -1238,6 +1239,63 @@ fn macho_slices_require_a_fat_container() {
 
     let view = BinaryView::from_bytes("plain.exe", pe_bytes());
     assert_eq!(view.macho_slices().unwrap_err().code(), "binary/unsupported");
+}
+
+#[test]
+fn pe_mitigations_read_the_optional_header() {
+    let mut bytes = pe_bytes();
+    put_u16(&mut bytes, 0x98 + 0x4a, 0x0160);
+
+    let view = BinaryView::from_bytes("hardened.exe", bytes);
+    let report = view.mitigations().expect("PE mitigations");
+
+    assert_eq!(report.dll_characteristics, 0x0160);
+    assert!(report.aslr);
+    assert!(report.dep);
+    assert!(report.high_entropy_va);
+    assert!(!report.cfg);
+    assert!(!report.force_integrity);
+    assert!(!report.no_seh);
+    assert!(!report.relocations_present);
+    assert!(!report.signed);
+    assert!(report.writable_executable_sections.is_empty());
+    assert_eq!(report.security_cookie, None);
+    assert_eq!(report.guard_flags, None);
+
+    let elf = BinaryView::from_bytes("sample.elf", elf64_bytes());
+    assert_eq!(elf.mitigations().unwrap_err().code(), "binary/unsupported");
+}
+
+#[test]
+fn pe_mitigations_detect_wx_relocations_and_load_config() {
+    let mut bytes = pe_bytes();
+    bytes.resize(0x800, 0);
+    put_u16(&mut bytes, 0x98 + 0x4a, 0x0000);
+    put_u32(&mut bytes, 0x188 + 36, 0xe000_0020);
+
+    put_u32(&mut bytes, 0x98 + 112 + 5 * 8, 0x1000);
+    put_u32(&mut bytes, 0x98 + 112 + 5 * 8 + 4, 12);
+    put_u32(&mut bytes, 0x98 + 112 + 4 * 8, 0x700);
+    put_u32(&mut bytes, 0x98 + 112 + 4 * 8 + 4, 8);
+    put_u32(&mut bytes, 0x98 + 112 + 10 * 8, 0x2000);
+    put_u32(&mut bytes, 0x98 + 112 + 10 * 8 + 4, 0x94);
+
+    put_u32(&mut bytes, 0x400, 0x94);
+    put_u64(&mut bytes, 0x400 + 0x58, 0x1_4000_1000);
+    put_u32(&mut bytes, 0x400 + 0x90, 0x100);
+
+    let view = BinaryView::from_bytes("loose.exe", bytes);
+    let report = view.mitigations().expect("PE mitigations");
+
+    assert!(!report.aslr);
+    assert!(!report.dep);
+    assert!(report.cfg);
+    assert!(report.relocations_present);
+    assert!(report.signed);
+    assert_eq!(report.writable_executable_sections.len(), 1);
+    assert_eq!(report.writable_executable_sections[0].name, ".text");
+    assert_eq!(report.security_cookie, Some(true));
+    assert_eq!(report.guard_flags, Some(0x100));
 }
 
 fn open_engine(file: &TempFile) -> OpenIda {

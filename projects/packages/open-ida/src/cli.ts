@@ -27,6 +27,7 @@ import type {
     MachOReport,
     MachOSlicesReport,
     MachOSymbolsReport,
+    MitigationsReport,
     SearchOptions,
     SearchReport,
     Section,
@@ -217,6 +218,32 @@ function describeVersion(report: VersionReport): string {
     lines.push(`${report.strings.length} of ${report.total} string(s)${report.truncated ? ' (truncated)' : ''}`);
     for (const entry of report.strings) {
         lines.push(`  ${entry.key.padEnd(22)} ${entry.value}  (lang ${hex(entry.languageId)}, cp ${hex(entry.codepage)})`);
+    }
+    return lines.join('\n');
+}
+
+function describeMitigations(report: MitigationsReport): string {
+    const on = (value: boolean) => (value ? 'yes' : 'no');
+    const lines = [
+        `dll characteristics ${hex(report.dllCharacteristics)}`,
+        `  aslr              ${on(report.aslr)}`,
+        `  high-entropy va   ${on(report.highEntropyVa)}`,
+        `  dep (nx)          ${on(report.dep)}`,
+        `  cfg               ${on(report.cfg)}`,
+        `  force integrity   ${on(report.forceIntegrity)}`,
+        `  no seh            ${on(report.noSeh)}`,
+        `  terminal server   ${on(report.terminalServerAware)}`,
+        `  relocations       ${report.relocationsPresent ? 'present' : 'stripped'}`,
+        `  certificate table ${report.signed ? 'present (not verified)' : 'absent'}`,
+        `  gs cookie         ${report.securityCookie === null ? 'no load config' : on(report.securityCookie)}`,
+    ];
+    if (report.guardFlags !== null) {
+        lines.push(`  guard flags       ${hex(report.guardFlags)}`);
+    }
+    if (report.writableExecutableSections.length === 0) {
+        lines.push('  w+x sections      none');
+    } else {
+        lines.push(`  w+x sections      ${report.writableExecutableSections.map((section) => section.name).join(', ')}`);
     }
     return lines.join('\n');
 }
@@ -594,6 +621,22 @@ cli.command('version', 'cli.cmd.version').actionCtx(async (options, _args, ctx) 
     try {
         const report = ida.version();
         ctx.emitResult(report, describeVersion(report));
+        return 0;
+    } finally {
+        ida.close();
+    }
+});
+
+cli.command('mitigations', 'cli.cmd.mitigations').actionCtx(async (options, _args, ctx) => {
+    const file = input(options);
+    if (file === undefined) {
+        ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+        return 2;
+    }
+    const ida = new OpenIDA({ path: file });
+    try {
+        const report = ida.mitigations();
+        ctx.emitResult(report, describeMitigations(report));
         return 0;
     } finally {
         ida.close();

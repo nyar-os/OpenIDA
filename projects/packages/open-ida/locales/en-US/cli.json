@@ -11,6 +11,7 @@
             "debug": "Print PE debug directory entries and CodeView PDB records",
             "version": "Print the PE version resource (file/product version and string table)",
             "macho": "Print Mach-O load commands, segments, sections, dylibs and image identity",
+            "mitigations": "Print the PE mitigation posture (ASLR, DEP, CFG, GS, W+X, relocations)",
             "machoSymbols": "Print the Mach-O LC_SYMTAB symbol table with kinds and sections",
             "machoSlices": "Print the architecture slices of a fat/universal Mach-O container",
             "disasm": "Disassemble x86 or x64 instructions from a file offset",

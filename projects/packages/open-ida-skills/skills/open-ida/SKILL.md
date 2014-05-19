@@ -9,10 +9,11 @@ description: Inspect compiled binaries with OpenIDA. Use when a task involves PE
 
 `open-ida info`, `sections`, `strings`, `hexdump`, `rva`, `offset`, `imports`,
 `exports`, `symbols`, `debug`, `version`, `macho`, `macho-symbols`,
-`macho-slices`, `disasm`, `entropy`, `diff`, `search` and `patch` are
-implemented for the cases listed below. Decompilation, debugging, dyld bindings
-and fat-slice extraction are **not** implemented and the capability matrix
-reports them as `unsupported` / `not-implemented`.
+`macho-slices`, `mitigations`, `disasm`, `entropy`, `diff`, `search` and
+`patch` are implemented for the cases listed below. Decompilation, debugging,
+dyld bindings, signature verification and fat-slice extraction are **not**
+implemented and the capability matrix reports them as `unsupported` /
+`not-implemented`.
 
 Do not describe an unimplemented route as available, and do not fill the gap with
 a second analysis engine. Report the stable code instead.
@@ -41,6 +42,7 @@ a second analysis engine. Report the stable code instead.
 | macho | Read UUID, platform, dylibs, segments and sections | `macho` report |
 | macho-symbols | List `LC_SYMTAB` entries with kind, section and flags | `macho-symbols` report |
 | macho-slices | List the architectures of a fat/universal container | `macho-slices` report |
+| mitigations | Read the PE hardening posture | `mitigations` report |
 | triage | Spot packing from entropy and the overlay | `entropy` report |
 | compare | Find the first difference between two builds | `diff` report |
 | patch | Change bytes and prove the change | before/after hash and patched copy |
@@ -54,6 +56,8 @@ a second analysis engine. Report the stable code instead.
 - Mach-O support covers headers, load commands, segments, sections, dylibs,
   build versions, the `LC_SYMTAB` symbol table and the fat architecture table.
   Do not claim dyld bindings or slice extraction.
+- `mitigations` reports header/load-config facts, not a security verdict, and
+  it does not verify Authenticode signatures.
 - Big-endian ELF is rejected; do not guess its layout.
 
 ## Safety
