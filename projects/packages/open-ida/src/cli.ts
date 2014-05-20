@@ -20,6 +20,7 @@ import type {
     DebugReport,
     DiffReport,
     DisassemblyReport,
+    ElfDynamicReport,
     EncodedStringsReport,
     EntropyReport,
     ExportsReport,
@@ -254,6 +255,27 @@ function describeRelocations(report: RelocationsReport): string {
         const kinds = block.kinds.map((entry) => `${entry.kind}=${entry.count}`).join(' ');
         lines.push(`  page ${hex(block.pageRva)} · ${block.entries} entr${block.entries === 1 ? 'y' : 'ies'} · ${kinds}`);
     }
+    return lines.join('\n');
+}
+
+function describeDynamic(report: ElfDynamicReport): string {
+    const lines = [`interpreter: ${report.interpreter ?? 'none'}`];
+    if (!report.present) {
+        lines.push('no PT_DYNAMIC segment (static image)');
+        return lines.join('\n');
+    }
+    lines.push(`soname: ${report.soname ?? 'none'}`);
+    lines.push(`${report.needed.length} needed librar${report.needed.length === 1 ? 'y' : 'ies'}${report.truncated ? ' (truncated)' : ''}`);
+    for (const name of report.needed) {
+        lines.push(`  ${name}`);
+    }
+    if (report.rpath.length > 0) {
+        lines.push(`rpath: ${report.rpath.join(':')}`);
+    }
+    if (report.runpath.length > 0) {
+        lines.push(`runpath: ${report.runpath.join(':')}`);
+    }
+    lines.push(`dynamic entries: ${report.dynamicEntries}`);
     return lines.join('\n');
 }
 
@@ -704,6 +726,22 @@ cli.command('relocations', 'cli.cmd.relocations').actionCtx(async (options, _arg
     try {
         const report = ida.relocations();
         ctx.emitResult(report, describeRelocations(report));
+        return 0;
+    } finally {
+        ida.close();
+    }
+});
+
+cli.command('dynamic', 'cli.cmd.dynamic').actionCtx(async (options, _args, ctx) => {
+    const file = input(options);
+    if (file === undefined) {
+        ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+        return 2;
+    }
+    const ida = new OpenIDA({ path: file });
+    try {
+        const report = ida.dynamic();
+        ctx.emitResult(report, describeDynamic(report));
         return 0;
     } finally {
         ida.close();

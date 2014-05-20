@@ -38,6 +38,7 @@ Big-endian ELF is rejected rather than decoded with a guessed byte order.
 | `pe-mitigations` | `supported` | PE `DllCharacteristics` (ASLR, high-entropy VA, DEP, CFG, force integrity, no-SEH, terminal-server-aware), load-config GS cookie and `GuardFlags`, base-relocation and certificate-table presence, and W+X sections. Non-PE answers `binary/unsupported`. |
 | `pe-resources` | `supported` | PE resource tree leaves with type, name, language, data RVA, size and code page. A PE without a resource directory reports `present: false`; non-PE answers `binary/unsupported`. |
 | `pe-relocations` | `supported` | PE `IMAGE_BASE_RELOCATION` blocks with page RVA, block size, entry count and per-type fixup counts, plus whole-image totals. A PE without relocations reports `present: false`; non-PE answers `binary/unsupported`. |
+| `elf-dynamic` | `supported` | ELF `PT_INTERP` interpreter and `PT_DYNAMIC` facts: `DT_SONAME`, `DT_NEEDED`, `DT_RPATH` and `DT_RUNPATH`, mapped through `PT_LOAD`. A static image reports `present: false`; non-ELF answers `binary/unsupported`. |
 | `macho-fat-slices` | `supported` | Fat/universal architecture table: index, CPU type/subtype, architecture, offset, size, alignment and slice bitness. A thin image answers `binary/unsupported`. |
 | `disassembly` | `supported` | x86 and x64 only, Intel/MASM/NASM syntax. |
 | `diff` | `supported` | Byte-level comparison plus the first differing offset. |
@@ -72,6 +73,7 @@ Big-endian ELF is rejected rather than decoded with a guessed byte order.
 | `imports` / `exports` / `symbols` / `macho-symbols` / `debug --limit` | Unlimited | — | `total` and `truncated` describe the cut. |
 | `resources` | 256 leaves, 8,192 tree nodes | — | `total` and `truncated` describe the cut. |
 | `relocations` | 128 blocks listed, 4,096 decoded | — | `totalBlocks`, `totalEntries` and `truncated` describe the cut. |
+| `dynamic` | 256 needed libraries, 64 paths per list | — | `truncated` is `true` when a limit stopped the listing. |
 | `hexdump --length` | 256 bytes | File size | A range outside the file is `binary/range`. |
 
 ## Encoding boundaries

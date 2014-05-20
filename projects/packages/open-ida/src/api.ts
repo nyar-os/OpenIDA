@@ -17,6 +17,7 @@ import type {
     DiffReport,
     DisassembleOptions,
     DisassemblyReport,
+    ElfDynamicReport,
     EncodedStringsReport,
     EntropyReport,
     ExportsReport,
@@ -165,6 +166,11 @@ export class OpenIDA {
     /** Decodes the PE base relocation blocks. */
     relocations(): RelocationsReport {
         return decode<RelocationsReport>(() => binding('binary.relocations').binary_relocations(this.id));
+    }
+
+    /** Reports ELF `PT_INTERP` and `PT_DYNAMIC` dependencies. */
+    dynamic(): ElfDynamicReport {
+        return decode<ElfDynamicReport>(() => binding('binary.dynamic').binary_dynamic(this.id));
     }
 
     /** Decodes x86 / x64 instructions from one file offset. */
