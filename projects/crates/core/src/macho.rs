@@ -7,6 +7,8 @@
 //! Fat/universal containers are reported as an architecture table; a thin
 //! image is inspected directly and does not have slices.
 
+use std::path::Path;
+
 use data_binary_inspect::{BinaryFormat, BinarySession};
 use data_binary_mach_o::mach_o::{MachOEndian, MachOImage, architecture, macho_magic, parse_macho};
 use serde::{Deserialize, Serialize};
@@ -367,6 +369,51 @@ pub(crate) fn slices(session: &BinarySession) -> Result<MachOSlicesReport> {
     }
 
     Ok(MachOSlicesReport { is_fat64, slices: entries })
+}
+
+/// One fat slice written to a caller-chosen path.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MachOSliceExtraction {
+    /// Zero-based position in the fat architecture table.
+    pub index: usize,
+    /// Instruction-set family of the extracted slice.
+    pub architecture: String,
+    /// Source file offset of the slice.
+    pub offset: u64,
+    /// Number of bytes written.
+    pub size: u64,
+    /// Destination path.
+    pub output: String,
+}
+
+/// Writes one fat slice to `output`.
+///
+/// The source container is never modified: writing to the source path itself
+/// is refused, and every other destination is replaced.
+pub(crate) fn extract(session: &BinarySession, index: usize, output: &Path) -> Result<MachOSliceExtraction> {
+    if output == session.path() {
+        return Err(IdaError::io("refusing to overwrite the source container"));
+    }
+    let report = slices(session)?;
+    let slice = report.slices.get(index).ok_or_else(|| {
+        IdaError::range(format!("slice {index} is out of range; the container has {} slice(s)", report.slices.len()))
+    })?;
+    let bytes = session.read(0, session.size())?;
+    let start = usize::try_from(slice.offset).map_err(|_| IdaError::range("the slice offset does not fit this platform"))?;
+    let end = start
+        .checked_add(usize::try_from(slice.size).map_err(|_| IdaError::range("the slice size does not fit this platform"))?)
+        .filter(|end| *end <= bytes.len())
+        .ok_or_else(|| IdaError::parse("the slice lies outside the file"))?;
+    std::fs::write(output, &bytes[start..end])
+        .map_err(|error| IdaError::io(format!("cannot write {}: {error}", output.display())))?;
+    Ok(MachOSliceExtraction {
+        index: slice.index,
+        architecture: slice.architecture.clone(),
+        offset: slice.offset,
+        size: slice.size,
+        output: output.display().to_string(),
+    })
 }
 
 fn fat_header(bytes: &[u8]) -> Option<(bool, usize)> {

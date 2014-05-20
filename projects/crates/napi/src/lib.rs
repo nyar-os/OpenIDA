@@ -201,6 +201,10 @@ fn macho_slices_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.macho_slices()?))
 }
 
+fn macho_extract_report(handle: u64, index: usize, output: &Path) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.extract_slice(index, output)?))
+}
+
 fn mitigations_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.mitigations()?))
 }
@@ -494,6 +498,19 @@ fn binary_macho_symbols(ctx: CallContext) -> Result<JsValue> {
 fn binary_macho_slices(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     match macho_slices_report(handle) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Writes one fat/universal Mach-O slice to `output`.
+#[function]
+fn binary_macho_extract(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    let index = number(&ctx, 1)?;
+    let index = usize::try_from(index).map_err(|_| Error::new("binary/range: the slice index is too large"))?;
+    let output = text(&ctx, 2)?;
+    match macho_extract_report(handle, index, Path::new(&output)) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
@@ -1017,6 +1034,7 @@ register_module![
     binary_macho,
     binary_macho_symbols,
     binary_macho_slices,
+    binary_macho_extract,
     binary_mitigations,
     binary_resources,
     binary_relocations,

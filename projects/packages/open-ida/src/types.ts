@@ -322,6 +322,15 @@ export interface MachOSlicesReport {
     readonly slices: readonly MachOSlice[];
 }
 
+/** One fat slice written to a caller-chosen path. */
+export interface MachOSliceExtraction {
+    readonly index: number;
+    readonly architecture: string;
+    readonly offset: number;
+    readonly size: number;
+    readonly output: string;
+}
+
 /** A section mapped with both write and execute permission. */
 export interface WritableExecutableSection {
     readonly name: string;

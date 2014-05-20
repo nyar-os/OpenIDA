@@ -39,6 +39,7 @@ Big-endian ELF is rejected rather than decoded with a guessed byte order.
 | `pe-resources` | `supported` | PE resource tree leaves with type, name, language, data RVA, size and code page. A PE without a resource directory reports `present: false`; non-PE answers `binary/unsupported`. |
 | `pe-relocations` | `supported` | PE `IMAGE_BASE_RELOCATION` blocks with page RVA, block size, entry count and per-type fixup counts, plus whole-image totals. A PE without relocations reports `present: false`; non-PE answers `binary/unsupported`. |
 | `elf-dynamic` | `supported` | ELF `PT_INTERP` interpreter and `PT_DYNAMIC` facts: `DT_SONAME`, `DT_NEEDED`, `DT_RPATH` and `DT_RUNPATH`, mapped through `PT_LOAD`. A static image reports `present: false`; non-ELF answers `binary/unsupported`. |
+| `macho-slice-extraction` | `supported` | Writes one fat/universal slice to a caller-chosen `--out` path. Refuses to overwrite the source container; a thin image answers `binary/unsupported`. |
 | `macho-fat-slices` | `supported` | Fat/universal architecture table: index, CPU type/subtype, architecture, offset, size, alignment and slice bitness. A thin image answers `binary/unsupported`. |
 | `disassembly` | `supported` | x86 and x64 only, Intel/MASM/NASM syntax. |
 | `diff` | `supported` | Byte-level comparison plus the first differing offset. |
@@ -89,7 +90,7 @@ Big-endian ELF is rejected rather than decoded with a guessed byte order.
 | Boundary | Behaviour |
 | --- | --- |
 | Mach-O dyld bindings | Not decoded; `formats.macho = partial`. Load commands, segments, sections, dylibs, build versions and the `LC_SYMTAB` symbol table are decoded. |
-| Fat/universal Mach-O | `macho-slices` lists the architecture table. `macho` and `macho-symbols` answer `binary/unsupported` until a slice is selected; this build does not carve slices. |
+| Fat/universal Mach-O | `macho-slices` lists the architecture table and `macho-extract` writes one slice. `macho` and `macho-symbols` answer `binary/unsupported` until that extracted slice is opened. |
 | Authenticode verification | Not implemented. `pe-mitigations` reports whether the certificate table is present, not whether the signature is valid. |
 | Big-endian ELF | `binary/unsupported`. |
 | Unknown container | `binary/unsupported`. |

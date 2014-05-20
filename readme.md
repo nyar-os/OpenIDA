@@ -54,6 +54,7 @@ open-ida strings ./samples/app.exe --encoding both
 open-ida imports ./samples/app.exe
 open-ida macho ./samples/app.macho
 open-ida macho-slices ./samples/universal.macho
+open-ida macho-extract ./samples/universal.macho --index 1 --out ./samples/app.arm64.macho
 open-ida mitigations ./samples/app.exe
 open-ida resources ./samples/app.exe
 open-ida relocations ./samples/app.exe
@@ -114,8 +115,9 @@ drawing sample data.
 - No Mach-O dyld bindings: load commands, segments, sections, dylibs, build
   versions and the `LC_SYMTAB` symbol table are decoded, but bind opcodes are
   not resolved.
-- No fat Mach-O slicing: `macho-slices` lists the architecture table, but a
-  universal container must be carved into a thin image before `macho` runs.
+- No fat Mach-O in-place inspection: `macho-slices` lists the architecture
+  table and `macho-extract` writes one slice to a new file, which `macho` can
+  then inspect. The source container is never modified.
 - No big-endian ELF: rejected with a stable code instead of a guessed layout.
 - No relocation resolution: import and export tables are parsed, not applied.
 - No release artifacts: the packages are private and no installer exists.

@@ -27,6 +27,7 @@ import type {
     ImportsReport,
     MachOReport,
     MachOSlicesReport,
+    MachOSliceExtraction,
     MachOSymbolsReport,
     MitigationsReport,
     RelocationsReport,
@@ -277,6 +278,10 @@ function describeDynamic(report: ElfDynamicReport): string {
     }
     lines.push(`dynamic entries: ${report.dynamicEntries}`);
     return lines.join('\n');
+}
+
+function describeMachOSliceExtraction(report: MachOSliceExtraction): string {
+    return `wrote slice ${report.index} (${report.architecture}) at ${hex(report.offset)} (${report.size} bytes) to ${report.output}`;
 }
 
 function describeMitigations(report: MitigationsReport): string {
@@ -804,6 +809,37 @@ cli.command('macho-slices', 'cli.cmd.machoSlices').actionCtx(async (options, _ar
         ida.close();
     }
 });
+
+cli
+    .command('macho-extract', 'cli.cmd.machoExtract')
+    .option('--index <n>', 'cli.opt.index')
+    .option('--out <file>', 'cli.opt.extractOut')
+    .actionCtx(async (options, _args, ctx) => {
+        const file = input(options);
+        if (file === undefined) {
+            ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+            return 2;
+        }
+        const indexText = text(options, 'index');
+        const index = indexText === undefined ? 0 : parseNumber(indexText);
+        if (index === undefined) {
+            ctx.fail('open-ida.cli.index', { message: '`--index <n>` must be a non-negative integer' });
+            return 2;
+        }
+        const output = text(options, 'out');
+        if (output === undefined) {
+            ctx.fail('open-ida.cli.out-required', { message: '`--out <file>` is required' });
+            return 2;
+        }
+        const ida = new OpenIDA({ path: file });
+        try {
+            const report = ida.extractSlice(index, output);
+            ctx.emitResult(report, describeMachOSliceExtraction(report));
+            return 0;
+        } finally {
+            ida.close();
+        }
+    });
 
 cli
     .command('disasm', 'cli.cmd.disasm')
