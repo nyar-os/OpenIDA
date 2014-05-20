@@ -9,7 +9,7 @@ description: Inspect compiled binaries with OpenIDA. Use when a task involves PE
 
 `open-ida info`, `sections`, `strings`, `hexdump`, `rva`, `offset`, `imports`,
 `exports`, `symbols`, `debug`, `version`, `macho`, `macho-symbols`,
-`macho-slices`, `mitigations`, `resources`, `disasm`, `entropy`, `diff`,
+`macho-slices`, `mitigations`, `resources`, `relocations`, `disasm`, `entropy`, `diff`,
 `search` and `patch` are implemented for the cases listed below. Decompilation,
 debugging, dyld bindings, signature verification and fat-slice extraction are
 **not** implemented and the capability matrix reports them as `unsupported` /
@@ -44,6 +44,7 @@ a second analysis engine. Report the stable code instead.
 | macho-slices | List the architectures of a fat/universal container | `macho-slices` report |
 | mitigations | Read the PE hardening posture | `mitigations` report |
 | resources | List the PE resource tree | `resources` report |
+| relocations | List the PE base relocation blocks and fixup types | `relocations` report |
 | triage | Spot packing from entropy and the overlay | `entropy` report |
 | compare | Find the first difference between two builds | `diff` report |
 | patch | Change bytes and prove the change | before/after hash and patched copy |

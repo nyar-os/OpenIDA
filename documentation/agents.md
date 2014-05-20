@@ -32,6 +32,7 @@ containers are rejected, and unknown containers are rejected.
 | Profile Mach-O | `open-ida macho <file>` | UUID, platform, min OS/SDK, dylibs, segments, sections, entry |
 | Check PE hardening | `open-ida mitigations <file>` | ASLR, DEP, CFG, GS, W+X, relocations, certificate presence |
 | List PE resources | `open-ida resources <file>` | Type, name, language, RVA and size per leaf |
+| List PE relocations | `open-ida relocations <file>` | Page RVA, entry count and fixup types per block |
 | List fat slices | `open-ida macho-slices <file>` | CPU, architecture, offset, size and alignment per slice |
 | List Mach-O symbols | `open-ida macho-symbols <file> --limit <n>` | Name, address, kind, section and flags per `LC_SYMTAB` entry |
 | Decode code | `open-ida disasm <file> --offset <n> --count <n>` | Address, offset, bytes, mnemonic |

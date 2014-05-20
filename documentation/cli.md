@@ -150,6 +150,23 @@ as `#<id>` and custom names print as written. A PE without a resource directory
 prints `no resource directory`. The list is capped at 256 leaves, with `total`
 and `truncated` describing the cut.
 
+### `relocations <file>`
+
+```bash
+open-ida relocations ./samples/app.exe
+```
+
+PE only. Walks the `IMAGE_BASE_RELOCATION` blocks behind data directory 5 and
+prints each block's 4 KiB page RVA, entry count and per-type fixup counts, then
+the whole-image totals. Types use the standard names (`ABSOLUTE`, `HIGH`,
+`LOW`, `HIGHLOW`, `HIGHADJ`, `DIR64`, ...); unknown numbers print as `#<n>`. A
+PE without base relocations prints `no base relocations`. At most 128 blocks are
+listed and 4,096 are decoded, with `truncated` set when a limit or a malformed
+block stops the walk.
+
+The report describes the fixup table; it does not apply relocations or claim
+that a module was loaded at a different base.
+
 ### `mitigations <file>`
 
 ```bash

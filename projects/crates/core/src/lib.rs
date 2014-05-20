@@ -19,6 +19,7 @@ mod entropy;
 mod error;
 mod macho;
 mod mitigations;
+mod relocations;
 mod resources;
 mod text;
 mod version;
@@ -40,6 +41,7 @@ pub use entropy::{EntropyReport, OverlayInfo, SectionEntropy};
 pub use error::{IdaError, Result};
 pub use macho::{MachODylib, MachOReport, MachOSection, MachOSegment, MachOSlice, MachOSlicesReport, MachOSymbol, MachOSymbolsReport};
 pub use mitigations::{MitigationsReport, WritableExecutableSection};
+pub use relocations::{RelocationBlock, RelocationKindCount, RelocationsReport};
 pub use resources::{PeResource, ResourcesReport};
 pub use text::{EncodedStringHit, EncodedStringsReport, StringEncoding, StringsOptions};
 pub use version::{FixedFileInfo, VersionReport, VersionString};
@@ -164,6 +166,11 @@ impl BinaryView {
     /// Lists the PE resource directory leaves.
     pub fn resources(&self) -> Result<ResourcesReport> {
         resources::analyze(&self.session)
+    }
+
+    /// Decodes the PE base relocation blocks.
+    pub fn relocations(&self) -> Result<RelocationsReport> {
+        relocations::analyze(&self.session)
     }
 
     /// Decodes `x86` / `x64` instructions from one file offset.
@@ -380,6 +387,11 @@ impl OpenIda {
         resources::analyze(&self.session)
     }
 
+    /// Decodes the PE base relocation blocks.
+    pub fn relocations(&self) -> Result<RelocationsReport> {
+        relocations::analyze(&self.session)
+    }
+
     /// Decodes `x86` / `x64` instructions from one file offset.
     pub fn disasm(&self, options: &DisassembleOptions) -> Result<DisassemblyReport> {
         disasm::analyze(&self.session, options)
@@ -474,6 +486,7 @@ pub fn capabilities() -> serde_json::Value {
             "macho-fat-slices": "supported",
             "pe-mitigations": "supported",
             "pe-resources": "supported",
+            "pe-relocations": "supported",
             "disassembly": "supported",
             "diff": "supported",
             "entropy": "supported",

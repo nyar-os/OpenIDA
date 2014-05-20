@@ -209,6 +209,10 @@ fn resources_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.resources()?))
 }
 
+fn relocations_report(handle: u64) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.relocations()?))
+}
+
 fn version_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.version()?))
 }
@@ -445,6 +449,16 @@ fn binary_resources(ctx: CallContext) -> Result<JsValue> {
 fn binary_mitigations(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     match mitigations_report(handle) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Decodes the PE base relocation blocks.
+#[function]
+fn binary_relocations(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    match relocations_report(handle) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
@@ -991,6 +1005,7 @@ register_module![
     binary_macho_slices,
     binary_mitigations,
     binary_resources,
+    binary_relocations,
     binary_disasm,
     binary_diff,
     binary_entropy,
