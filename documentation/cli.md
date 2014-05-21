@@ -232,8 +232,8 @@ open-ida macho-extract ./samples/universal.macho --index 1 --out ./samples/app.a
 Fat/universal Mach-O only. Writes the slice selected by `--index` (default `0`,
 matching the `macho-slices` table) to `--out`. The report repeats the index,
 architecture, source offset and size. Writing to the source container itself is
-refused; any other destination is replaced. This is the only command that writes
-a file the user did not already open for patching.
+refused; any other destination is replaced. The source container is never
+modified; `--out` is required.
 
 ### `macho-symbols <file>`
 
