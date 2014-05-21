@@ -221,6 +221,14 @@ fn dynamic_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.dynamic()?))
 }
 
+fn notes_report(handle: u64) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.notes()?))
+}
+
+fn certificates_report(handle: u64) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.certificates()?))
+}
+
 fn version_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.version()?))
 }
@@ -477,6 +485,26 @@ fn binary_relocations(ctx: CallContext) -> Result<JsValue> {
 fn binary_dynamic(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     match dynamic_report(handle) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Decodes ELF notes: build id, GNU ABI tag and GNU properties.
+#[function]
+fn binary_notes(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    match notes_report(handle) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Lists the PE attribute certificate table entries.
+#[function]
+fn binary_certificates(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    match certificates_report(handle) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
@@ -1039,6 +1067,8 @@ register_module![
     binary_resources,
     binary_relocations,
     binary_dynamic,
+    binary_notes,
+    binary_certificates,
     binary_disasm,
     binary_diff,
     binary_entropy,

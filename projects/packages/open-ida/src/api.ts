@@ -13,11 +13,13 @@ import type {
     BinaryHandle,
     BinaryInfo,
     Capabilities,
+    CertificatesReport,
     DebugReport,
     DiffReport,
     DisassembleOptions,
     DisassemblyReport,
     ElfDynamicReport,
+    ElfNotesReport,
     EncodedStringsReport,
     EntropyReport,
     ExportsReport,
@@ -179,6 +181,16 @@ export class OpenIDA {
     /** Reports ELF `PT_INTERP` and `PT_DYNAMIC` dependencies. */
     dynamic(): ElfDynamicReport {
         return decode<ElfDynamicReport>(() => binding('binary.dynamic').binary_dynamic(this.id));
+    }
+
+    /** Decodes ELF notes: build id, GNU ABI tag and GNU properties. */
+    notes(): ElfNotesReport {
+        return decode<ElfNotesReport>(() => binding('binary.notes').binary_notes(this.id));
+    }
+
+    /** Lists the PE attribute certificate table entries. */
+    certificates(): CertificatesReport {
+        return decode<CertificatesReport>(() => binding('binary.certificates').binary_certificates(this.id));
     }
 
     /** Decodes x86 / x64 instructions from one file offset. */

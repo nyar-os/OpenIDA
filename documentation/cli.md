@@ -183,6 +183,39 @@ answers `binary/unsupported`.
 The report reads the recorded dependency names. It does not resolve which copy
 of a library the dynamic loader would pick at run time.
 
+### `notes <file>`
+
+```bash
+open-ida notes ./samples/app.elf
+```
+
+ELF only. Reads notes from `PT_NOTE` segments, or from `SHT_NOTE` sections when
+the program headers are absent, and prints each note's owner, type, description
+size and decoded description. `NT_GNU_BUILD_ID` prints as lowercase hex,
+`NT_GNU_ABI_TAG` as `<os> <major>.<minor>.<subminor>`, and
+`NT_GNU_PROPERTY_TYPE_0` as one line per property with its stable name and hex
+payload. Other descriptions are a bounded hex preview. An image without notes
+prints `no note segments or sections`; non-ELF answers `binary/unsupported`.
+
+The report decodes the note records; it does not validate build ids against a
+symbol server or interpret every architecture-specific property bit.
+
+### `certificates <file>`
+
+```bash
+open-ida certificates ./samples/app.exe
+```
+
+PE only. Prints one line per `WIN_CERTIFICATE` entry behind data directory 4:
+file offset, revision (`1.0`, `2.0` or hex), certificate type (`X509`,
+`PKCS_SIGNED_DATA`, ...), payload size and whether the payload starts with a
+DER `SEQUENCE`, the usual `PKCS#7` shape. Entries are read on their eight-byte
+boundaries. A PE without the table prints `no attribute certificate table`;
+non-PE answers `binary/unsupported`.
+
+Headers and payload shape only: the table is not a trust decision, and no
+signature, chain or timestamp is verified.
+
 ### `mitigations <file>`
 
 ```bash

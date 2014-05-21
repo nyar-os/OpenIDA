@@ -52,6 +52,12 @@ ida.close();
   image has no relocations.
 - `dynamic()` reports the ELF interpreter, SONAME, `NEEDED` libraries and
   rpath/runpath. It reports `present: false` for a static image.
+- `notes()` decodes ELF `PT_NOTE` / `SHT_NOTE` records: the GNU build id as hex,
+  the GNU ABI tag, GNU property entries and a bounded hex preview for other
+  notes. It reports `present: false` when the image has no notes.
+- `certificates()` lists the PE attribute certificate table entries with their
+  revision, type and `PKCS#7` payload shape. It never verifies a signature or a
+  chain.
 - `mitigations()` reads PE header and load-config facts (ASLR, DEP, CFG, GS,
   W+X sections, relocations, certificate-table presence). It does not verify
   Authenticode signatures.

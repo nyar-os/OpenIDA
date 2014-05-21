@@ -1498,6 +1498,152 @@ fn elf_dynamic_reports_static_images_and_rejects_other_containers() {
 }
 
 #[test]
+fn pe_certificates_decode_entries_and_pkcs7_shape() {
+    let mut bytes = pe_bytes();
+    let (offset, size) = (0x500u32, 0x18u32);
+    let directory = 0x98 + 112 + 4 * 8;
+    put_u32(&mut bytes, directory, offset);
+    put_u32(&mut bytes, directory + 4, size);
+
+    put_u32(&mut bytes, 0x500, 12);
+    put_u16(&mut bytes, 0x504, 0x0200);
+    put_u16(&mut bytes, 0x506, 2);
+    bytes[0x508..0x50c].copy_from_slice(&[0x30, 0x82, 0x00, 0x10]);
+
+    put_u32(&mut bytes, 0x510, 8);
+    put_u16(&mut bytes, 0x514, 0x0100);
+    put_u16(&mut bytes, 0x516, 1);
+
+    let view = BinaryView::from_bytes("signed.exe", bytes);
+    let report = view.certificates().expect("PE certificates");
+
+    assert!(report.present);
+    assert!(!report.truncated);
+    assert_eq!(report.total, 2);
+    assert_eq!(report.directory_size, 0x18);
+    assert_eq!(report.certificates.len(), 2);
+
+    assert_eq!(report.certificates[0].offset, 0x500);
+    assert_eq!(report.certificates[0].length, 12);
+    assert_eq!(report.certificates[0].revision, "2.0");
+    assert_eq!(report.certificates[0].certificate_type, "PKCS_SIGNED_DATA");
+    assert_eq!(report.certificates[0].payload_size, 4);
+    assert!(report.certificates[0].pkcs7);
+
+    assert_eq!(report.certificates[1].offset, 0x510);
+    assert_eq!(report.certificates[1].revision, "1.0");
+    assert_eq!(report.certificates[1].certificate_type, "X509");
+    assert_eq!(report.certificates[1].payload_size, 0);
+    assert!(!report.certificates[1].pkcs7);
+}
+
+#[test]
+fn pe_certificates_report_absence_and_reject_non_pe() {
+    let view = BinaryView::from_bytes("plain.exe", pe_bytes());
+    let report = view.certificates().expect("PE certificates");
+    assert!(!report.present);
+    assert_eq!(report.total, 0);
+    assert!(report.certificates.is_empty());
+
+    let elf = BinaryView::from_bytes("sample.elf", elf64_bytes());
+    assert_eq!(elf.certificates().unwrap_err().code(), "binary/unsupported");
+}
+
+#[test]
+fn elf_notes_decode_build_id_abi_tag_and_properties() {
+    let view = BinaryView::from_bytes("notes.elf", elf_notes_bytes());
+    let report = view.notes().expect("ELF notes");
+
+    assert!(report.present);
+    assert!(!report.truncated);
+    assert_eq!(report.source.as_deref(), Some("segments"));
+    assert_eq!(report.total, 3);
+    assert_eq!(report.notes.len(), 3);
+    assert_eq!(report.build_id.as_deref(), Some("0102030405060708090a0b0c0d0e0f1011121314"));
+
+    let abi = report.abi_tag.as_ref().expect("GNU ABI tag");
+    assert_eq!(abi.os, "Linux");
+    assert_eq!((abi.major, abi.minor, abi.subminor), (6, 8, 0));
+
+    assert_eq!(report.notes[0].owner, "GNU");
+    assert_eq!(report.notes[0].note_type, "NT_GNU_BUILD_ID");
+    assert_eq!(report.notes[1].note_type, "NT_GNU_ABI_TAG");
+    assert_eq!(report.notes[1].description, "Linux 6.8.0");
+    assert_eq!(report.notes[2].note_type, "NT_GNU_PROPERTY_TYPE_0");
+
+    assert_eq!(report.properties.len(), 1);
+    assert_eq!(report.properties[0].property_type, "X86_FEATURE_1_AND");
+    assert_eq!(report.properties[0].data_size, 4);
+    assert_eq!(report.properties[0].data, "03000000");
+}
+
+#[test]
+fn elf_notes_report_absence_and_reject_non_elf() {
+    let view = BinaryView::from_bytes("static.elf", elf64_bytes());
+    let report = view.notes().expect("ELF notes");
+    assert!(!report.present);
+    assert_eq!(report.source, None);
+    assert_eq!(report.build_id, None);
+    assert!(report.notes.is_empty());
+
+    let pe = BinaryView::from_bytes("app.exe", pe_bytes());
+    assert_eq!(pe.notes().unwrap_err().code(), "binary/unsupported");
+}
+
+/// ELF64 with one `PT_NOTE` segment holding build-id, ABI-tag and property notes.
+fn elf_notes_bytes() -> Vec<u8> {
+    let mut bytes = vec![0u8; 0x300];
+    bytes[0..4].copy_from_slice(b"\x7fELF");
+    bytes[4] = 2;
+    bytes[5] = 1;
+    bytes[6] = 1;
+    put_u16(&mut bytes, 16, 2);
+    put_u16(&mut bytes, 18, 62);
+    put_u32(&mut bytes, 20, 1);
+    put_u64(&mut bytes, 24, 0x401000);
+    put_u64(&mut bytes, 32, 0x40);
+    put_u16(&mut bytes, 52, 64);
+    put_u16(&mut bytes, 54, 56);
+    put_u16(&mut bytes, 56, 1);
+
+    put_u32(&mut bytes, 0x40, 4);
+    put_u64(&mut bytes, 0x48, 0x200);
+    put_u64(&mut bytes, 0x50, 0x400200);
+    put_u64(&mut bytes, 0x60, 0x80);
+    put_u64(&mut bytes, 0x68, 0x80);
+    put_u64(&mut bytes, 0x70, 4);
+
+    // GNU build id: 20-byte description.
+    put_u32(&mut bytes, 0x200, 4);
+    put_u32(&mut bytes, 0x204, 20);
+    put_u32(&mut bytes, 0x208, 3);
+    bytes[0x20c..0x210].copy_from_slice(b"GNU\0");
+    for index in 0..20 {
+        bytes[0x210 + index] = (index + 1) as u8;
+    }
+
+    // GNU ABI tag: os, major, minor, subminor.
+    put_u32(&mut bytes, 0x224, 4);
+    put_u32(&mut bytes, 0x228, 16);
+    put_u32(&mut bytes, 0x22c, 1);
+    bytes[0x230..0x234].copy_from_slice(b"GNU\0");
+    put_u32(&mut bytes, 0x234, 0);
+    put_u32(&mut bytes, 0x238, 6);
+    put_u32(&mut bytes, 0x23c, 8);
+    put_u32(&mut bytes, 0x240, 0);
+
+    // GNU property: one X86_FEATURE_1_AND entry with IBT + SHSTK.
+    put_u32(&mut bytes, 0x244, 4);
+    put_u32(&mut bytes, 0x248, 16);
+    put_u32(&mut bytes, 0x24c, 5);
+    bytes[0x250..0x254].copy_from_slice(b"GNU\0");
+    put_u32(&mut bytes, 0x254, 0xc000_0002);
+    put_u32(&mut bytes, 0x258, 4);
+    put_u32(&mut bytes, 0x25c, 3);
+    bytes
+}
+
+#[test]
 fn pe_mitigations_read_the_optional_header() {
     let mut bytes = pe_bytes();
     put_u16(&mut bytes, 0x98 + 0x4a, 0x0160);

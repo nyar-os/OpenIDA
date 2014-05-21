@@ -409,6 +409,60 @@ export interface ElfDynamicReport {
     readonly truncated: boolean;
 }
 
+/** Decoded `NT_GNU_ABI_TAG` description. */
+export interface ElfAbiTag {
+    readonly os: string;
+    readonly major: number;
+    readonly minor: number;
+    readonly subminor: number;
+}
+
+/** One entry of a `NT_GNU_PROPERTY_TYPE_0` note. */
+export interface ElfGnuProperty {
+    readonly propertyType: string;
+    readonly dataSize: number;
+    readonly data: string;
+}
+
+/** One ELF note record. */
+export interface ElfNote {
+    readonly owner: string;
+    readonly noteType: string;
+    readonly descriptionSize: number;
+    readonly description: string;
+}
+
+/** ELF note facts of one image. */
+export interface ElfNotesReport {
+    readonly present: boolean;
+    readonly source: string | null;
+    readonly buildId: string | null;
+    readonly abiTag: ElfAbiTag | null;
+    readonly properties: readonly ElfGnuProperty[];
+    readonly notes: readonly ElfNote[];
+    readonly total: number;
+    readonly truncated: boolean;
+}
+
+/** One `WIN_CERTIFICATE` entry of the PE attribute certificate table. */
+export interface PeCertificate {
+    readonly offset: number;
+    readonly length: number;
+    readonly revision: string;
+    readonly certificateType: string;
+    readonly payloadSize: number;
+    readonly pkcs7: boolean;
+}
+
+/** Attribute certificate table summary. */
+export interface CertificatesReport {
+    readonly present: boolean;
+    readonly certificates: readonly PeCertificate[];
+    readonly total: number;
+    readonly directorySize: number;
+    readonly truncated: boolean;
+}
+
 /** Entropy of one section payload. */
 export interface SectionEntropy {
     readonly name: string;

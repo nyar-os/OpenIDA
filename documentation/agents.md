@@ -34,6 +34,8 @@ containers are rejected, and unknown containers are rejected.
 | List PE resources | `open-ida resources <file>` | Type, name, language, RVA and size per leaf |
 | List PE relocations | `open-ida relocations <file>` | Page RVA, entry count and fixup types per block |
 | Read ELF dependencies | `open-ida dynamic <file>` | Interpreter, SONAME, needed libraries, rpath/runpath |
+| Read ELF notes | `open-ida notes <file>` | GNU build id, ABI tag, GNU properties |
+| List PE certificates | `open-ida certificates <file>` | Attribute certificate table headers, `PKCS#7` shape (not verified) |
 | List fat slices | `open-ida macho-slices <file>` | CPU, architecture, offset, size and alignment per slice |
 | Extract a fat slice | `open-ida macho-extract <file> --index <n> --out <file>` | Writes one slice; the source is never overwritten |
 | List Mach-O symbols | `open-ida macho-symbols <file> --limit <n>` | Name, address, kind, section and flags per `LC_SYMTAB` entry |
