@@ -229,6 +229,10 @@ fn certificates_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.certificates()?))
 }
 
+fn tls_report(handle: u64) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.tls()?))
+}
+
 fn version_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.version()?))
 }
@@ -505,6 +509,16 @@ fn binary_notes(ctx: CallContext) -> Result<JsValue> {
 fn binary_certificates(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     match certificates_report(handle) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Decodes the PE TLS directory and its callback array.
+#[function]
+fn binary_tls(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    match tls_report(handle) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
@@ -1069,6 +1083,7 @@ register_module![
     binary_dynamic,
     binary_notes,
     binary_certificates,
+    binary_tls,
     binary_disasm,
     binary_diff,
     binary_entropy,

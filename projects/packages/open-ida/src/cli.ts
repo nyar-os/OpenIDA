@@ -32,6 +32,7 @@ import type {
     MachOSliceExtraction,
     MachOSymbolsReport,
     MitigationsReport,
+    PeTlsReport,
     RelocationsReport,
     ResourcesReport,
     SearchOptions,
@@ -300,6 +301,25 @@ function describeNotes(report: ElfNotesReport): string {
     }
     for (const property of report.properties) {
         lines.push(`  property ${property.propertyType} (${property.dataSize} bytes) ${property.data}`);
+    }
+    return lines.join('\n');
+}
+
+function describeTls(report: PeTlsReport): string {
+    if (!report.present) {
+        return 'no TLS directory';
+    }
+    const lines = [
+        `directory ${hex(report.directoryRva)} (${report.directorySize} bytes, ${report.is64 ? '64-bit' : '32-bit'} layout)`,
+        `raw data ${hex(report.rawDataStart)}..${hex(report.rawDataEnd)} · zero fill ${report.sizeOfZeroFill} bytes`,
+        `index ${hex(report.indexAddress)} · callbacks ${hex(report.callbacksAddress)}${report.callbacksRva === null ? '' : ` (RVA ${hex(report.callbacksRva)})`}`,
+        `characteristics ${hex(report.characteristics)}`,
+        `${report.callbacks.length} callback(s)${report.truncated ? ' (truncated)' : ''}`,
+    ];
+    for (const callback of report.callbacks) {
+        const rva = callback.rva === null ? '' : ` rva ${hex(callback.rva)}`;
+        const offset = callback.offset === null ? '' : ` file ${hex(callback.offset)}`;
+        lines.push(`  ${hex(callback.address)}${rva}${offset}`);
     }
     return lines.join('\n');
 }
@@ -821,6 +841,22 @@ cli.command('certificates', 'cli.cmd.certificates').actionCtx(async (options, _a
     try {
         const report = ida.certificates();
         ctx.emitResult(report, describeCertificates(report));
+        return 0;
+    } finally {
+        ida.close();
+    }
+});
+
+cli.command('tls', 'cli.cmd.tls').actionCtx(async (options, _args, ctx) => {
+    const file = input(options);
+    if (file === undefined) {
+        ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+        return 2;
+    }
+    const ida = new OpenIDA({ path: file });
+    try {
+        const report = ida.tls();
+        ctx.emitResult(report, describeTls(report));
         return 0;
     } finally {
         ida.close();

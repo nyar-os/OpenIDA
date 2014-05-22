@@ -33,6 +33,7 @@ import type {
     OffsetToRvaReport,
     OffsetToVaReport,
     PatchReport,
+    PeTlsReport,
     ReadReport,
     RelocationsReport,
     ResourcesReport,
@@ -191,6 +192,11 @@ export class OpenIDA {
     /** Lists the PE attribute certificate table entries. */
     certificates(): CertificatesReport {
         return decode<CertificatesReport>(() => binding('binary.certificates').binary_certificates(this.id));
+    }
+
+    /** Decodes the PE TLS directory and its callback array. */
+    tls(): PeTlsReport {
+        return decode<PeTlsReport>(() => binding('binary.tls').binary_tls(this.id));
     }
 
     /** Decodes x86 / x64 instructions from one file offset. */

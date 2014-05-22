@@ -216,6 +216,21 @@ non-PE answers `binary/unsupported`.
 Headers and payload shape only: the table is not a trust decision, and no
 signature, chain or timestamp is verified.
 
+### `tls <file>`
+
+```bash
+open-ida tls ./samples/app.exe
+```
+
+PE only. Decodes data directory 9 and prints the raw template range, the index
+slot, `SizeOfZeroFill`, `Characteristics` and the callback array. Callback
+addresses are VAs, so each is mapped back through `ImageBase` to an RVA and a
+file offset; an address outside the image keeps its VA and reports `null` for
+the mapping. At most 64 callbacks are listed. A PE without a TLS directory
+prints `no TLS directory`; non-PE answers `binary/unsupported`.
+
+The report describes the table; it never calls a callback or initialises TLS.
+
 ### `mitigations <file>`
 
 ```bash

@@ -58,6 +58,8 @@ ida.close();
 - `certificates()` lists the PE attribute certificate table entries with their
   revision, type and `PKCS#7` payload shape. It never verifies a signature or a
   chain.
+- `tls()` decodes the PE TLS directory and callback array, mapping each callback
+  VA back to an RVA and file offset. It never calls a callback.
 - `mitigations()` reads PE header and load-config facts (ASLR, DEP, CFG, GS,
   W+X sections, relocations, certificate-table presence). It does not verify
   Authenticode signatures.
