@@ -32,6 +32,7 @@ import type {
     MachOSliceExtraction,
     MachOSymbolsReport,
     MitigationsReport,
+    PeLoadConfigReport,
     PeTlsReport,
     RelocationsReport,
     ResourcesReport,
@@ -321,6 +322,20 @@ function describeTls(report: PeTlsReport): string {
         const offset = callback.offset === null ? '' : ` file ${hex(callback.offset)}`;
         lines.push(`  ${hex(callback.address)}${rva}${offset}`);
     }
+    return lines.join('\n');
+}
+
+function describeLoadConfig(report: PeLoadConfigReport): string {
+    if (!report.present) {
+        return 'no load configuration directory';
+    }
+    const lines = [
+        `size ${report.size} bytes · ${report.is64 ? '64-bit' : '32-bit'} layout${report.truncated ? ' (truncated)' : ''}`,
+        `security cookie ${hex(report.securityCookie)} · SEH table ${hex(report.seHandlerTable)} (${report.seHandlerCount} entries)`,
+        `CFG table ${hex(report.guardCfFunctionTable)} (${report.guardCfFunctionCount} entries) · check ${hex(report.guardCfCheckFunctionPointer)}`,
+        `guard flags ${hex(report.guardFlags)}${report.guardFlagsText.length === 0 ? '' : ` · ${report.guardFlagsText.join(' | ')}`}`,
+        `code integrity flags ${hex(report.codeIntegrity.flags)} · catalog ${report.codeIntegrity.catalog} @ ${hex(report.codeIntegrity.catalogOffset)}`,
+    ];
     return lines.join('\n');
 }
 
@@ -857,6 +872,22 @@ cli.command('tls', 'cli.cmd.tls').actionCtx(async (options, _args, ctx) => {
     try {
         const report = ida.tls();
         ctx.emitResult(report, describeTls(report));
+        return 0;
+    } finally {
+        ida.close();
+    }
+});
+
+cli.command('load-config', 'cli.cmd.load-config').actionCtx(async (options, _args, ctx) => {
+    const file = input(options);
+    if (file === undefined) {
+        ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+        return 2;
+    }
+    const ida = new OpenIDA({ path: file });
+    try {
+        const report = ida.loadConfig();
+        ctx.emitResult(report, describeLoadConfig(report));
         return 0;
     } finally {
         ida.close();

@@ -60,6 +60,8 @@ ida.close();
   chain.
 - `tls()` decodes the PE TLS directory and callback array, mapping each callback
   VA back to an RVA and file offset. It never calls a callback.
+- `loadConfig()` decodes the PE load configuration: security cookie, SEH table,
+  CFG pointers, decoded `GuardFlags` and the `CodeIntegrity` block.
 - `mitigations()` reads PE header and load-config facts (ASLR, DEP, CFG, GS,
   W+X sections, relocations, certificate-table presence). It does not verify
   Authenticode signatures.

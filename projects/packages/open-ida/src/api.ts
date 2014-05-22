@@ -33,6 +33,7 @@ import type {
     OffsetToRvaReport,
     OffsetToVaReport,
     PatchReport,
+    PeLoadConfigReport,
     PeTlsReport,
     ReadReport,
     RelocationsReport,
@@ -197,6 +198,11 @@ export class OpenIDA {
     /** Decodes the PE TLS directory and its callback array. */
     tls(): PeTlsReport {
         return decode<PeTlsReport>(() => binding('binary.tls').binary_tls(this.id));
+    }
+
+    /** Decodes the PE load configuration directory. */
+    loadConfig(): PeLoadConfigReport {
+        return decode<PeLoadConfigReport>(() => binding('binary.load-config').binary_load_config(this.id));
     }
 
     /** Decodes x86 / x64 instructions from one file offset. */

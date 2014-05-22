@@ -1608,6 +1608,79 @@ fn pe_tls_bytes() -> Vec<u8> {
 }
 
 #[test]
+fn pe_load_config_decodes_guard_metadata() {
+    let view = BinaryView::from_bytes("config.exe", pe_load_config_bytes());
+    let report = view.load_config().expect("PE load configuration");
+
+    assert!(report.present);
+    assert!(report.is64);
+    assert!(!report.truncated);
+    assert_eq!(report.size, 0xa0);
+    assert_eq!(report.timestamp, 0x0102_0304);
+    assert_eq!(report.global_flags_clear, 1);
+    assert_eq!(report.global_flags_set, 2);
+    assert_eq!(report.critical_section_default_timeout, 1000);
+    assert_eq!(report.security_cookie, 0x1_4000_2010);
+    assert_eq!(report.se_handler_table, 0x1_4000_2020);
+    assert_eq!(report.se_handler_count, 2);
+    assert_eq!(report.guard_cf_function_table, 0x1_4000_2040);
+    assert_eq!(report.guard_cf_function_count, 4);
+    assert_eq!(report.guard_flags, 0x0010_0500);
+    assert_eq!(
+        report.guard_flags_text,
+        vec!["CF_INSTRUMENTED", "CF_FUNCTION_TABLE_PRESENT", "RETPOLINE_PRESENT"]
+    );
+    assert_eq!(report.code_integrity.flags, 1);
+    assert_eq!(report.code_integrity.catalog, 0x1234);
+    assert_eq!(report.code_integrity.catalog_offset, 0x800);
+}
+
+#[test]
+fn pe_load_config_reports_absence_and_rejects_non_pe() {
+    let view = BinaryView::from_bytes("plain.exe", pe_bytes());
+    let report = view.load_config().expect("PE load configuration");
+    assert!(!report.present);
+    assert!(report.guard_flags_text.is_empty());
+
+    let elf = BinaryView::from_bytes("sample.elf", elf64_bytes());
+    assert_eq!(elf.load_config().unwrap_err().code(), "binary/unsupported");
+}
+
+/// `pe_bytes()` plus a PE32+ load configuration table at RVA 0x2000.
+fn pe_load_config_bytes() -> Vec<u8> {
+    let mut bytes = pe_bytes();
+    put_u32(&mut bytes, 0x98 + 112 + 10 * 8, 0x2000);
+    put_u32(&mut bytes, 0x98 + 112 + 10 * 8 + 4, 0xa0);
+
+    let base = 0x400;
+    let image_base = 0x1_4000_0000u64;
+    put_u32(&mut bytes, base, 0xa0);
+    put_u32(&mut bytes, base + 4, 0x0102_0304);
+    put_u16(&mut bytes, base + 8, 1);
+    put_u32(&mut bytes, base + 0x0c, 1);
+    put_u32(&mut bytes, base + 0x10, 2);
+    put_u32(&mut bytes, base + 0x14, 1000);
+    put_u64(&mut bytes, base + 0x18, 0x1000);
+    put_u64(&mut bytes, base + 0x20, 0x1_0000);
+    put_u64(&mut bytes, base + 0x28, image_base + 0x1010);
+    put_u64(&mut bytes, base + 0x30, 0x10_0000);
+    put_u64(&mut bytes, base + 0x38, 0x20_0000);
+    put_u64(&mut bytes, base + 0x40, 3);
+    put_u32(&mut bytes, base + 0x48, 2);
+    put_u64(&mut bytes, base + 0x58, image_base + 0x2010);
+    put_u64(&mut bytes, base + 0x60, image_base + 0x2020);
+    put_u64(&mut bytes, base + 0x68, 2);
+    put_u64(&mut bytes, base + 0x70, image_base + 0x1030);
+    put_u64(&mut bytes, base + 0x80, image_base + 0x2040);
+    put_u64(&mut bytes, base + 0x88, 4);
+    put_u32(&mut bytes, base + 0x90, 0x0010_0500);
+    put_u16(&mut bytes, base + 0x94, 1);
+    put_u16(&mut bytes, base + 0x96, 0x1234);
+    put_u32(&mut bytes, base + 0x98, 0x800);
+    bytes
+}
+
+#[test]
 fn elf_notes_decode_build_id_abi_tag_and_properties() {
     let view = BinaryView::from_bytes("notes.elf", elf_notes_bytes());
     let report = view.notes().expect("ELF notes");

@@ -487,6 +487,47 @@ export interface PeTlsReport {
     readonly truncated: boolean;
 }
 
+/** `CodeIntegrity` block of the PE load configuration. */
+export interface CodeIntegrityInfo {
+    readonly flags: number;
+    readonly catalog: number;
+    readonly catalogOffset: number;
+}
+
+/** PE load configuration summary. */
+export interface PeLoadConfigReport {
+    readonly present: boolean;
+    readonly is64: boolean;
+    readonly size: number;
+    readonly timestamp: number;
+    readonly majorVersion: number;
+    readonly minorVersion: number;
+    readonly globalFlagsClear: number;
+    readonly globalFlagsSet: number;
+    readonly criticalSectionDefaultTimeout: number;
+    readonly deCommitFreeBlockThreshold: number;
+    readonly deCommitTotalFreeThreshold: number;
+    readonly lockPrefixTable: number;
+    readonly maximumAllocationSize: number;
+    readonly virtualMemoryThreshold: number;
+    readonly processAffinityMask: number;
+    readonly processHeapFlags: number;
+    readonly csdVersion: number;
+    readonly dependentLoadFlags: number;
+    readonly editList: number;
+    readonly securityCookie: number;
+    readonly seHandlerTable: number;
+    readonly seHandlerCount: number;
+    readonly guardCfCheckFunctionPointer: number;
+    readonly guardCfDispatchFunctionPointer: number;
+    readonly guardCfFunctionTable: number;
+    readonly guardCfFunctionCount: number;
+    readonly guardFlags: number;
+    readonly guardFlagsText: readonly string[];
+    readonly codeIntegrity: CodeIntegrityInfo;
+    readonly truncated: boolean;
+}
+
 /** Entropy of one section payload. */
 export interface SectionEntropy {
     readonly name: string;

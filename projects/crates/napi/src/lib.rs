@@ -233,6 +233,10 @@ fn tls_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.tls()?))
 }
 
+fn load_config_report(handle: u64) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.load_config()?))
+}
+
 fn version_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.version()?))
 }
@@ -519,6 +523,16 @@ fn binary_certificates(ctx: CallContext) -> Result<JsValue> {
 fn binary_tls(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     match tls_report(handle) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Decodes the PE load configuration directory.
+#[function]
+fn binary_load_config(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    match load_config_report(handle) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
@@ -1084,6 +1098,7 @@ register_module![
     binary_notes,
     binary_certificates,
     binary_tls,
+    binary_load_config,
     binary_disasm,
     binary_diff,
     binary_entropy,
