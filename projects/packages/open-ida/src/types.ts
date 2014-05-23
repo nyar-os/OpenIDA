@@ -444,6 +444,30 @@ export interface ElfNotesReport {
     readonly truncated: boolean;
 }
 
+/** One ELF program header entry. */
+export interface ElfSegment {
+    readonly index: number;
+    readonly segmentType: string;
+    readonly typeValue: number;
+    readonly offset: number;
+    readonly virtualAddress: number;
+    readonly physicalAddress: number;
+    readonly fileSize: number;
+    readonly memorySize: number;
+    readonly flags: number;
+    readonly flagText: string;
+    readonly alignment: number;
+}
+
+/** ELF program header table summary. */
+export interface ElfSegmentsReport {
+    readonly present: boolean;
+    readonly is64: boolean;
+    readonly segments: readonly ElfSegment[];
+    readonly total: number;
+    readonly truncated: boolean;
+}
+
 /** One `WIN_CERTIFICATE` entry of the PE attribute certificate table. */
 export interface PeCertificate {
     readonly offset: number;

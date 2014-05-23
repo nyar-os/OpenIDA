@@ -36,6 +36,7 @@ export interface NativeBinding {
     binary_resources(handle: number): string;
     binary_relocations(handle: number): string;
     binary_dynamic(handle: number): string;
+    binary_segments(handle: number): string;
     binary_notes(handle: number): string;
     binary_certificates(handle: number): string;
     binary_tls(handle: number): string;

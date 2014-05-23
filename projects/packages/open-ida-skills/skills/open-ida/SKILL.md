@@ -9,8 +9,8 @@ description: Inspect compiled binaries with OpenIDA. Use when a task involves PE
 
 `open-ida info`, `sections`, `strings`, `hexdump`, `rva`, `offset`, `imports`,
 `exports`, `symbols`, `debug`, `version`, `macho`, `macho-symbols`,
-`macho-slices`, `macho-extract`, `mitigations`, `resources`, `relocations`, `dynamic`, `notes`, `certificates`, `tls`,
-`load-config`, `disasm`, `entropy`, `diff`,
+`macho-slices`, `macho-extract`, `mitigations`, `resources`, `relocations`, `dynamic`, `segments`, `notes`,
+`certificates`, `tls`, `load-config`, `disasm`, `entropy`, `diff`,
 `search` and `patch` are implemented for the cases listed below. Decompilation,
 debugging, dyld bindings and signature verification are
 **not** implemented and the capability matrix reports them as `unsupported` /
@@ -48,6 +48,7 @@ a second analysis engine. Report the stable code instead.
 | resources | List the PE resource tree | `resources` report |
 | relocations | List the PE base relocation blocks and fixup types | `relocations` report |
 | dynamic | Read ELF interpreter, SONAME, needed libraries and search paths | `dynamic` report |
+| segments | List ELF program headers with permissions and load ranges | `segments` report |
 | notes | Read the ELF build id, ABI tag and GNU properties | `notes` report |
 | certificates | List the PE attribute certificate table headers (not verified) | `certificates` report |
 | tls | Read the PE TLS directory and callback addresses | `tls` report |

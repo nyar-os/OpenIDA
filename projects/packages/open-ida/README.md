@@ -52,6 +52,8 @@ ida.close();
   image has no relocations.
 - `dynamic()` reports the ELF interpreter, SONAME, `NEEDED` libraries and
   rpath/runpath. It reports `present: false` for a static image.
+- `segments()` lists the ELF program headers with type, offsets, addresses,
+  sizes, permissions and alignment for both ELF32 and ELF64.
 - `notes()` decodes ELF `PT_NOTE` / `SHT_NOTE` records: the GNU build id as hex,
   the GNU ABI tag, GNU property entries and a bounded hex preview for other
   notes. It reports `present: false` when the image has no notes.

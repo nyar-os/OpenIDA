@@ -183,6 +183,20 @@ answers `binary/unsupported`.
 The report reads the recorded dependency names. It does not resolve which copy
 of a library the dynamic loader would pick at run time.
 
+### `segments <file>`
+
+```bash
+open-ida segments ./samples/app.elf
+```
+
+ELF only. Prints one line per program header: index, stable type name
+(`PT_LOAD`, `PT_DYNAMIC`, `PT_GNU_RELRO`, ...), file offset, virtual and physical
+address, file and memory size, `R/W/X` permissions and alignment. The layout is
+chosen from `e_ident` class, so ELF32 and ELF64 both work. A file without program
+headers prints `no program header table`; non-ELF answers `binary/unsupported`.
+
+The report describes the table; it does not apply relocations or load the image.
+
 ### `notes <file>`
 
 ```bash

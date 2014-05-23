@@ -237,6 +237,10 @@ fn load_config_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.load_config()?))
 }
 
+fn segments_report(handle: u64) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.segments()?))
+}
+
 fn version_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.version()?))
 }
@@ -533,6 +537,16 @@ fn binary_tls(ctx: CallContext) -> Result<JsValue> {
 fn binary_load_config(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     match load_config_report(handle) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Decodes the ELF program header table.
+#[function]
+fn binary_segments(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    match segments_report(handle) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
@@ -1099,6 +1113,7 @@ register_module![
     binary_certificates,
     binary_tls,
     binary_load_config,
+    binary_segments,
     binary_disasm,
     binary_diff,
     binary_entropy,

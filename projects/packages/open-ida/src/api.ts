@@ -20,6 +20,7 @@ import type {
     DisassemblyReport,
     ElfDynamicReport,
     ElfNotesReport,
+    ElfSegmentsReport,
     EncodedStringsReport,
     EntropyReport,
     ExportsReport,
@@ -183,6 +184,11 @@ export class OpenIDA {
     /** Reports ELF `PT_INTERP` and `PT_DYNAMIC` dependencies. */
     dynamic(): ElfDynamicReport {
         return decode<ElfDynamicReport>(() => binding('binary.dynamic').binary_dynamic(this.id));
+    }
+
+    /** Decodes the ELF program header table. */
+    segments(): ElfSegmentsReport {
+        return decode<ElfSegmentsReport>(() => binding('binary.segments').binary_segments(this.id));
     }
 
     /** Decodes ELF notes: build id, GNU ABI tag and GNU properties. */

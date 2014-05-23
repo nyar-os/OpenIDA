@@ -1681,6 +1681,41 @@ fn pe_load_config_bytes() -> Vec<u8> {
 }
 
 #[test]
+fn elf_segments_decode_the_program_header_table() {
+    let view = BinaryView::from_bytes("notes.elf", elf_notes_bytes());
+    let report = view.segments().expect("ELF segments");
+
+    assert!(report.present);
+    assert!(report.is64);
+    assert!(!report.truncated);
+    assert_eq!(report.total, 1);
+    assert_eq!(report.segments.len(), 1);
+    let segment = &report.segments[0];
+    assert_eq!(segment.index, 0);
+    assert_eq!(segment.segment_type, "PT_NOTE");
+    assert_eq!(segment.type_value, 4);
+    assert_eq!(segment.offset, 0x200);
+    assert_eq!(segment.virtual_address, 0x400200);
+    assert_eq!(segment.file_size, 0x80);
+    assert_eq!(segment.memory_size, 0x80);
+    assert_eq!(segment.flags, 4);
+    assert_eq!(segment.flag_text, "R");
+    assert_eq!(segment.alignment, 4);
+}
+
+#[test]
+fn elf_segments_report_absence_and_reject_non_elf() {
+    let view = BinaryView::from_bytes("static.elf", elf64_bytes());
+    let report = view.segments().expect("ELF segments");
+    assert!(!report.present);
+    assert_eq!(report.total, 0);
+    assert!(report.segments.is_empty());
+
+    let pe = BinaryView::from_bytes("app.exe", pe_bytes());
+    assert_eq!(pe.segments().unwrap_err().code(), "binary/unsupported");
+}
+
+#[test]
 fn elf_notes_decode_build_id_abi_tag_and_properties() {
     let view = BinaryView::from_bytes("notes.elf", elf_notes_bytes());
     let report = view.notes().expect("ELF notes");
@@ -1738,6 +1773,7 @@ fn elf_notes_bytes() -> Vec<u8> {
     put_u16(&mut bytes, 56, 1);
 
     put_u32(&mut bytes, 0x40, 4);
+    put_u32(&mut bytes, 0x44, 4);
     put_u64(&mut bytes, 0x48, 0x200);
     put_u64(&mut bytes, 0x50, 0x400200);
     put_u64(&mut bytes, 0x60, 0x80);

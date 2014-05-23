@@ -26,6 +26,7 @@ mod mitigations;
 mod notes;
 mod relocations;
 mod resources;
+mod segments;
 mod text;
 mod tls;
 mod version;
@@ -56,6 +57,7 @@ pub use mitigations::{MitigationsReport, WritableExecutableSection};
 pub use notes::{ElfAbiTag, ElfGnuProperty, ElfNote, ElfNotesReport};
 pub use relocations::{RelocationBlock, RelocationKindCount, RelocationsReport};
 pub use resources::{PeResource, ResourcesReport};
+pub use segments::{ElfSegment, ElfSegmentsReport};
 pub use text::{EncodedStringHit, EncodedStringsReport, StringEncoding, StringsOptions};
 pub use tls::{PeTlsCallback, PeTlsReport};
 pub use version::{FixedFileInfo, VersionReport, VersionString};
@@ -195,6 +197,11 @@ impl BinaryView {
     /// Reports ELF `PT_INTERP` and `PT_DYNAMIC` dependencies.
     pub fn dynamic(&self) -> Result<ElfDynamicReport> {
         dynamic::analyze(&self.session)
+    }
+
+    /// Decodes the ELF program header table.
+    pub fn segments(&self) -> Result<ElfSegmentsReport> {
+        segments::analyze(&self.session)
     }
 
     /// Decodes ELF notes: build id, GNU ABI tag and GNU properties.
@@ -446,6 +453,11 @@ impl OpenIda {
         dynamic::analyze(&self.session)
     }
 
+    /// Decodes the ELF program header table.
+    pub fn segments(&self) -> Result<ElfSegmentsReport> {
+        segments::analyze(&self.session)
+    }
+
     /// Decodes ELF notes: build id, GNU ABI tag and GNU properties.
     pub fn notes(&self) -> Result<ElfNotesReport> {
         notes::analyze(&self.session)
@@ -567,6 +579,7 @@ pub fn capabilities() -> serde_json::Value {
             "pe-load-config": "supported",
             "elf-dynamic": "supported",
             "elf-notes": "supported",
+            "elf-program-headers": "supported",
             "disassembly": "supported",
             "diff": "supported",
             "entropy": "supported",
