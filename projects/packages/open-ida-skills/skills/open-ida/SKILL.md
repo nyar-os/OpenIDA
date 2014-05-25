@@ -47,6 +47,7 @@ a second analysis engine. Report the stable code instead.
 | mitigations | Read the PE hardening posture | `mitigations` report |
 | resources | List the PE resource tree | `resources` report |
 | relocations | List the PE base relocation blocks and fixup types | `relocations` report |
+| exception | List the PE runtime functions and unwind headers | `exception` report |
 | dynamic | Read ELF interpreter, SONAME, needed libraries and search paths | `dynamic` report |
 | segments | List ELF program headers with permissions and load ranges | `segments` report |
 | notes | Read the ELF build id, ABI tag and GNU properties | `notes` report |

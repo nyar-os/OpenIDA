@@ -167,6 +167,21 @@ block stops the walk.
 The report describes the fixup table; it does not apply relocations or claim
 that a module was loaded at a different base.
 
+### `exception <file>`
+
+```bash
+open-ida exception ./samples/app.exe
+```
+
+PE only. Walks the runtime function table behind data directory 3 and prints
+each entry's begin/end RVA and unwind info RVA. The layout follows the `COFF`
+machine: x64 records are three `u32` fields and their `UNWIND_INFO` header is
+decoded (version, `EHANDLER` / `UHANDLER` / `CHAININFO` flags, prologue size,
+code count, frame register and offset); ARM and ARM64 records are two words with
+the begin-address flag bits masked off. At most 512 entries are listed. A PE
+without the directory prints `no exception directory`. Unwind opcodes are not
+disassembled, and chained info is reported as a flag only.
+
 ### `dynamic <file>`
 
 ```bash

@@ -58,6 +58,7 @@ open-ida macho-extract ./samples/universal.macho --index 1 --out ./samples/app.a
 open-ida mitigations ./samples/app.exe
 open-ida resources ./samples/app.exe
 open-ida relocations ./samples/app.exe
+open-ida exception ./samples/app.exe
 open-ida dynamic ./samples/app.elf
 open-ida segments ./samples/app.elf
 open-ida notes ./samples/app.elf

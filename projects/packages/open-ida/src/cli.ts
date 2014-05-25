@@ -34,6 +34,7 @@ import type {
     MachOSliceExtraction,
     MachOSymbolsReport,
     MitigationsReport,
+    PeExceptionReport,
     PeLoadConfigReport,
     PeTlsReport,
     RelocationsReport,
@@ -245,6 +246,27 @@ function describeResources(report: ResourcesReport): string {
         lines.push(
             `  ${entry.resourceType.padEnd(14)} ${entry.name.padEnd(16)} lang ${hex(entry.language)} rva ${hex(entry.dataRva)} size ${hex(entry.size)}`,
         );
+    }
+    return lines.join('\n');
+}
+
+function describeException(report: PeExceptionReport): string {
+    if (!report.present) {
+        return 'no exception directory';
+    }
+    const size = report.entrySize === null ? 'unknown size' : `${report.entrySize}-byte entries`;
+    const header = entriesHeader(report.functions.length, report.total, 'runtime function(s)', report.truncated);
+    const lines = [`${header} · ${report.machineName} · ${report.entryFormat} (${size})`];
+    for (const entry of report.functions) {
+        const end = entry.endAddress === 0 ? '' : `-${hex(entry.endAddress)}`;
+        const unwind = entry.unwind;
+        const detail =
+            unwind === null
+                ? `unwind ${hex(entry.unwindInfo)}`
+                : `unwind ${hex(entry.unwindInfo)} v${unwind.version} prolog ${unwind.prologSize} codes ${unwind.codeCount}${
+                      unwind.flagNames.length === 0 ? '' : ` ${unwind.flagNames.join('|')}`
+                  }`;
+        lines.push(`  ${hex(entry.beginAddress)}${end} · ${detail}`);
     }
     return lines.join('\n');
 }
@@ -829,6 +851,22 @@ cli.command('mitigations', 'cli.cmd.mitigations').actionCtx(async (options, _arg
     try {
         const report = ida.mitigations();
         ctx.emitResult(report, describeMitigations(report));
+        return 0;
+    } finally {
+        ida.close();
+    }
+});
+
+cli.command('exception', 'cli.cmd.exception').actionCtx(async (options, _args, ctx) => {
+    const file = input(options);
+    if (file === undefined) {
+        ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+        return 2;
+    }
+    const ida = new OpenIDA({ path: file });
+    try {
+        const report = ida.exception();
+        ctx.emitResult(report, describeException(report));
         return 0;
     } finally {
         ida.close();

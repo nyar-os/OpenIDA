@@ -1406,6 +1406,101 @@ fn pe_relocations_report_absence_and_reject_non_pe() {
     assert_eq!(elf.relocations().unwrap_err().code(), "binary/unsupported");
 }
 
+/// `pe_bytes()` plus two x64 runtime functions behind data directory 3.
+fn pe_exception_bytes() -> Vec<u8> {
+    let mut bytes = pe_bytes();
+    put_u32(&mut bytes, 0x98 + 112 + 3 * 8, 0x2000);
+    put_u32(&mut bytes, 0x98 + 112 + 3 * 8 + 4, 24);
+
+    put_u32(&mut bytes, 0x400, 0x1010);
+    put_u32(&mut bytes, 0x404, 0x1040);
+    put_u32(&mut bytes, 0x408, 0x2060);
+    put_u32(&mut bytes, 0x40c, 0x1050);
+    put_u32(&mut bytes, 0x410, 0x1080);
+    put_u32(&mut bytes, 0x414, 0x2070);
+
+    let handler = 0x460;
+    bytes[handler] = 0x01 | (0x01 << 3);
+    bytes[handler + 1] = 0x10;
+    bytes[handler + 2] = 5;
+    bytes[handler + 3] = (2 << 4) | 3;
+
+    let chained = 0x470;
+    bytes[chained] = 0x02 | (0x04 << 3);
+    bytes
+}
+
+#[test]
+fn pe_exception_decodes_x64_runtime_functions() {
+    let view = BinaryView::from_bytes("guarded.exe", pe_exception_bytes());
+    let report = view.exception().expect("PE exception directory");
+
+    assert!(report.present);
+    assert!(!report.truncated);
+    assert_eq!(report.machine, 0x8664);
+    assert_eq!(report.machine_name, "amd64");
+    assert_eq!(report.entry_format, "x64");
+    assert_eq!(report.entry_size, Some(12));
+    assert_eq!(report.total, 2);
+    assert_eq!(report.functions.len(), 2);
+
+    let first = &report.functions[0];
+    assert_eq!(first.begin_address, 0x1010);
+    assert_eq!(first.end_address, 0x1040);
+    assert_eq!(first.unwind_info, 0x2060);
+    assert_eq!(first.unwind_offset, Some(0x460));
+    let unwind = first.unwind.as_ref().expect("unwind header");
+    assert_eq!(unwind.version, 1);
+    assert_eq!(unwind.flags, 1);
+    assert_eq!(unwind.flag_names, vec!["EHANDLER"]);
+    assert_eq!(unwind.prolog_size, 0x10);
+    assert_eq!(unwind.code_count, 5);
+    assert_eq!(unwind.frame_register, 3);
+    assert_eq!(unwind.frame_offset, 2);
+    assert!(!unwind.chained);
+
+    let second = &report.functions[1];
+    assert_eq!(second.begin_address, 0x1050);
+    assert_eq!(second.unwind_info, 0x2070);
+    let unwind = second.unwind.as_ref().expect("chained unwind header");
+    assert_eq!(unwind.version, 2);
+    assert_eq!(unwind.flag_names, vec!["CHAININFO"]);
+    assert!(unwind.chained);
+}
+
+#[test]
+fn pe_exception_masks_arm64_packed_entries() {
+    let mut bytes = pe_exception_bytes();
+    put_u16(&mut bytes, 0x84, 0xaa64);
+    put_u32(&mut bytes, 0x98 + 112 + 3 * 8 + 4, 8);
+    put_u32(&mut bytes, 0x400, 0x1012);
+    put_u32(&mut bytes, 0x404, 0x2060);
+
+    let report = BinaryView::from_bytes("arm64.exe", bytes).exception().expect("ARM64 exception directory");
+    assert!(report.present);
+    assert_eq!(report.machine_name, "arm64");
+    assert_eq!(report.entry_format, "arm64");
+    assert_eq!(report.entry_size, Some(8));
+    assert_eq!(report.total, 1);
+    assert_eq!(report.functions.len(), 1);
+    assert_eq!(report.functions[0].begin_address, 0x1010);
+    assert_eq!(report.functions[0].end_address, 0);
+    assert_eq!(report.functions[0].unwind_info, 0x2060);
+    assert!(report.functions[0].unwind.is_none());
+}
+
+#[test]
+fn pe_exception_reports_absence_and_rejects_non_pe() {
+    let report = BinaryView::from_bytes("plain.exe", pe_bytes()).exception().expect("PE exception directory");
+    assert!(!report.present);
+    assert_eq!(report.total, 0);
+    assert!(report.functions.is_empty());
+
+    let elf = BinaryView::from_bytes("sample.elf", elf64_bytes());
+    assert_eq!(elf.exception().unwrap_err().code(), "binary/unsupported");
+}
+
+
 /// ELF64 with `PT_LOAD`, `PT_INTERP` and `PT_DYNAMIC` program headers.
 fn elf_dynamic_bytes() -> Vec<u8> {
     let mut bytes = vec![0u8; 0x500];
