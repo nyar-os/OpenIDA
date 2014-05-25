@@ -277,6 +277,22 @@ listed by name.
 The certificate table entry means a signature blob exists. OpenIDA does not
 verify it, so do not describe a file as "signed by X" from this report.
 
+### `code-signature <file>`
+
+```bash
+open-ida code-signature ./samples/app.macho
+```
+
+Mach-O only. Finds `LC_CODE_SIGNATURE`, prints the blob offset and size, the
+SuperBlob blob types and the first `CodeDirectory`: version, decoded flags,
+hash algorithm, page size, code limit, signing identifier, team id and code /
+special slot counts. A thin image without the command prints `no embedded code
+signature`; fat containers answer `binary/unsupported` and point at
+`macho-slices` + `macho-extract`; non-Mach-O answers `binary/unsupported`.
+
+Parsed only: hashes are not recomputed and no certificate chain or requirement
+is validated.
+
 ### `macho <file>`
 
 ```bash

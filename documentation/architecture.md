@@ -8,7 +8,7 @@ it returns.
 
 | Layer | Crate or package | Responsibility |
 | --- | --- | --- |
-| Engine | `projects/crates/core` (`open-ida-core`) | Opens a file, keeps the session defaults, exposes `OpenIda`, and implements the parts the pinned upstream does not: PE debug/CodeView, x86/x64 disassembly, binary diff, entropy/overlay, encoded string scanning, and Mach-O load-command identity (UUID, dylibs, build version), the `LC_SYMTAB` symbol table and the fat architecture table, plus the PE mitigation posture, resource tree, relocation blocks, attribute certificate table, TLS directory, load configuration, and the ELF program headers, dynamic dependencies and notes. |
+| Engine | `projects/crates/core` (`open-ida-core`) | Opens a file, keeps the session defaults, exposes `OpenIda`, and implements the parts the pinned upstream does not: PE debug/CodeView, x86/x64 disassembly, binary diff, entropy/overlay, encoded string scanning, and Mach-O load-command identity (UUID, dylibs, build version), the `LC_SYMTAB` symbol table, the fat architecture table and the embedded code signature, plus the PE mitigation posture, resource tree, relocation blocks, attribute certificate table, TLS directory, load configuration, and the ELF program headers, dynamic dependencies and notes. |
 | Upstream | `data-binary-inspect`, `data-binary-pe`, `data-binary-mach-o` | Container detection, headers, sections, imports, exports, symbols, search, hex dumps, address mapping, atomic patching, and Mach-O headers, segments and sections. |
 | Binding | `projects/crates/napi` (`open-ida-napi`) | JSON-in / JSON-out Node-API exports plus the WebView host. No inspection policy. |
 | SDK | `projects/packages/open-ida/src` | `OpenIDA` session, report types, stable error translation, addon discovery. |

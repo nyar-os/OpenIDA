@@ -14,6 +14,7 @@
 #![deny(missing_docs)]
 
 mod certificates;
+mod code_signature;
 mod debug;
 mod diff;
 mod disasm;
@@ -42,6 +43,7 @@ pub use data_binary_inspect::{
     StringsReport, SymbolEntry, SymbolsReport,
 };
 pub use certificates::{CertificatesReport, PeCertificate};
+pub use code_signature::{MachOCodeDirectory, MachOCodeSignatureReport};
 pub use debug::{CodeViewInfo, DebugEntry, DebugReport};
 pub use diff::{DiffRange, DiffReport};
 pub use disasm::{DisassembleOptions, DisassemblyInstruction, DisassemblyReport, DisassemblySyntax};
@@ -172,6 +174,11 @@ impl BinaryView {
     /// Lists the architecture slices of a fat/universal Mach-O container.
     pub fn macho_slices(&self) -> Result<MachOSlicesReport> {
         macho::slices(&self.session)
+    }
+
+    /// Decodes the Mach-O embedded code signature and its first `CodeDirectory`.
+    pub fn code_signature(&self) -> Result<MachOCodeSignatureReport> {
+        code_signature::analyze(&self.session)
     }
 
     /// Writes one fat/universal Mach-O slice to a caller-chosen path.
@@ -428,6 +435,11 @@ impl OpenIda {
         macho::slices(&self.session)
     }
 
+    /// Decodes the Mach-O embedded code signature and its first `CodeDirectory`.
+    pub fn code_signature(&self) -> Result<MachOCodeSignatureReport> {
+        code_signature::analyze(&self.session)
+    }
+
     /// Writes one fat/universal Mach-O slice to a caller-chosen path.
     pub fn extract_slice(&self, index: usize, output: &Path) -> Result<MachOSliceExtraction> {
         macho::extract(&self.session, index, output)
@@ -571,6 +583,7 @@ pub fn capabilities() -> serde_json::Value {
             "macho-symbols": "supported",
             "macho-fat-slices": "supported",
             "macho-slice-extraction": "supported",
+            "macho-code-signature": "supported",
             "pe-mitigations": "supported",
             "pe-resources": "supported",
             "pe-relocations": "supported",

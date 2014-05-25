@@ -241,6 +241,10 @@ fn segments_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.segments()?))
 }
 
+fn code_signature_report(handle: u64) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.code_signature()?))
+}
+
 fn version_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.version()?))
 }
@@ -547,6 +551,16 @@ fn binary_load_config(ctx: CallContext) -> Result<JsValue> {
 fn binary_segments(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     match segments_report(handle) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Decodes the Mach-O embedded code signature.
+#[function]
+fn binary_code_signature(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    match code_signature_report(handle) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
@@ -1114,6 +1128,7 @@ register_module![
     binary_tls,
     binary_load_config,
     binary_segments,
+    binary_code_signature,
     binary_disasm,
     binary_diff,
     binary_entropy,

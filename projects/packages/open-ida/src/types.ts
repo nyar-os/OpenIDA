@@ -444,6 +444,33 @@ export interface ElfNotesReport {
     readonly truncated: boolean;
 }
 
+/** One decoded Mach-O `CodeDirectory` blob. */
+export interface MachOCodeDirectory {
+    readonly version: number;
+    readonly flags: number;
+    readonly flagText: readonly string[];
+    readonly hashType: string;
+    readonly hashSize: number;
+    readonly pageSize: number;
+    readonly codeLimit: number;
+    readonly identifier: string;
+    readonly teamId: string | null;
+    readonly codeSlots: number;
+    readonly specialSlots: number;
+}
+
+/** Mach-O embedded code signature summary. */
+export interface MachOCodeSignatureReport {
+    readonly present: boolean;
+    readonly dataOffset: number;
+    readonly dataSize: number;
+    readonly magic: string | null;
+    readonly blobCount: number | null;
+    readonly blobTypes: readonly string[];
+    readonly codeDirectory: MachOCodeDirectory | null;
+    readonly truncated: boolean;
+}
+
 /** One ELF program header entry. */
 export interface ElfSegment {
     readonly index: number;
