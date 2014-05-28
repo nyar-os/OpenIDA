@@ -9,6 +9,7 @@ description: Inspect compiled binaries with OpenIDA. Use when a task involves PE
 
 `open-ida info`, `sections`, `strings`, `hexdump`, `rva`, `offset`, `imports`,
 `exports`, `symbols`, `debug`, `version`, `macho`, `macho-symbols`,
+`macho-function-starts`,
 `macho-slices`, `macho-extract`, `mitigations`, `resources`, `relocations`, `dynamic`, `segments`, `notes`,
 `certificates`, `tls`, `load-config`, `code-signature`, `disasm`, `entropy`, `diff`,
 `search` and `patch` are implemented for the cases listed below. Decompilation,
@@ -42,6 +43,7 @@ a second analysis engine. Report the stable code instead.
 | metadata | Read PE file/product version and string table | `version` report |
 | macho | Read UUID, platform, dylibs, segments and sections | `macho` report |
 | macho-symbols | List `LC_SYMTAB` entries with kind, section and flags | `macho-symbols` report |
+| macho-function-starts | List `LC_FUNCTION_STARTS` function addresses | `macho-function-starts` report |
 | macho-slices | List the architectures of a fat/universal container | `macho-slices` report |
 | macho-extract | Write one fat/universal slice to a new file | `macho-extract` report |
 | mitigations | Read the PE hardening posture | `mitigations` report |

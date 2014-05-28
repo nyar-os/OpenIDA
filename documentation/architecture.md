@@ -87,8 +87,9 @@ Codes are contract. Callers branch on `code`, never on message text.
 
 `capabilities()` is the only support claim. A format may be classified and still
 unsupported, and a suffix is never treated as a support claim. Mach-O is
-`partial`: headers, load commands, segments, sections, dylibs, build versions
-and the `LC_SYMTAB` symbol table are decoded, but dyld bindings are not; fat
+`partial`: headers, load commands, segments, sections, dylibs, build versions,
+the `LC_SYMTAB` symbol table and the `LC_FUNCTION_STARTS` delta table are
+decoded, but dyld bindings are not; fat
 containers expose their architecture table through `macho-slices`, and
 `macho-extract` writes one slice that the thin-image reports can reopen. Decompilation, debugging and Mach-O
 import bindings are explicitly `not-implemented`. ARM and ARM64 disassembly

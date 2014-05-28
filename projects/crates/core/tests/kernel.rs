@@ -1142,6 +1142,55 @@ fn macho_symbols_require_a_symtab() {
     assert_eq!(view.macho_symbols(None).unwrap_err().code(), "binary/unsupported");
 }
 
+#[test]
+fn macho_function_starts_decode_uleb128_deltas() {
+    let view = BinaryView::from_bytes("starts.macho", macho64_function_starts_bytes());
+    let report = view.macho_function_starts(None).expect("Mach-O function starts");
+
+    assert_eq!(report.image_base, 0x1000);
+    assert_eq!(report.total, 3);
+    assert!(!report.truncated);
+    assert_eq!(report.addresses, vec![0x1100, 0x1120, 0x1160]);
+
+    let bounded = BinaryView::from_bytes("starts.macho", macho64_function_starts_bytes())
+        .macho_function_starts(Some(2))
+        .expect("bounded function starts");
+    assert_eq!(bounded.total, 3);
+    assert!(bounded.truncated);
+    assert_eq!(bounded.addresses, vec![0x1100, 0x1120]);
+}
+
+#[test]
+fn macho_function_starts_require_the_command() {
+    let view = BinaryView::from_bytes("sample.macho", macho64_bytes());
+    assert_eq!(view.macho_function_starts(None).unwrap_err().code(), "binary/unsupported");
+
+    let view = BinaryView::from_bytes("plain.exe", pe_bytes());
+    assert_eq!(view.macho_function_starts(None).unwrap_err().code(), "binary/unsupported");
+}
+
+/// `macho64_bytes()` plus `LC_FUNCTION_STARTS` at 0x300 holding the deltas
+/// 0x100, 0x20, 0x40 and a terminal zero.
+fn macho64_function_starts_bytes() -> Vec<u8> {
+    let mut bytes = macho64_bytes();
+    bytes.resize(0x320, 0);
+    put_u32(&mut bytes, 16, 6);
+    put_u32(&mut bytes, 20, 304);
+
+    let command = 32 + 280;
+    put_u32(&mut bytes, command, 0x26);
+    put_u32(&mut bytes, command + 4, 16);
+    put_u32(&mut bytes, command + 8, 0x300);
+    put_u32(&mut bytes, command + 12, 8);
+
+    bytes[0x300] = 0x80;
+    bytes[0x301] = 0x02;
+    bytes[0x302] = 0x20;
+    bytes[0x303] = 0x40;
+    bytes[0x304] = 0x00;
+    bytes
+}
+
 fn put_be_u32(bytes: &mut [u8], offset: usize, value: u32) {
     bytes[offset..offset + 4].copy_from_slice(&value.to_be_bytes());
 }

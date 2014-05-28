@@ -35,6 +35,7 @@ Big-endian ELF is rejected rather than decoded with a guessed byte order.
 | `version` | `supported` | PE `RT_VERSION` fixed file info and `StringFileInfo` pairs. A PE without the resource reports `present: false`; non-PE answers `binary/unsupported`. |
 | `macho` | `supported` | Mach-O header, file type, UUID, platform/min OS/SDK, dylibs, segments, sections and entry point. Non-Mach-O answers `binary/unsupported`. |
 | `macho-symbols` | `supported` | Mach-O `LC_SYMTAB` entries with name, address, kind, external/debug flags, section index and descriptor. A Mach-O without `LC_SYMTAB` answers `binary/unsupported`. |
+| `macho-function-starts` | `supported` | `LC_FUNCTION_STARTS` ULEB128 delta table decoded into absolute virtual addresses starting from the `__TEXT` segment address. A Mach-O without the command answers `binary/unsupported`; fat containers must be sliced first. |
 | `pe-mitigations` | `supported` | PE `DllCharacteristics` (ASLR, high-entropy VA, DEP, CFG, force integrity, no-SEH, terminal-server-aware), load-config GS cookie and `GuardFlags`, base-relocation and certificate-table presence, and W+X sections. Non-PE answers `binary/unsupported`. |
 | `pe-resources` | `supported` | PE resource tree leaves with type, name, language, data RVA, size and code page. A PE without a resource directory reports `present: false`; non-PE answers `binary/unsupported`. |
 | `pe-relocations` | `supported` | PE `IMAGE_BASE_RELOCATION` blocks with page RVA, block size, entry count and per-type fixup counts, plus whole-image totals. A PE without relocations reports `present: false`; non-PE answers `binary/unsupported`. |
@@ -78,7 +79,7 @@ Big-endian ELF is rejected rather than decoded with a guessed byte order.
 | `search --limit` | 100 hits | — | `total` keeps the full count, `truncated` is `true`. Omit for the engine default; the SDK also accepts `null` for unlimited. |
 | `disasm --count` | 64 instructions | 4,096 | `truncated` is `true` when the count limit stopped decoding. |
 | `diff` ranges | — | 64 ranges | `total` keeps the full count, `truncated` is `true`. |
-| `imports` / `exports` / `symbols` / `macho-symbols` / `debug --limit` | Unlimited | — | `total` and `truncated` describe the cut. |
+| `imports` / `exports` / `symbols` / `macho-symbols` / `macho-function-starts` / `debug --limit` | Unlimited | — | `total` and `truncated` describe the cut. |
 | `resources` | 256 leaves, 8,192 tree nodes | — | `total` and `truncated` describe the cut. |
 | `relocations` | 128 blocks listed, 4,096 decoded | — | `totalBlocks`, `totalEntries` and `truncated` describe the cut. |
 | `dynamic` | 256 needed libraries, 64 paths per list | — | `truncated` is `true` when a limit stopped the listing. |

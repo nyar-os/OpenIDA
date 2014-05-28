@@ -30,6 +30,7 @@ export interface NativeBinding {
     binary_version(handle: number): string;
     binary_macho(handle: number): string;
     binary_macho_symbols(handle: number, limit?: number): string;
+    binary_macho_function_starts(handle: number, limit?: number): string;
     binary_macho_slices(handle: number): string;
     binary_code_signature(handle: number): string;
     binary_macho_extract(handle: number, index: number, output: string): string;
