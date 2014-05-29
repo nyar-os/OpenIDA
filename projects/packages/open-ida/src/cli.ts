@@ -32,6 +32,7 @@ import type {
     MachOCodeSignatureReport,
     MachOSlicesReport,
     MachOSliceExtraction,
+    MachOExportsReport,
     MachOFunctionStartsReport,
     MachOSymbolsReport,
     MitigationsReport,
@@ -503,6 +504,20 @@ function describeMachOSymbols(report: MachOSymbolsReport): string {
         lines.push(
             `  ${hex(symbol.address).padStart(12)}  ${symbol.kind.padEnd(9)} ${flags.padEnd(7)} ${symbol.name}${section}`,
         );
+    }
+    return lines.join('\n');
+}
+
+function describeMachOExports(report: MachOExportsReport): string {
+    if (!report.present) {
+        return 'no dyld export trie';
+    }
+    const lines = [entriesHeader(report.exports.length, report.total, 'export(s)', report.truncated)];
+    for (const entry of report.exports) {
+        const flags = entry.flagNames.length === 0 ? '' : ` ${entry.flagNames.join('|')}`;
+        const detail =
+            entry.address === null ? `other ${entry.other ?? 0}` : `address ${hex(entry.address)}`;
+        lines.push(`  ${entry.name} · ${detail}${flags}`);
     }
     return lines.join('\n');
 }
@@ -1021,6 +1036,22 @@ cli.command('macho', 'cli.cmd.macho').actionCtx(async (options, _args, ctx) => {
     try {
         const report = ida.macho();
         ctx.emitResult(report, describeMachO(report));
+        return 0;
+    } finally {
+        ida.close();
+    }
+});
+
+cli.command('macho-exports', 'cli.cmd.machoExports').actionCtx(async (options, _args, ctx) => {
+    const file = input(options);
+    if (file === undefined) {
+        ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+        return 2;
+    }
+    const ida = new OpenIDA({ path: file });
+    try {
+        const report = ida.machoExports();
+        ctx.emitResult(report, describeMachOExports(report));
         return 0;
     } finally {
         ida.close();

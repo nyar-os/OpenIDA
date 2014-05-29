@@ -24,6 +24,7 @@
             "code-signature": "Print the Mach-O embedded code signature and CodeDirectory (never verified)",
             "machoSymbols": "Print the Mach-O LC_SYMTAB symbol table with kinds and sections",
             "machoFunctionStarts": "Print the Mach-O LC_FUNCTION_STARTS function addresses",
+            "machoExports": "Print the Mach-O dyld export trie symbols and flags",
             "machoSlices": "Print the architecture slices of a fat/universal Mach-O container",
             "machoExtract": "Write one fat/universal Mach-O slice to a new file",
             "disasm": "Disassemble x86 or x64 instructions from a file offset",

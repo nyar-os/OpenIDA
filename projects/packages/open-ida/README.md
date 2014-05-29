@@ -74,8 +74,9 @@ ida.close();
   W+X sections, relocations, certificate-table presence). It does not verify
   Authenticode signatures.
 - Mach-O support covers headers, load commands, segments, sections, dylibs,
-  build versions, the `LC_SYMTAB` symbol table, the `LC_FUNCTION_STARTS` table
-  and the fat architecture table; dyld bindings are not decoded.
+  build versions, the `LC_SYMTAB` symbol table, the `LC_FUNCTION_STARTS` table,
+  the dyld export trie and the fat architecture table; dyld bind opcodes are not
+  decoded.
   `extractSlice(index, output)` writes one fat slice to a new file and refuses
   to overwrite the source container.
   Big-endian ELF and unknown containers are rejected with

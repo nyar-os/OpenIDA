@@ -1191,6 +1191,61 @@ fn macho64_function_starts_bytes() -> Vec<u8> {
     bytes
 }
 
+#[test]
+fn macho_exports_walk_the_dyld_trie() {
+    let view = BinaryView::from_bytes("exports.macho", macho64_exports_bytes());
+    let report = view.macho_exports().expect("Mach-O exports");
+
+    assert!(report.present);
+    assert!(!report.truncated);
+    assert_eq!(report.total, 2);
+    assert_eq!(report.exports.len(), 2);
+
+    let first = &report.exports[0];
+    assert_eq!(first.name, "_foo");
+    assert_eq!(first.flags, 0);
+    assert!(first.flag_names.is_empty());
+    assert_eq!(first.address, Some(0x1000));
+    assert_eq!(first.other, None);
+
+    let second = &report.exports[1];
+    assert_eq!(second.name, "_bar");
+    assert_eq!(second.flags, 1);
+    assert_eq!(second.flag_names, vec!["WEAK"]);
+    assert_eq!(second.address, Some(0x1040));
+}
+
+#[test]
+fn macho_exports_report_absence_and_reject_non_macho() {
+    let view = BinaryView::from_bytes("sample.macho", macho64_bytes());
+    assert!(!view.macho_exports().expect("empty export trie").present);
+
+    let view = BinaryView::from_bytes("plain.exe", pe_bytes());
+    assert_eq!(view.macho_exports().unwrap_err().code(), "binary/unsupported");
+}
+
+/// `macho64_bytes()` plus `LC_DYLD_EXPORTS_TRIE` at 0x300 exporting `_foo`
+/// (address 0x1000) and the weak `_bar` (address 0x1040).
+fn macho64_exports_bytes() -> Vec<u8> {
+    let mut bytes = macho64_bytes();
+    bytes.resize(0x320, 0);
+    put_u32(&mut bytes, 16, 6);
+    put_u32(&mut bytes, 20, 304);
+
+    let command = 32 + 280;
+    put_u32(&mut bytes, command, 0x8000_0033);
+    put_u32(&mut bytes, command + 4, 16);
+    put_u32(&mut bytes, command + 8, 0x300);
+    put_u32(&mut bytes, command + 12, 24);
+
+    let trie: [u8; 24] = [
+        0x00, 0x02, b'_', b'f', b'o', b'o', 0x00, 0x0e, b'_', b'b', b'a', b'r', 0x00, 0x13, 0x03, 0x00, 0x80, 0x20,
+        0x00, 0x03, 0x01, 0xc0, 0x20, 0x00,
+    ];
+    bytes[0x300..0x300 + trie.len()].copy_from_slice(&trie);
+    bytes
+}
+
 fn put_be_u32(bytes: &mut [u8], offset: usize, value: u32) {
     bytes[offset..offset + 4].copy_from_slice(&value.to_be_bytes());
 }

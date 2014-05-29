@@ -304,6 +304,23 @@ export interface MachOSymbolsReport {
     readonly stringTableSize: number;
 }
 
+/** One symbol decoded from the dyld export trie. */
+export interface MachOExport {
+    readonly name: string;
+    readonly flags: number;
+    readonly flagNames: readonly string[];
+    readonly address: number | null;
+    readonly other: number | null;
+}
+
+/** Bounded listing of dyld export trie symbols. */
+export interface MachOExportsReport {
+    readonly present: boolean;
+    readonly exports: readonly MachOExport[];
+    readonly total: number;
+    readonly truncated: boolean;
+}
+
 /** Bounded listing of `LC_FUNCTION_STARTS` addresses. */
 export interface MachOFunctionStartsReport {
     readonly imageBase: number;

@@ -29,6 +29,7 @@ import type {
     MachOReport,
     MachOSlicesReport,
     MachOSliceExtraction,
+    MachOExportsReport,
     MachOFunctionStartsReport,
     MachOSymbolsReport,
     MachOCodeSignatureReport,
@@ -155,6 +156,11 @@ export class OpenIDA {
     /** Lists the Mach-O `LC_SYMTAB` symbol table. */
     machoSymbols(limit?: number): MachOSymbolsReport {
         return decode<MachOSymbolsReport>(() => binding('binary.macho_symbols').binary_macho_symbols(this.id, limit));
+    }
+
+    /** Decodes the dyld export trie of a Mach-O image. */
+    machoExports(): MachOExportsReport {
+        return decode<MachOExportsReport>(() => binding('binary.macho_exports').binary_macho_exports(this.id));
     }
 
     /** Decodes the Mach-O `LC_FUNCTION_STARTS` delta table. */
