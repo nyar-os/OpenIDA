@@ -54,8 +54,8 @@ pub use entropy::{EntropyReport, OverlayInfo, SectionEntropy};
 pub use error::{IdaError, Result};
 pub use load_config::{CodeIntegrityInfo, PeLoadConfigReport};
 pub use macho::{
-    MachODylib, MachOExport, MachOExportsReport, MachOFunctionStartsReport, MachOReport, MachOSection, MachOSegment,
-    MachOSlice, MachOSliceExtraction, MachOSlicesReport, MachOSymbol, MachOSymbolsReport,
+    MachODylib, MachOEncryptionReport, MachOExport, MachOExportsReport, MachOFunctionStartsReport, MachOReport,
+    MachOSection, MachOSegment, MachOSlice, MachOSliceExtraction, MachOSlicesReport, MachOSymbol, MachOSymbolsReport,
 };
 pub use mitigations::{MitigationsReport, WritableExecutableSection};
 pub use notes::{ElfAbiTag, ElfGnuProperty, ElfNote, ElfNotesReport};
@@ -187,6 +187,11 @@ impl BinaryView {
     /// Lists the architecture slices of a fat/universal Mach-O container.
     pub fn macho_slices(&self) -> Result<MachOSlicesReport> {
         macho::slices(&self.session)
+    }
+
+    /// Decodes `LC_ENCRYPTION_INFO` / `LC_ENCRYPTION_INFO_64`.
+    pub fn macho_encryption(&self) -> Result<MachOEncryptionReport> {
+        macho::encryption(&self.session)
     }
 
     /// Decodes the Mach-O embedded code signature and its first `CodeDirectory`.
@@ -463,6 +468,11 @@ impl OpenIda {
         macho::slices(&self.session)
     }
 
+    /// Decodes `LC_ENCRYPTION_INFO` / `LC_ENCRYPTION_INFO_64`.
+    pub fn macho_encryption(&self) -> Result<MachOEncryptionReport> {
+        macho::encryption(&self.session)
+    }
+
     /// Decodes the Mach-O embedded code signature and its first `CodeDirectory`.
     pub fn code_signature(&self) -> Result<MachOCodeSignatureReport> {
         code_signature::analyze(&self.session)
@@ -617,6 +627,7 @@ pub fn capabilities() -> serde_json::Value {
             "macho-fat-slices": "supported",
             "macho-function-starts": "supported",
             "macho-exports": "supported",
+            "macho-encryption": "supported",
             "macho-slice-extraction": "supported",
             "macho-code-signature": "supported",
             "pe-mitigations": "supported",
