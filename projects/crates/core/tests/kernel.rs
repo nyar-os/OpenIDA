@@ -1265,6 +1265,83 @@ fn macho64_encryption_bytes() -> Vec<u8> {
     bytes
 }
 
+#[test]
+fn macho_chained_fixups_report_imports_and_starts() {
+    let view = BinaryView::from_bytes("chained.macho", macho64_chained_fixups_bytes());
+    let report = view.macho_chained_fixups().expect("Mach-O chained fixups");
+
+    assert!(report.present);
+    assert_eq!(report.data_offset, 0x300);
+    assert_eq!(report.data_size, 0x80);
+    let header = report.header.expect("fixups header");
+    assert_eq!(header.fixups_version, 0);
+    assert_eq!(header.starts_offset, 0x30);
+    assert_eq!(header.imports_offset, 0x1c);
+    assert_eq!(header.symbols_offset, 0x24);
+    assert_eq!(header.imports_count, 2);
+    assert_eq!(header.imports_format, 1);
+    assert_eq!(header.symbols_format, 0);
+
+    assert_eq!(report.imports.len(), 2);
+    assert_eq!(report.imports[0].lib_ordinal, 1);
+    assert!(!report.imports[0].weak_import);
+    assert_eq!(report.imports[0].name, "puts");
+    assert_eq!(report.imports[0].addend, None);
+    assert_eq!(report.imports[1].lib_ordinal, 2);
+    assert!(report.imports[1].weak_import);
+    assert_eq!(report.imports[1].name, "malloc");
+    assert!(!report.truncated);
+
+    assert_eq!(report.starts_in_image, Some(2));
+    assert_eq!(report.starts_in_segment_count, 2);
+}
+
+#[test]
+fn macho_chained_fixups_report_absence_and_reject_non_macho() {
+    let view = BinaryView::from_bytes("sample.macho", macho64_bytes());
+    let report = view.macho_chained_fixups().expect("no chained fixups command");
+    assert!(!report.present);
+    assert!(report.imports.is_empty());
+
+    let view = BinaryView::from_bytes("plain.exe", pe_bytes());
+    assert_eq!(view.macho_chained_fixups().unwrap_err().code(), "binary/unsupported");
+}
+
+/// `macho64_bytes()` plus `LC_DYLD_CHAINED_FIXUPS` pointing at `0x300`, with a
+/// header (2 imports, uncompressed symbols), imports `puts` / `malloc` and a
+/// two-segment starts table.
+fn macho64_chained_fixups_bytes() -> Vec<u8> {
+    let mut bytes = macho64_bytes();
+    bytes.resize(0x400, 0);
+    put_u32(&mut bytes, 16, 6);
+    put_u32(&mut bytes, 20, 304);
+
+    let command = 32 + 280;
+    put_u32(&mut bytes, command, 0x8000_0034);
+    put_u32(&mut bytes, command + 4, 16);
+    put_u32(&mut bytes, command + 8, 0x300);
+    put_u32(&mut bytes, command + 12, 0x80);
+
+    put_u32(&mut bytes, 0x300, 0);
+    put_u32(&mut bytes, 0x304, 0x30);
+    put_u32(&mut bytes, 0x308, 0x1c);
+    put_u32(&mut bytes, 0x30c, 0x24);
+    put_u32(&mut bytes, 0x310, 2);
+    put_u32(&mut bytes, 0x314, 1);
+    put_u32(&mut bytes, 0x318, 0);
+
+    put_u32(&mut bytes, 0x31c, 1);
+    put_u32(&mut bytes, 0x320, 2 | (1 << 8) | (5 << 9));
+
+    bytes[0x324..0x324 + 5].copy_from_slice(b"puts\0");
+    bytes[0x329..0x329 + 7].copy_from_slice(b"malloc\0");
+
+    put_u32(&mut bytes, 0x330, 2);
+    put_u32(&mut bytes, 0x334, 0x0c);
+    put_u32(&mut bytes, 0x338, 0x18);
+    bytes
+}
+
 /// `macho64_bytes()` plus `LC_DYLD_EXPORTS_TRIE` at 0x300 exporting `_foo`
 /// (address 0x1000) and the weak `_bar` (address 0x1040).
 fn macho64_exports_bytes() -> Vec<u8> {

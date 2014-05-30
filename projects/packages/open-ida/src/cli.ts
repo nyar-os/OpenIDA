@@ -34,6 +34,7 @@ import type {
     MachOSliceExtraction,
     MachOExportsReport,
     MachOEncryptionReport,
+    MachOChainedFixupsReport,
     MachOFunctionStartsReport,
     MachOSymbolsReport,
     MitigationsReport,
@@ -530,6 +531,28 @@ function describeMachOEncryption(report: MachOEncryptionReport): string {
     const kind = report.is64 ? 'LC_ENCRYPTION_INFO_64' : 'LC_ENCRYPTION_INFO';
     const state = report.encrypted ? 'encrypted' : 'clear';
     return `${kind} · ${state} · cryptid ${report.cryptId} · offset ${hex(report.cryptOffset)} · size ${hex(report.cryptSize)}`;
+}
+
+function describeMachOChainedFixups(report: MachOChainedFixupsReport): string {
+    if (!report.present) {
+        return 'no LC_DYLD_CHAINED_FIXUPS command';
+    }
+    const header = entriesHeader(report.imports.length, Number(report.header?.importsCount ?? 0), 'import(s)', report.truncated);
+    const lines = [header];
+    if (report.header !== null) {
+        lines.push(
+            `chain data ${hex(report.dataOffset)} · ${hex(report.dataSize)} · imports format ${report.header.importsFormat} · symbols format ${report.header.symbolsFormat}`,
+        );
+    }
+    lines.push(`starts: ${report.startsInImage ?? 0} segment(s), ${report.startsInSegmentCount} populated`);
+    for (const entry of report.imports) {
+        const flags = [entry.weakImport ? 'weak' : '', entry.addend === null ? '' : `addend ${entry.addend}`]
+            .filter((flag) => flag !== '')
+            .join(' ');
+        const suffix = flags === '' ? '' : ` (${flags})`;
+        lines.push(`  ${entry.name === '' ? `#${entry.nameOffset}` : entry.name} · ordinal ${entry.libOrdinal}${suffix}`);
+    }
+    return lines.join('\n');
 }
 
 function describeMachOFunctionStarts(report: MachOFunctionStartsReport): string {
@@ -1078,6 +1101,22 @@ cli.command('macho-encryption', 'cli.cmd.machoEncryption').actionCtx(async (opti
     try {
         const report = ida.machoEncryption();
         ctx.emitResult(report, describeMachOEncryption(report));
+        return 0;
+    } finally {
+        ida.close();
+    }
+});
+
+cli.command('macho-chained-fixups', 'cli.cmd.machoChainedFixups').actionCtx(async (options, _args, ctx) => {
+    const file = input(options);
+    if (file === undefined) {
+        ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+        return 2;
+    }
+    const ida = new OpenIDA({ path: file });
+    try {
+        const report = ida.machoChainedFixups();
+        ctx.emitResult(report, describeMachOChainedFixups(report));
         return 0;
     } finally {
         ida.close();

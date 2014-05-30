@@ -31,6 +31,7 @@ import type {
     MachOSliceExtraction,
     MachOExportsReport,
     MachOEncryptionReport,
+    MachOChainedFixupsReport,
     MachOFunctionStartsReport,
     MachOSymbolsReport,
     MachOCodeSignatureReport,
@@ -167,6 +168,13 @@ export class OpenIDA {
     /** Decodes `LC_ENCRYPTION_INFO` / `LC_ENCRYPTION_INFO_64`. */
     machoEncryption(): MachOEncryptionReport {
         return decode<MachOEncryptionReport>(() => binding('binary.macho_encryption').binary_macho_encryption(this.id));
+    }
+
+    /** Decodes `LC_DYLD_CHAINED_FIXUPS` imports and its starts table. */
+    machoChainedFixups(): MachOChainedFixupsReport {
+        return decode<MachOChainedFixupsReport>(() =>
+            binding('binary.macho_chained_fixups').binary_macho_chained_fixups(this.id),
+        );
     }
 
     /** Decodes the Mach-O `LC_FUNCTION_STARTS` delta table. */

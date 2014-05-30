@@ -70,6 +70,7 @@ open-ida macho-symbols ./samples/app.macho --limit 200
 open-ida macho-function-starts ./samples/app.macho --limit 200
 open-ida macho-exports ./samples/app.macho
 open-ida macho-encryption ./samples/app.macho
+open-ida macho-chained-fixups ./samples/app.macho
 open-ida disasm ./samples/app.exe --offset 0x1000 --count 20
 open-ida entropy ./samples/app.exe
 open-ida diff build/app.exe build/app-patched.exe

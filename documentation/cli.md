@@ -392,6 +392,21 @@ image is encrypted (`cryptid != 0`). A Mach-O without either command prints
 `no LC_ENCRYPTION_INFO command`; fat containers must be sliced first. The
 command is metadata only: it never decrypts bytes.
 
+### `macho-chained-fixups <file>`
+
+```bash
+open-ida macho-chained-fixups ./samples/app.macho
+```
+
+Mach-O only. Decodes `LC_DYLD_CHAINED_FIXUPS`: the chain data range, the
+`dyld_chained_fixups_header` fields, the import table (library ordinal, weak
+flag, symbol name, addend for the `ADDEND` formats) and the segment count of
+`dyld_chained_starts_in_image` with the number of populated segments. At most
+512 imports are listed. Symbol names stay empty when the pool is zlib
+compressed (`symbolsFormat: 1`). A Mach-O without the command prints
+`no LC_DYLD_CHAINED_FIXUPS command`; fat containers must be sliced first.
+Chained-pointer and bind decoding is not performed.
+
 ### `disasm <file>`
 
 ```bash

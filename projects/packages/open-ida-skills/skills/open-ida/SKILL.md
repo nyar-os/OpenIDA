@@ -12,6 +12,7 @@ description: Inspect compiled binaries with OpenIDA. Use when a task involves PE
 `macho-function-starts`,
 `macho-exports`,
 `macho-encryption`,
+`macho-chained-fixups`,
 `macho-slices`, `macho-extract`, `mitigations`, `resources`, `relocations`, `dynamic`, `segments`, `notes`,
 `certificates`, `tls`, `load-config`, `code-signature`, `disasm`, `entropy`, `diff`,
 `search` and `patch` are implemented for the cases listed below. Decompilation,
@@ -48,6 +49,7 @@ a second analysis engine. Report the stable code instead.
 | macho-function-starts | List `LC_FUNCTION_STARTS` function addresses | `macho-function-starts` report |
 | macho-exports | List dyld export trie symbols, flags and addresses | `macho-exports` report |
 | macho-encryption | Read `LC_ENCRYPTION_INFO` crypt offset, size and cryptid | `macho-encryption` report |
+| macho-chained-fixups | Read `LC_DYLD_CHAINED_FIXUPS` imports, header and starts table | `macho-chained-fixups` report |
 | macho-slices | List the architectures of a fat/universal container | `macho-slices` report |
 | macho-extract | Write one fat/universal slice to a new file | `macho-extract` report |
 | mitigations | Read the PE hardening posture | `mitigations` report |
