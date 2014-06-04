@@ -497,6 +497,39 @@ export interface PeExceptionReport {
     readonly truncated: boolean;
 }
 
+/** One delay thunk: the INT entry, its parallel IAT slot and the import. */
+export interface PeDelayThunk {
+    readonly intRva: number;
+    readonly iatRva: number | null;
+    readonly name: string | null;
+    readonly ordinal: number | null;
+    readonly hint: number | null;
+}
+
+/** One delay-loaded module and its decoded thunks. */
+export interface PeDelayModule {
+    readonly name: string;
+    readonly attributes: number;
+    readonly timestamp: number;
+    readonly moduleHandleRva: number;
+    readonly iatRva: number;
+    readonly intRva: number;
+    readonly boundIatRva: number;
+    readonly unloadIatRva: number;
+    readonly thunks: readonly PeDelayThunk[];
+}
+
+/** Bounded PE delay-import listing. */
+export interface PeDelayImportsReport {
+    readonly present: boolean;
+    readonly directoryRva: number;
+    readonly directorySize: number;
+    readonly modules: readonly PeDelayModule[];
+    readonly totalModules: number;
+    readonly totalThunks: number;
+    readonly truncated: boolean;
+}
+
 /** Dynamic linking facts of one ELF image. */
 export interface ElfDynamicReport {
     readonly present: boolean;

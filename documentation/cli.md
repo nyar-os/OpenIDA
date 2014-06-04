@@ -182,6 +182,21 @@ the begin-address flag bits masked off. At most 512 entries are listed. A PE
 without the directory prints `no exception directory`. Unwind opcodes are not
 disassembled, and chained info is reported as a flag only.
 
+### `pe-delay-imports <file>`
+
+```bash
+open-ida pe-delay-imports ./samples/app.exe
+```
+
+PE only. Walks the delay-load descriptors behind data directory 13 and prints
+each module's name, timestamp and handle/IAT/INT/bound-IAT/unload-IAT RVAs,
+then each thunk's INT and IAT slot RVAs with the resolved name and hint or the
+ordinal (bit 31). At most 128 modules, 256 thunks per module and 1,024 thunks
+overall are listed; `truncated` marks a cut. Only the v2 RVA-based descriptor
+layout is mapped — legacy v1 records store virtual addresses and are reported
+with their raw fields. A PE without the directory prints
+`no delay-import directory`. Nothing is loaded or executed.
+
 ### `dynamic <file>`
 
 ```bash

@@ -15,6 +15,7 @@
             "resources": "Print the PE resource directory (type, name, language, size)",
             "relocations": "Print the PE base relocation blocks and their fixup types",
             "exception": "Print the PE exception directory runtime functions and unwind headers",
+            "peDelayImports": "Print the PE delay-import descriptors and their INT/IAT thunks",
             "dynamic": "Print ELF dynamic dependencies: interpreter, SONAME, NEEDED, RPATH and RUNPATH",
             "segments": "Print the ELF program header table with permissions and load ranges",
             "notes": "Print ELF notes: build id, GNU ABI tag and GNU properties",

@@ -1722,6 +1722,104 @@ fn pe_exception_reports_absence_and_rejects_non_pe() {
     assert_eq!(elf.exception().unwrap_err().code(), "binary/unsupported");
 }
 
+/// `pe_bytes()` plus two delay-load descriptors behind data directory 13.
+fn pe_delay_bytes() -> Vec<u8> {
+    let mut bytes = pe_bytes();
+    put_u32(&mut bytes, 0x98 + 112 + 13 * 8, 0x2000);
+    put_u32(&mut bytes, 0x98 + 112 + 13 * 8 + 4, 96);
+
+    put_u32(&mut bytes, 0x400 + 4, 0x20a0);
+    put_u32(&mut bytes, 0x400 + 8, 0x2008);
+    put_u32(&mut bytes, 0x400 + 12, 0x2070);
+    put_u32(&mut bytes, 0x400 + 16, 0x2060);
+    put_u32(&mut bytes, 0x400 + 28, 0x1122_3344);
+
+    put_u32(&mut bytes, 0x420 + 4, 0x20b0);
+    put_u32(&mut bytes, 0x420 + 8, 0x2010);
+    put_u32(&mut bytes, 0x420 + 12, 0x2090);
+    put_u32(&mut bytes, 0x420 + 16, 0x2080);
+    // 0x440 stays the all-zero terminator.
+
+    put_u32(&mut bytes, 0x460, 0x20c0);
+    put_u32(&mut bytes, 0x464, 0x8000_0005);
+    put_u32(&mut bytes, 0x470, 0x1000);
+    put_u32(&mut bytes, 0x474, 0x2000);
+    put_u32(&mut bytes, 0x480, 0x20d0);
+    put_u32(&mut bytes, 0x490, 0x3000);
+
+    bytes[0x4a0..0x4aa].copy_from_slice(b"FIRST.DLL\0");
+    bytes[0x4b0..0x4bb].copy_from_slice(b"SECOND.DLL\0");
+    put_u16(&mut bytes, 0x4c0, 7);
+    bytes[0x4c2..0x4ca].copy_from_slice(b"FuncOne\0");
+    bytes[0x4d2..0x4d6].copy_from_slice(b"One\0");
+    bytes
+}
+
+#[test]
+fn pe_delay_imports_walk_descriptors_and_thunks() {
+    let view = BinaryView::from_bytes("delayed.exe", pe_delay_bytes());
+    let report = view.delay_imports().expect("PE delay-import directory");
+
+    assert!(report.present);
+    assert!(!report.truncated);
+    assert_eq!(report.directory_rva, 0x2000);
+    assert_eq!(report.total_modules, 2);
+    assert_eq!(report.modules.len(), 2);
+    assert_eq!(report.total_thunks, 3);
+
+    let first = &report.modules[0];
+    assert_eq!(first.name, "FIRST.DLL");
+    assert_eq!(first.timestamp, 0x1122_3344);
+    assert_eq!(first.module_handle_rva, 0x2008);
+    assert_eq!(first.iat_rva, 0x2070);
+    assert_eq!(first.int_rva, 0x2060);
+    assert_eq!(first.thunks.len(), 2);
+    let by_name = &first.thunks[0];
+    assert_eq!(by_name.int_rva, 0x2060);
+    assert_eq!(by_name.iat_rva, Some(0x2070));
+    assert_eq!(by_name.name.as_deref(), Some("FuncOne"));
+    assert_eq!(by_name.hint, Some(7));
+    assert_eq!(by_name.ordinal, None);
+    let by_ordinal = &first.thunks[1];
+    assert_eq!(by_ordinal.int_rva, 0x2064);
+    assert_eq!(by_ordinal.iat_rva, Some(0x2074));
+    assert_eq!(by_ordinal.name, None);
+    assert_eq!(by_ordinal.ordinal, Some(5));
+
+    let second = &report.modules[1];
+    assert_eq!(second.name, "SECOND.DLL");
+    assert_eq!(second.timestamp, 0);
+    assert_eq!(second.thunks.len(), 1);
+    assert_eq!(second.thunks[0].name.as_deref(), Some("One"));
+    assert_eq!(second.thunks[0].hint, Some(0));
+    assert_eq!(second.thunks[0].iat_rva, Some(0x2090));
+}
+
+#[test]
+fn pe_delay_imports_flag_unreadable_int_tables() {
+    let mut bytes = pe_delay_bytes();
+    put_u32(&mut bytes, 0x400 + 16, 0x9000);
+
+    let report =
+        BinaryView::from_bytes("broken.exe", bytes).delay_imports().expect("PE delay-import directory");
+    assert!(report.present);
+    assert!(report.truncated);
+    assert_eq!(report.modules.len(), 2);
+    assert!(report.modules[0].thunks.is_empty());
+    assert_eq!(report.modules[0].int_rva, 0x9000);
+}
+
+#[test]
+fn pe_delay_imports_report_absence_and_reject_non_pe() {
+    let report =
+        BinaryView::from_bytes("plain.exe", pe_bytes()).delay_imports().expect("PE delay-import directory");
+    assert!(!report.present);
+    assert_eq!(report.total_modules, 0);
+    assert!(report.modules.is_empty());
+
+    let elf = BinaryView::from_bytes("sample.elf", elf64_bytes());
+    assert_eq!(elf.delay_imports().unwrap_err().code(), "binary/unsupported");
+}
 
 /// ELF64 with `PT_LOAD`, `PT_INTERP` and `PT_DYNAMIC` program headers.
 fn elf_dynamic_bytes() -> Vec<u8> {

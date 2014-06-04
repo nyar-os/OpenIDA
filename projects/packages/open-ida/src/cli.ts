@@ -38,6 +38,7 @@ import type {
     MachOFunctionStartsReport,
     MachOSymbolsReport,
     MitigationsReport,
+    PeDelayImportsReport,
     PeExceptionReport,
     PeLoadConfigReport,
     PeTlsReport,
@@ -271,6 +272,25 @@ function describeException(report: PeExceptionReport): string {
                       unwind.flagNames.length === 0 ? '' : ` ${unwind.flagNames.join('|')}`
                   }`;
         lines.push(`  ${hex(entry.beginAddress)}${end} · ${detail}`);
+    }
+    return lines.join('\n');
+}
+
+function describeDelayImports(report: PeDelayImportsReport): string {
+    if (!report.present) {
+        return 'no delay-import directory';
+    }
+    const header = entriesHeader(report.modules.length, report.totalModules, 'delay module(s)', report.truncated);
+    const lines = [`${header} · ${report.totalThunks} thunk(s)`];
+    for (const module of report.modules) {
+        const name = module.name.length === 0 ? '(unresolved)' : module.name;
+        lines.push(`  ${name} · ts ${hex(module.timestamp)} · int ${hex(module.intRva)} · iat ${hex(module.iatRva)}`);
+        for (const thunk of module.thunks) {
+            const symbol = thunk.name ?? `#${thunk.ordinal ?? '?'}`;
+            const hint = thunk.hint === null ? '' : ` hint ${thunk.hint}`;
+            const slot = thunk.iatRva === null ? '' : `  iat ${hex(thunk.iatRva)}`;
+            lines.push(`    ${hex(thunk.intRva)}  ${symbol}${hint}${slot}`);
+        }
     }
     return lines.join('\n');
 }
@@ -925,6 +945,22 @@ cli.command('exception', 'cli.cmd.exception').actionCtx(async (options, _args, c
     try {
         const report = ida.exception();
         ctx.emitResult(report, describeException(report));
+        return 0;
+    } finally {
+        ida.close();
+    }
+});
+
+cli.command('pe-delay-imports', 'cli.cmd.peDelayImports').actionCtx(async (options, _args, ctx) => {
+    const file = input(options);
+    if (file === undefined) {
+        ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+        return 2;
+    }
+    const ida = new OpenIDA({ path: file });
+    try {
+        const report = ida.delayImports();
+        ctx.emitResult(report, describeDelayImports(report));
         return 0;
     } finally {
         ida.close();

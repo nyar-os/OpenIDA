@@ -8,9 +8,9 @@ it returns.
 
 | Layer | Crate or package | Responsibility |
 | --- | --- | --- |
-| Engine | `projects/crates/core` (`open-ida-core`) | Opens a file, keeps the session defaults, exposes `OpenIda`, and implements the parts the pinned upstream does not: PE debug/CodeView, x86/x64 disassembly, binary diff, entropy/overlay, encoded string scanning, and Mach-O load-command identity (UUID, dylibs, build version), the `LC_SYMTAB` symbol table, the fat architecture table and the embedded code signature, plus the PE mitigation posture, resource tree, relocation blocks, exception runtime functions, attribute certificate table, TLS directory, load configuration, and the ELF program headers, dynamic dependencies and notes. |
+| Engine | `../projects/crates/ida-core` (`open-ida-core`) | Opens a file, keeps the session defaults, exposes `OpenIda`, and implements the parts the pinned upstream does not: PE debug/CodeView, x86/x64 disassembly, binary diff, entropy/overlay, encoded string scanning, and Mach-O load-command identity (UUID, dylibs, build version), the `LC_SYMTAB` symbol table, the fat architecture table and the embedded code signature, plus the PE mitigation posture, resource tree, relocation blocks, exception runtime functions, delay-import descriptors, attribute certificate table, TLS directory, load configuration, and the ELF program headers, dynamic dependencies and notes. |
 | Upstream | `data-binary-inspect`, `data-binary-pe`, `data-binary-mach-o` | Container detection, headers, sections, imports, exports, symbols, search, hex dumps, address mapping, atomic patching, and Mach-O headers, segments and sections. |
-| Binding | `projects/crates/napi` (`open-ida-napi`) | JSON-in / JSON-out Node-API exports plus the WebView host. No inspection policy. |
+| Binding | `../projects/crates/ida-napi` (`open-ida-napi`) | JSON-in / JSON-out Node-API exports plus the WebView host. No inspection policy. |
 | SDK | `projects/packages/open-ida/src` | `OpenIDA` session, report types, stable error translation, addon discovery. |
 | CLI | `projects/packages/open-ida/src/cli.ts` | Argument parsing and rendering only. |
 | Studio | `projects/packages/open-ida-ui` | VMZ static shell; empty when no host is connected. |
@@ -99,7 +99,7 @@ returns `binary/unsupported` instead of decoding with a guessed mode.
 
 ## Test strategy
 
-- Rust integration tests live in `projects/crates/core/tests` and exercise the
+- Rust integration tests live in `../projects/crates/ida-core` and exercise the
   public core surface (kernel, debug, disasm, diff, entropy, encoded strings).
 - The TypeScript smoke test lives in
   `projects/packages/open-ida/tests/smoke.test.ts`, compiles with

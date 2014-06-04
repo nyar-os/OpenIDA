@@ -237,6 +237,10 @@ fn exception_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.exception()?))
 }
 
+fn delay_imports_report(handle: u64) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.delay_imports()?))
+}
+
 fn dynamic_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.dynamic()?))
 }
@@ -511,6 +515,16 @@ fn binary_mitigations(ctx: CallContext) -> Result<JsValue> {
 fn binary_exception(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     match exception_report(handle) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Decodes the PE delay-import descriptors and their thunks.
+#[function]
+fn binary_delay_imports(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    match delay_imports_report(handle) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
@@ -1198,6 +1212,7 @@ register_module![
     binary_resources,
     binary_relocations,
     binary_exception,
+    binary_delay_imports,
     binary_dynamic,
     binary_notes,
     binary_certificates,

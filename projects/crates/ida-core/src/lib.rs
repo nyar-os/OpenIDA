@@ -26,6 +26,7 @@ mod load_config;
 mod macho;
 mod mitigations;
 mod notes;
+mod pe_delay_imports;
 mod pe_exception;
 mod relocations;
 mod resources;
@@ -60,6 +61,7 @@ pub use macho::{
 };
 pub use mitigations::{MitigationsReport, WritableExecutableSection};
 pub use notes::{ElfAbiTag, ElfGnuProperty, ElfNote, ElfNotesReport};
+pub use pe_delay_imports::{PeDelayImportsReport, PeDelayModule, PeDelayThunk};
 pub use pe_exception::{PeExceptionReport, PeRuntimeFunction, PeUnwindInfo};
 pub use relocations::{RelocationBlock, RelocationKindCount, RelocationsReport};
 pub use resources::{PeResource, ResourcesReport};
@@ -223,6 +225,11 @@ impl BinaryView {
     /// Decodes the PE exception directory runtime functions.
     pub fn exception(&self) -> Result<PeExceptionReport> {
         pe_exception::analyze(&self.session)
+    }
+
+    /// Decodes the PE delay-import descriptors and their thunks.
+    pub fn delay_imports(&self) -> Result<PeDelayImportsReport> {
+        pe_delay_imports::analyze(&self.session)
     }
 
     /// Decodes the PE base relocation blocks.
@@ -509,6 +516,11 @@ impl OpenIda {
         pe_exception::analyze(&self.session)
     }
 
+    /// Decodes the PE delay-import descriptors and their thunks.
+    pub fn delay_imports(&self) -> Result<PeDelayImportsReport> {
+        pe_delay_imports::analyze(&self.session)
+    }
+
     /// Decodes the PE base relocation blocks.
     pub fn relocations(&self) -> Result<RelocationsReport> {
         relocations::analyze(&self.session)
@@ -646,6 +658,7 @@ pub fn capabilities() -> serde_json::Value {
             "pe-resources": "supported",
             "pe-relocations": "supported",
             "pe-exception": "supported",
+            "pe-delay-imports": "supported",
             "pe-certificates": "supported",
             "pe-tls": "supported",
             "pe-load-config": "supported",
