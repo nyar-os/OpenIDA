@@ -23,6 +23,8 @@ data-binary-pe = { git = "https://github.com/oovm/boost.rs", rev = "5ed79ccd125d
 data-binary-mach-o = { git = "https://github.com/oovm/boost.rs", rev = "5ed79ccd125d035b7286c8073b6c9b4ee384dbfb" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+iced-x86 = "=1.21.0"
+open-ida-core = { path = "projects/crates/ida-core" }
 
 [profile.release]
 lto = true

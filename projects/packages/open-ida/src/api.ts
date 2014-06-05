@@ -39,6 +39,7 @@ import type {
     OffsetToRvaReport,
     OffsetToVaReport,
     PatchReport,
+    PeBoundImportsReport,
     PeDelayImportsReport,
     PeExceptionReport,
     PeLoadConfigReport,
@@ -220,6 +221,11 @@ export class OpenIDA {
     /** Decodes the PE delay-import descriptors and their thunks. */
     delayImports(): PeDelayImportsReport {
         return decode<PeDelayImportsReport>(() => binding('binary.delay_imports').binary_delay_imports(this.id));
+    }
+
+    /** Decodes the PE bound-import descriptors and their forwarder refs. */
+    boundImports(): PeBoundImportsReport {
+        return decode<PeBoundImportsReport>(() => binding('binary.bound_imports').binary_bound_imports(this.id));
     }
 
     /** Decodes the PE base relocation blocks. */

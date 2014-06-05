@@ -35,6 +35,7 @@ containers are rejected, and unknown containers are rejected.
 | List PE relocations | `open-ida relocations <file>` | Page RVA, entry count and fixup types per block |
 | List PE runtime functions | `open-ida exception <file>` | Begin/end RVA, unwind info and decoded x64 unwind header |
 | List PE delay imports | `open-ida pe-delay-imports <file>` | Module name, timestamp and per-thunk INT/IAT RVAs with name, hint or ordinal |
+| List PE bound imports | `open-ida pe-bound-imports <file>` | Descriptor timestamp, module name and inline forwarder refs |
 | Read ELF dependencies | `open-ida dynamic <file>` | Interpreter, SONAME, needed libraries, rpath/runpath |
 | List ELF program headers | `open-ida segments <file>` | Segment type, offset, addresses, sizes, permissions and alignment |
 | Read ELF notes | `open-ida notes <file>` | GNU build id, ABI tag, GNU properties |

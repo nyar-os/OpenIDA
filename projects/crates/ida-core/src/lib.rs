@@ -26,6 +26,7 @@ mod load_config;
 mod macho;
 mod mitigations;
 mod notes;
+mod pe_bound_imports;
 mod pe_delay_imports;
 mod pe_exception;
 mod relocations;
@@ -61,6 +62,7 @@ pub use macho::{
 };
 pub use mitigations::{MitigationsReport, WritableExecutableSection};
 pub use notes::{ElfAbiTag, ElfGnuProperty, ElfNote, ElfNotesReport};
+pub use pe_bound_imports::{PeBoundForwarder, PeBoundImportsReport, PeBoundModule};
 pub use pe_delay_imports::{PeDelayImportsReport, PeDelayModule, PeDelayThunk};
 pub use pe_exception::{PeExceptionReport, PeRuntimeFunction, PeUnwindInfo};
 pub use relocations::{RelocationBlock, RelocationKindCount, RelocationsReport};
@@ -230,6 +232,11 @@ impl BinaryView {
     /// Decodes the PE delay-import descriptors and their thunks.
     pub fn delay_imports(&self) -> Result<PeDelayImportsReport> {
         pe_delay_imports::analyze(&self.session)
+    }
+
+    /// Decodes the PE bound-import descriptors and their forwarder refs.
+    pub fn bound_imports(&self) -> Result<PeBoundImportsReport> {
+        pe_bound_imports::analyze(&self.session)
     }
 
     /// Decodes the PE base relocation blocks.
@@ -521,6 +528,11 @@ impl OpenIda {
         pe_delay_imports::analyze(&self.session)
     }
 
+    /// Decodes the PE bound-import descriptors and their forwarder refs.
+    pub fn bound_imports(&self) -> Result<PeBoundImportsReport> {
+        pe_bound_imports::analyze(&self.session)
+    }
+
     /// Decodes the PE base relocation blocks.
     pub fn relocations(&self) -> Result<RelocationsReport> {
         relocations::analyze(&self.session)
@@ -659,6 +671,7 @@ pub fn capabilities() -> serde_json::Value {
             "pe-relocations": "supported",
             "pe-exception": "supported",
             "pe-delay-imports": "supported",
+            "pe-bound-imports": "supported",
             "pe-certificates": "supported",
             "pe-tls": "supported",
             "pe-load-config": "supported",

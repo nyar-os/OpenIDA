@@ -197,6 +197,20 @@ layout is mapped — legacy v1 records store virtual addresses and are reported
 with their raw fields. A PE without the directory prints
 `no delay-import directory`. Nothing is loaded or executed.
 
+### `pe-bound-imports <file>`
+
+```bash
+open-ida pe-bound-imports ./samples/app.exe
+```
+
+PE only. Walks the bound-import descriptors behind data directory 11 and
+prints each module's timestamp, name offset and resolved name, then its inline
+forwarder references. The array is terminated by an all-zero descriptor; a
+missing terminator, a cap hit (64 descriptors, 32 forwarders each) or an
+unresolvable name sets `truncated`. A PE without the directory prints
+`no bound-import directory`. The report describes the binder's record; it does
+not re-bind or load any module.
+
 ### `dynamic <file>`
 
 ```bash

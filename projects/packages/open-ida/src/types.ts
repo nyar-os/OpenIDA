@@ -530,6 +530,32 @@ export interface PeDelayImportsReport {
     readonly truncated: boolean;
 }
 
+/** One forwarder reference inside a bound import descriptor. */
+export interface PeBoundForwarder {
+    readonly timestamp: number;
+    readonly offsetModuleName: number;
+    readonly name: string;
+}
+
+/** One bound import descriptor and its inline forwarder references. */
+export interface PeBoundModule {
+    readonly timestamp: number;
+    readonly offsetModuleName: number;
+    readonly name: string;
+    readonly forwarders: readonly PeBoundForwarder[];
+}
+
+/** Bounded PE bound-import listing. */
+export interface PeBoundImportsReport {
+    readonly present: boolean;
+    readonly directoryRva: number;
+    readonly directorySize: number;
+    readonly modules: readonly PeBoundModule[];
+    readonly totalModules: number;
+    readonly totalForwarders: number;
+    readonly truncated: boolean;
+}
+
 /** Dynamic linking facts of one ELF image. */
 export interface ElfDynamicReport {
     readonly present: boolean;

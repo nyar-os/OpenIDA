@@ -38,6 +38,7 @@ import type {
     MachOFunctionStartsReport,
     MachOSymbolsReport,
     MitigationsReport,
+    PeBoundImportsReport,
     PeDelayImportsReport,
     PeExceptionReport,
     PeLoadConfigReport,
@@ -290,6 +291,23 @@ function describeDelayImports(report: PeDelayImportsReport): string {
             const hint = thunk.hint === null ? '' : ` hint ${thunk.hint}`;
             const slot = thunk.iatRva === null ? '' : `  iat ${hex(thunk.iatRva)}`;
             lines.push(`    ${hex(thunk.intRva)}  ${symbol}${hint}${slot}`);
+        }
+    }
+    return lines.join('\n');
+}
+
+function describeBoundImports(report: PeBoundImportsReport): string {
+    if (!report.present) {
+        return 'no bound-import directory';
+    }
+    const header = entriesHeader(report.modules.length, report.totalModules, 'bound module(s)', report.truncated);
+    const lines = [`${header} · ${report.totalForwarders} forwarder(s)`];
+    for (const module of report.modules) {
+        const name = module.name.length === 0 ? '(unresolved)' : module.name;
+        lines.push(`  ${name} · ts ${hex(module.timestamp)} · name offset ${hex(module.offsetModuleName)}`);
+        for (const forwarder of module.forwarders) {
+            const refName = forwarder.name.length === 0 ? '(unresolved)' : forwarder.name;
+            lines.push(`    → ${refName} · ts ${hex(forwarder.timestamp)} · name offset ${hex(forwarder.offsetModuleName)}`);
         }
     }
     return lines.join('\n');
@@ -961,6 +979,22 @@ cli.command('pe-delay-imports', 'cli.cmd.peDelayImports').actionCtx(async (optio
     try {
         const report = ida.delayImports();
         ctx.emitResult(report, describeDelayImports(report));
+        return 0;
+    } finally {
+        ida.close();
+    }
+});
+
+cli.command('pe-bound-imports', 'cli.cmd.peBoundImports').actionCtx(async (options, _args, ctx) => {
+    const file = input(options);
+    if (file === undefined) {
+        ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+        return 2;
+    }
+    const ida = new OpenIDA({ path: file });
+    try {
+        const report = ida.boundImports();
+        ctx.emitResult(report, describeBoundImports(report));
         return 0;
     } finally {
         ida.close();

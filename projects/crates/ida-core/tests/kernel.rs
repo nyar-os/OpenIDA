@@ -1821,6 +1821,86 @@ fn pe_delay_imports_report_absence_and_reject_non_pe() {
     assert_eq!(elf.delay_imports().unwrap_err().code(), "binary/unsupported");
 }
 
+/// `pe_bytes()` plus two bound-import descriptors behind data directory 11.
+fn pe_bound_bytes() -> Vec<u8> {
+    let mut bytes = pe_bytes();
+    put_u32(&mut bytes, 0x98 + 112 + 11 * 8, 0x2000);
+    put_u32(&mut bytes, 0x98 + 112 + 11 * 8 + 4, 48);
+
+    put_u32(&mut bytes, 0x400, 0x1122_3344);
+    put_u16(&mut bytes, 0x404, 0x40);
+    put_u16(&mut bytes, 0x406, 2);
+    put_u32(&mut bytes, 0x408, 0x5566_7788);
+    put_u16(&mut bytes, 0x40c, 0x50);
+    put_u32(&mut bytes, 0x410, 0);
+    put_u16(&mut bytes, 0x414, 0x60);
+    put_u32(&mut bytes, 0x418, 0x99aa_bbcc);
+    put_u16(&mut bytes, 0x41c, 0x70);
+    // 0x420 stays the all-zero terminator.
+
+    bytes[0x440..0x44a].copy_from_slice(b"BOUND.DLL\0");
+    bytes[0x450..0x459].copy_from_slice(b"REF1.DLL\0");
+    bytes[0x460..0x469].copy_from_slice(b"REF2.DLL\0");
+    bytes[0x470..0x47b].copy_from_slice(b"SECOND.DLL\0");
+    bytes
+}
+
+#[test]
+fn pe_bound_imports_walk_descriptors_and_forwarders() {
+    let view = BinaryView::from_bytes("bound.exe", pe_bound_bytes());
+    let report = view.bound_imports().expect("PE bound-import directory");
+
+    assert!(report.present);
+    assert!(!report.truncated);
+    assert_eq!(report.directory_rva, 0x2000);
+    assert_eq!(report.total_modules, 2);
+    assert_eq!(report.modules.len(), 2);
+    assert_eq!(report.total_forwarders, 2);
+
+    let first = &report.modules[0];
+    assert_eq!(first.timestamp, 0x1122_3344);
+    assert_eq!(first.offset_module_name, 0x40);
+    assert_eq!(first.name, "BOUND.DLL");
+    assert_eq!(first.forwarders.len(), 2);
+    assert_eq!(first.forwarders[0].timestamp, 0x5566_7788);
+    assert_eq!(first.forwarders[0].offset_module_name, 0x50);
+    assert_eq!(first.forwarders[0].name, "REF1.DLL");
+    assert_eq!(first.forwarders[1].timestamp, 0);
+    assert_eq!(first.forwarders[1].name, "REF2.DLL");
+
+    let second = &report.modules[1];
+    assert_eq!(second.timestamp, 0x99aa_bbcc);
+    assert_eq!(second.offset_module_name, 0x70);
+    assert_eq!(second.name, "SECOND.DLL");
+    assert!(second.forwarders.is_empty());
+}
+
+#[test]
+fn pe_bound_imports_flag_unresolvable_names() {
+    let mut bytes = pe_bound_bytes();
+    put_u16(&mut bytes, 0x404, 0xffff);
+
+    let report =
+        BinaryView::from_bytes("broken.exe", bytes).bound_imports().expect("PE bound-import directory");
+    assert!(report.present);
+    assert!(report.truncated);
+    assert_eq!(report.modules.len(), 2);
+    assert_eq!(report.modules[0].name, "");
+    assert_eq!(report.modules[1].name, "SECOND.DLL");
+}
+
+#[test]
+fn pe_bound_imports_report_absence_and_reject_non_pe() {
+    let report =
+        BinaryView::from_bytes("plain.exe", pe_bytes()).bound_imports().expect("PE bound-import directory");
+    assert!(!report.present);
+    assert_eq!(report.total_modules, 0);
+    assert!(report.modules.is_empty());
+
+    let elf = BinaryView::from_bytes("sample.elf", elf64_bytes());
+    assert_eq!(elf.bound_imports().unwrap_err().code(), "binary/unsupported");
+}
+
 /// ELF64 with `PT_LOAD`, `PT_INTERP` and `PT_DYNAMIC` program headers.
 fn elf_dynamic_bytes() -> Vec<u8> {
     let mut bytes = vec![0u8; 0x500];

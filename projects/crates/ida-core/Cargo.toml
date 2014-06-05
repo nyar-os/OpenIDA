@@ -14,4 +14,4 @@ serde_json = { workspace = true }
 data-binary-inspect = { workspace = true }
 data-binary-mach-o = { workspace = true }
 data-binary-pe = { workspace = true }
-iced-x86 = "=1.21.0"
+iced-x86 = { workspace = true }
