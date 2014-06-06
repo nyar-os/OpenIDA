@@ -42,6 +42,7 @@ import type {
     PeBoundImportsReport,
     PeDelayImportsReport,
     PeExceptionReport,
+    PeRichHeaderReport,
     PeLoadConfigReport,
     PeTlsReport,
     ReadReport,
@@ -226,6 +227,11 @@ export class OpenIDA {
     /** Decodes the PE bound-import descriptors and their forwarder refs. */
     boundImports(): PeBoundImportsReport {
         return decode<PeBoundImportsReport>(() => binding('binary.bound_imports').binary_bound_imports(this.id));
+    }
+
+    /** Decodes the Rich header build stamp between the DOS stub and the PE header. */
+    richHeader(): PeRichHeaderReport {
+        return decode<PeRichHeaderReport>(() => binding('binary.rich_header').binary_rich_header(this.id));
     }
 
     /** Decodes the PE base relocation blocks. */

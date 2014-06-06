@@ -245,6 +245,10 @@ fn bound_imports_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.bound_imports()?))
 }
 
+fn rich_header_report(handle: u64) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.rich_header()?))
+}
+
 fn dynamic_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.dynamic()?))
 }
@@ -539,6 +543,16 @@ fn binary_delay_imports(ctx: CallContext) -> Result<JsValue> {
 fn binary_bound_imports(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     match bound_imports_report(handle) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Decodes the Rich header build stamp between the DOS stub and the PE header.
+#[function]
+fn binary_rich_header(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    match rich_header_report(handle) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
@@ -1228,6 +1242,7 @@ register_module![
     binary_exception,
     binary_delay_imports,
     binary_bound_imports,
+    binary_rich_header,
     binary_dynamic,
     binary_notes,
     binary_certificates,

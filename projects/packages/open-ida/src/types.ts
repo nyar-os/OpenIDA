@@ -556,6 +556,25 @@ export interface PeBoundImportsReport {
     readonly truncated: boolean;
 }
 
+/** One decoded Rich header entry. */
+export interface PeRichEntry {
+    readonly compId: number;
+    readonly build: number;
+    readonly count: number;
+    readonly name: string | null;
+}
+
+/** Decoded PE Rich header. */
+export interface PeRichHeaderReport {
+    readonly present: boolean;
+    readonly richOffset: number;
+    readonly dansOffset: number;
+    readonly key: number;
+    readonly entries: readonly PeRichEntry[];
+    readonly total: number;
+    readonly truncated: boolean;
+}
+
 /** Dynamic linking facts of one ELF image. */
 export interface ElfDynamicReport {
     readonly present: boolean;

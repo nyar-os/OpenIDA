@@ -211,6 +211,21 @@ unresolvable name sets `truncated`. A PE without the directory prints
 `no bound-import directory`. The report describes the binder's record; it does
 not re-bind or load any module.
 
+### `pe-rich-header <file>`
+
+```bash
+open-ida pe-rich-header ./samples/app.exe
+```
+
+PE only. Locates the linker's Rich header between the DOS stub and the PE
+header, reads the XOR key after the `Rich` signature, validates the `DanS`
+marker and decodes up to 64 `(compid, build, count)` entries. Every entry
+carries its raw fields; well-known compids also get a best-effort tool name.
+An image without a validated Rich header prints `no Rich header`; a run that
+is not entry-aligned or exceeds the cap sets `truncated`. The stamp is
+linker-written metadata and can be spoofed — nothing is verified against a
+real toolchain.
+
 ### `dynamic <file>`
 
 ```bash

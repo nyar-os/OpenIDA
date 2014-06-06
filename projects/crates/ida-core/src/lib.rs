@@ -29,6 +29,7 @@ mod notes;
 mod pe_bound_imports;
 mod pe_delay_imports;
 mod pe_exception;
+mod pe_rich_header;
 mod relocations;
 mod resources;
 mod segments;
@@ -65,6 +66,7 @@ pub use notes::{ElfAbiTag, ElfGnuProperty, ElfNote, ElfNotesReport};
 pub use pe_bound_imports::{PeBoundForwarder, PeBoundImportsReport, PeBoundModule};
 pub use pe_delay_imports::{PeDelayImportsReport, PeDelayModule, PeDelayThunk};
 pub use pe_exception::{PeExceptionReport, PeRuntimeFunction, PeUnwindInfo};
+pub use pe_rich_header::{PeRichEntry, PeRichHeaderReport};
 pub use relocations::{RelocationBlock, RelocationKindCount, RelocationsReport};
 pub use resources::{PeResource, ResourcesReport};
 pub use segments::{ElfSegment, ElfSegmentsReport};
@@ -237,6 +239,11 @@ impl BinaryView {
     /// Decodes the PE bound-import descriptors and their forwarder refs.
     pub fn bound_imports(&self) -> Result<PeBoundImportsReport> {
         pe_bound_imports::analyze(&self.session)
+    }
+
+    /// Decodes the Rich header build stamp between the DOS stub and the PE header.
+    pub fn rich_header(&self) -> Result<PeRichHeaderReport> {
+        pe_rich_header::analyze(&self.session)
     }
 
     /// Decodes the PE base relocation blocks.
@@ -533,6 +540,11 @@ impl OpenIda {
         pe_bound_imports::analyze(&self.session)
     }
 
+    /// Decodes the Rich header build stamp between the DOS stub and the PE header.
+    pub fn rich_header(&self) -> Result<PeRichHeaderReport> {
+        pe_rich_header::analyze(&self.session)
+    }
+
     /// Decodes the PE base relocation blocks.
     pub fn relocations(&self) -> Result<RelocationsReport> {
         relocations::analyze(&self.session)
@@ -672,6 +684,7 @@ pub fn capabilities() -> serde_json::Value {
             "pe-exception": "supported",
             "pe-delay-imports": "supported",
             "pe-bound-imports": "supported",
+            "pe-rich-header": "supported",
             "pe-certificates": "supported",
             "pe-tls": "supported",
             "pe-load-config": "supported",

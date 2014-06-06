@@ -58,6 +58,7 @@ a second analysis engine. Report the stable code instead.
 | exception | List the PE runtime functions and unwind headers | `exception` report |
 | pe-delay-imports | List the PE delay-load modules and their INT/IAT thunks | `pe-delay-imports` report |
 | pe-bound-imports | List the PE bound-import descriptors and forwarder refs | `pe-bound-imports` report |
+| pe-rich-header | Decode the PE Rich header build stamp | `pe-rich-header` report |
 | dynamic | Read ELF interpreter, SONAME, needed libraries and search paths | `dynamic` report |
 | segments | List ELF program headers with permissions and load ranges | `segments` report |
 | notes | Read the ELF build id, ABI tag and GNU properties | `notes` report |

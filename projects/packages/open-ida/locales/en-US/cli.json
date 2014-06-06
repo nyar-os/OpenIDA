@@ -17,6 +17,7 @@
             "exception": "Print the PE exception directory runtime functions and unwind headers",
             "peDelayImports": "Print the PE delay-import descriptors and their INT/IAT thunks",
             "peBoundImports": "Print the PE bound-import descriptors and their forwarder refs",
+            "peRichHeader": "Print the PE Rich header build stamp and its entries",
             "dynamic": "Print ELF dynamic dependencies: interpreter, SONAME, NEEDED, RPATH and RUNPATH",
             "segments": "Print the ELF program header table with permissions and load ranges",
             "notes": "Print ELF notes: build id, GNU ABI tag and GNU properties",

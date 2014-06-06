@@ -61,6 +61,7 @@ open-ida relocations ./samples/app.exe
 open-ida exception ./samples/app.exe
 open-ida pe-delay-imports ./samples/app.exe
 open-ida pe-bound-imports ./samples/app.exe
+open-ida pe-rich-header ./samples/app.exe
 open-ida dynamic ./samples/app.elf
 open-ida segments ./samples/app.elf
 open-ida notes ./samples/app.elf

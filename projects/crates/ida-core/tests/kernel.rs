@@ -1901,6 +1901,74 @@ fn pe_bound_imports_report_absence_and_reject_non_pe() {
     assert_eq!(elf.bound_imports().unwrap_err().code(), "binary/unsupported");
 }
 
+/// `pe_bytes()` plus a two-entry Rich header inside the DOS stub region.
+fn pe_rich_bytes() -> Vec<u8> {
+    let mut bytes = pe_bytes();
+    let key = 0x7788_99AAu32;
+    put_u32(&mut bytes, 0x40, 0x536e_6144 ^ key);
+    put_u32(&mut bytes, 0x50, ((30729u32 << 16) | 155) ^ key);
+    put_u32(&mut bytes, 0x54, 3 ^ key);
+    put_u32(&mut bytes, 0x58, ((1u32 << 16) | 216) ^ key);
+    put_u32(&mut bytes, 0x5c, 2 ^ key);
+    bytes[0x60..0x64].copy_from_slice(b"Rich");
+    put_u32(&mut bytes, 0x64, key);
+    bytes
+}
+
+#[test]
+fn pe_rich_header_decodes_xor_entries() {
+    let view = BinaryView::from_bytes("rich.exe", pe_rich_bytes());
+    let report = view.rich_header().expect("PE Rich header");
+
+    assert!(report.present);
+    assert!(!report.truncated);
+    assert_eq!(report.key, 0x7788_99AA);
+    assert_eq!(report.dans_offset, 0x40);
+    assert_eq!(report.rich_offset, 0x60);
+    assert_eq!(report.total, 2);
+    assert_eq!(report.entries.len(), 2);
+
+    let first = &report.entries[0];
+    assert_eq!(first.comp_id, 155);
+    assert_eq!(first.build, 30729);
+    assert_eq!(first.count, 3);
+    assert_eq!(first.name.as_deref(), Some("Microsoft Visual C++ 14.x (VS2017-2022)"));
+
+    let second = &report.entries[1];
+    assert_eq!(second.comp_id, 216);
+    assert_eq!(second.build, 1);
+    assert_eq!(second.count, 2);
+    assert_eq!(second.name.as_deref(), Some("Microsoft C/C++ linker or CRT (VS2017-2022 era)"));
+}
+
+#[test]
+fn pe_rich_header_flags_malformed_runs() {
+    let mut bytes = pe_rich_bytes();
+    bytes.copy_within(0x60..0x68, 0x64);
+    bytes[0x60] = 0;
+    let report = BinaryView::from_bytes("odd.exe", bytes).rich_header().expect("PE Rich header");
+    assert!(report.present);
+    assert!(report.truncated);
+    assert_eq!(report.total, 2);
+    assert_eq!(report.entries.len(), 2);
+
+    let mut bytes = pe_rich_bytes();
+    put_u32(&mut bytes, 0x40, 0);
+    let report = BinaryView::from_bytes("sans.exe", bytes).rich_header().expect("PE Rich header");
+    assert!(!report.present);
+}
+
+#[test]
+fn pe_rich_header_reports_absence_and_rejects_non_pe() {
+    let report = BinaryView::from_bytes("plain.exe", pe_bytes()).rich_header().expect("PE Rich header");
+    assert!(!report.present);
+    assert_eq!(report.total, 0);
+    assert!(report.entries.is_empty());
+
+    let elf = BinaryView::from_bytes("sample.elf", elf64_bytes());
+    assert_eq!(elf.rich_header().unwrap_err().code(), "binary/unsupported");
+}
+
 /// ELF64 with `PT_LOAD`, `PT_INTERP` and `PT_DYNAMIC` program headers.
 fn elf_dynamic_bytes() -> Vec<u8> {
     let mut bytes = vec![0u8; 0x500];

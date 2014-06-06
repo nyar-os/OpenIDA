@@ -41,6 +41,7 @@ import type {
     PeBoundImportsReport,
     PeDelayImportsReport,
     PeExceptionReport,
+    PeRichHeaderReport,
     PeLoadConfigReport,
     PeTlsReport,
     RelocationsReport,
@@ -309,6 +310,19 @@ function describeBoundImports(report: PeBoundImportsReport): string {
             const refName = forwarder.name.length === 0 ? '(unresolved)' : forwarder.name;
             lines.push(`    → ${refName} · ts ${hex(forwarder.timestamp)} · name offset ${hex(forwarder.offsetModuleName)}`);
         }
+    }
+    return lines.join('\n');
+}
+
+function describeRichHeader(report: PeRichHeaderReport): string {
+    if (!report.present) {
+        return 'no Rich header';
+    }
+    const header = entriesHeader(report.entries.length, report.total, 'entry(ies)', report.truncated);
+    const lines = [`${header} · key ${hex(report.key)} · DanS ${hex(report.dansOffset)} · Rich ${hex(report.richOffset)}`];
+    for (const entry of report.entries) {
+        const name = entry.name === null ? '' : ` · ${entry.name}`;
+        lines.push(`  ${hex(entry.compId)} · build ${entry.build} · count ${entry.count}${name}`);
     }
     return lines.join('\n');
 }
@@ -995,6 +1009,22 @@ cli.command('pe-bound-imports', 'cli.cmd.peBoundImports').actionCtx(async (optio
     try {
         const report = ida.boundImports();
         ctx.emitResult(report, describeBoundImports(report));
+        return 0;
+    } finally {
+        ida.close();
+    }
+});
+
+cli.command('pe-rich-header', 'cli.cmd.peRichHeader').actionCtx(async (options, _args, ctx) => {
+    const file = input(options);
+    if (file === undefined) {
+        ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+        return 2;
+    }
+    const ida = new OpenIDA({ path: file });
+    try {
+        const report = ida.richHeader();
+        ctx.emitResult(report, describeRichHeader(report));
         return 0;
     } finally {
         ida.close();
