@@ -36,6 +36,7 @@ import type {
     MachOExportsReport,
     MachOEncryptionReport,
     MachOChainedFixupsReport,
+    MachOBindingsReport,
     MachOFunctionStartsReport,
     MachOSymbolsReport,
     MitigationsReport,
@@ -620,6 +621,29 @@ function describeMachOChainedFixups(report: MachOChainedFixupsReport): string {
             .join(' ');
         const suffix = flags === '' ? '' : ` (${flags})`;
         lines.push(`  ${entry.name === '' ? `#${entry.nameOffset}` : entry.name} · ordinal ${entry.libOrdinal}${suffix}`);
+    }
+    return lines.join('\n');
+}
+
+function describeMachOBindings(report: MachOBindingsReport): string {
+    if (!report.present) {
+        return 'no LC_DYLD_INFO bind opcodes';
+    }
+    const header = entriesHeader(report.bindings.length, report.total, 'binding(s)', report.truncated);
+    if (report.bindings.length === 0) {
+        return `${header}\n  no bindings`;
+    }
+    const lines = [header];
+    for (const binding of report.bindings) {
+        const flags = [binding.weak ? 'weak' : '', binding.addend === 0 ? '' : `addend ${binding.addend}`]
+            .filter((flag) => flag !== '')
+            .join(' ');
+        const suffix = flags === '' ? '' : ` (${flags})`;
+        const segment = binding.segment === '' ? '' : ` · ${binding.segment}`;
+        const dylib = binding.dylib === '' ? '' : ` · ${binding.dylib}`;
+        lines.push(
+            `  ${binding.stream.padEnd(5)} ${hex(binding.address).padStart(12)}  ${binding.bindType.padEnd(13)} ${binding.symbol || '(none)'}${dylib}${segment}${suffix}`,
+        );
     }
     return lines.join('\n');
 }
@@ -1250,6 +1274,22 @@ cli.command('macho-chained-fixups', 'cli.cmd.machoChainedFixups').actionCtx(asyn
     try {
         const report = ida.machoChainedFixups();
         ctx.emitResult(report, describeMachOChainedFixups(report));
+        return 0;
+    } finally {
+        ida.close();
+    }
+});
+
+cli.command('macho-bindings', 'cli.cmd.machoBindings').actionCtx(async (options, _args, ctx) => {
+    const file = input(options);
+    if (file === undefined) {
+        ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+        return 2;
+    }
+    const ida = new OpenIDA({ path: file });
+    try {
+        const report = ida.machoBindings();
+        ctx.emitResult(report, describeMachOBindings(report));
         return 0;
     } finally {
         ida.close();

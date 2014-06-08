@@ -363,6 +363,26 @@ export interface MachOChainedFixupsReport {
     readonly startsInSegmentCount: number;
 }
 
+/** One binding decoded from a classic dyld bind opcode stream. */
+export interface MachOBinding {
+    readonly stream: string;
+    readonly address: number;
+    readonly segment: string;
+    readonly symbol: string;
+    readonly dylib: string;
+    readonly bindType: string;
+    readonly weak: boolean;
+    readonly addend: number;
+}
+
+/** Bounded listing of the classic dyld bind opcode streams. */
+export interface MachOBindingsReport {
+    readonly present: boolean;
+    readonly bindings: readonly MachOBinding[];
+    readonly total: number;
+    readonly truncated: boolean;
+}
+
 /** Bounded listing of `LC_FUNCTION_STARTS` addresses. */
 export interface MachOFunctionStartsReport {
     readonly imageBase: number;

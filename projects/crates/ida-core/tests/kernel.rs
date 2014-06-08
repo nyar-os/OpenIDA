@@ -1342,6 +1342,143 @@ fn macho64_chained_fixups_bytes() -> Vec<u8> {
     bytes
 }
 
+#[test]
+fn macho_bindings_decode_classic_bind_opcodes() {
+    let view = BinaryView::from_bytes("bindings.macho", macho64_bindings_bytes());
+    let report = view.macho_bindings().expect("Mach-O dyld bind opcodes");
+
+    assert!(report.present);
+    assert_eq!(report.total, 6);
+    assert!(!report.truncated);
+    assert_eq!(report.bindings.len(), 6);
+
+    let first = &report.bindings[0];
+    assert_eq!(first.stream, "bind");
+    assert_eq!(first.address, 0x1020);
+    assert_eq!(first.segment, "__TEXT");
+    assert_eq!(first.symbol, "___stack_chk_fail");
+    assert_eq!(first.dylib, "/usr/lib/libSystem.B.dylib");
+    assert_eq!(first.bind_type, "pointer");
+    assert!(!first.weak);
+    assert_eq!(first.addend, 0);
+
+    let second = &report.bindings[1];
+    assert_eq!(second.address, 0x1040);
+    assert_eq!(second.symbol, "_bar");
+    assert!(second.weak);
+    assert_eq!(second.addend, 2);
+
+    let third = &report.bindings[2];
+    assert_eq!(third.stream, "weak");
+    assert_eq!(third.address, 0x1000);
+    assert_eq!(third.bind_type, "text-abs32");
+    assert_eq!(third.dylib, "/usr/lib/libSystem.B.dylib");
+
+    let fourth = &report.bindings[3];
+    assert_eq!(fourth.stream, "lazy");
+    assert_eq!(fourth.address, 0);
+    assert_eq!(fourth.segment, "");
+    assert_eq!(fourth.dylib, "/usr/lib/libz.1.dylib");
+
+    assert_eq!(report.bindings[4].address, 8);
+    assert_eq!(report.bindings[4].segment, "");
+
+    let last = &report.bindings[5];
+    assert_eq!(last.stream, "lazy");
+    assert_eq!(last.address, 17);
+    assert_eq!(last.symbol, "_lazy_a");
+    assert_eq!(last.dylib, "/usr/lib/libz.1.dylib");
+    assert_eq!(last.bind_type, "pointer");
+    assert!(!last.weak);
+}
+
+#[test]
+fn macho_bindings_report_absence_and_reject_non_macho() {
+    let view = BinaryView::from_bytes("sample.macho", macho64_bytes());
+    let report = view.macho_bindings().expect("no dyld info command");
+    assert!(!report.present);
+    assert!(report.bindings.is_empty());
+    assert!(!report.truncated);
+
+    let view = BinaryView::from_bytes("fat.macho", fat32_bytes());
+    assert_eq!(view.macho_bindings().unwrap_err().code(), "binary/unsupported");
+
+    let view = BinaryView::from_bytes("plain.exe", pe_bytes());
+    assert_eq!(view.macho_bindings().unwrap_err().code(), "binary/unsupported");
+}
+
+/// `macho64_bytes()` plus a second `LC_LOAD_DYLIB` (`libz.1.dylib`), an
+/// `LC_DYLD_INFO_ONLY` at 0x170 and bind, weak-bind and lazy-bind opcode
+/// streams at 0x400, 0x480 and 0x4c0 with six bindings in total.
+fn macho64_bindings_bytes() -> Vec<u8> {
+    let mut bytes = macho64_bytes();
+    bytes.resize(0x600, 0);
+    put_u32(&mut bytes, 16, 7);
+    put_u32(&mut bytes, 20, 384);
+
+    let dylib = 32 + 280;
+    put_u32(&mut bytes, dylib, 0x0c);
+    put_u32(&mut bytes, dylib + 4, 56);
+    put_u32(&mut bytes, dylib + 8, 24);
+    put_u32(&mut bytes, dylib + 12, 2);
+    put_u32(&mut bytes, dylib + 16, 0x0001_0203);
+    put_u32(&mut bytes, dylib + 20, 0x0001_0000);
+    bytes[dylib + 24..dylib + 46].copy_from_slice(b"/usr/lib/libz.1.dylib\0");
+
+    let info = dylib + 56;
+    put_u32(&mut bytes, info, 0x8000_0022);
+    put_u32(&mut bytes, info + 4, 48);
+    put_u32(&mut bytes, info + 8, 0);
+    put_u32(&mut bytes, info + 12, 0);
+    put_u32(&mut bytes, info + 16, 0x400);
+    put_u32(&mut bytes, info + 20, 37);
+    put_u32(&mut bytes, info + 24, 0x480);
+    put_u32(&mut bytes, info + 28, 15);
+    put_u32(&mut bytes, info + 32, 0x4c0);
+    put_u32(&mut bytes, info + 36, 17);
+    put_u32(&mut bytes, info + 40, 0);
+    put_u32(&mut bytes, info + 44, 0);
+
+    bytes[0x400] = 0x11;
+    bytes[0x401] = 0x51;
+    bytes[0x402] = 0x70;
+    bytes[0x403] = 0x20;
+    bytes[0x404] = 0x40;
+    bytes[0x405..0x417].copy_from_slice(b"___stack_chk_fail\0");
+    bytes[0x417] = 0x90;
+    bytes[0x418] = 0x80;
+    bytes[0x419] = 0x18;
+    bytes[0x41a] = 0x62;
+    bytes[0x41b] = 0x02;
+    bytes[0x41c] = 0x41;
+    bytes[0x41d..0x422].copy_from_slice(b"_bar\0");
+    bytes[0x422] = 0xa0;
+    bytes[0x423] = 0x08;
+    bytes[0x424] = 0x00;
+
+    bytes[0x480] = 0x11;
+    bytes[0x481] = 0x52;
+    bytes[0x482] = 0x70;
+    bytes[0x483] = 0x00;
+    bytes[0x484] = 0x42;
+    bytes[0x485..0x48c].copy_from_slice(b"_wmain\0");
+    bytes[0x48c] = 0x90;
+    bytes[0x48d] = 0x00;
+
+    bytes[0x4c0] = 0x20;
+    bytes[0x4c1] = 0x02;
+    bytes[0x4c2] = 0x51;
+    bytes[0x4c3] = 0x40;
+    bytes[0x4c4..0x4cc].copy_from_slice(b"_lazy_a\0");
+    bytes[0x4cc] = 0xb0;
+    bytes[0x4cd] = 0xc0;
+    bytes[0x4ce] = 0x02;
+    bytes[0x4cf] = 0x01;
+    bytes[0x4d0] = 0x00;
+
+    bytes
+}
+
 /// `macho64_bytes()` plus `LC_DYLD_EXPORTS_TRIE` at 0x300 exporting `_foo`
 /// (address 0x1000) and the weak `_bar` (address 0x1040).
 fn macho64_exports_bytes() -> Vec<u8> {
