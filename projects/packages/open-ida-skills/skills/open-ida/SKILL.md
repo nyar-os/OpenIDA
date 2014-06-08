@@ -60,6 +60,7 @@ a second analysis engine. Report the stable code instead.
 | pe-bound-imports | List the PE bound-import descriptors and forwarder refs | `pe-bound-imports` report |
 | pe-rich-header | Decode the PE Rich header build stamp | `pe-rich-header` report |
 | dynamic | Read ELF interpreter, SONAME, needed libraries and search paths | `dynamic` report |
+| elf-symbols | List the ELF `.symtab` static symbols with type, binding and section | `elf-symbols` report |
 | segments | List ELF program headers with permissions and load ranges | `segments` report |
 | notes | Read the ELF build id, ABI tag and GNU properties | `notes` report |
 | certificates | List the PE attribute certificate table headers (not verified) | `certificates` report |

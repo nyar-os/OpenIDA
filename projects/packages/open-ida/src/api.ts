@@ -21,6 +21,7 @@ import type {
     ElfDynamicReport,
     ElfNotesReport,
     ElfSegmentsReport,
+    ElfStaticSymbolsReport,
     EncodedStringsReport,
     EntropyReport,
     ExportsReport,
@@ -232,6 +233,11 @@ export class OpenIDA {
     /** Decodes the Rich header build stamp between the DOS stub and the PE header. */
     richHeader(): PeRichHeaderReport {
         return decode<PeRichHeaderReport>(() => binding('binary.rich_header').binary_rich_header(this.id));
+    }
+
+    /** Lists the ELF static symbol table (`.symtab`) entries. */
+    staticSymbols(): ElfStaticSymbolsReport {
+        return decode<ElfStaticSymbolsReport>(() => binding('binary.static_symbols').binary_static_symbols(this.id));
     }
 
     /** Decodes the PE base relocation blocks. */

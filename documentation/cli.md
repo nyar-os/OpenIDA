@@ -242,6 +242,20 @@ answers `binary/unsupported`.
 The report reads the recorded dependency names. It does not resolve which copy
 of a library the dynamic loader would pick at run time.
 
+### `elf-symbols <file>`
+
+```bash
+open-ida elf-symbols ./samples/app.elf
+```
+
+ELF only. Walks the section headers to the first `SHT_SYMTAB` and prints one
+line per entry: value, size, `type/binding/visibility` and the owning section,
+with `SHN_UNDEF`, `SHN_ABS` and `SHN_COMMON` rendered as `UND`, `ABS` and
+`COM`. This is the static table, so local and file-scope symbols appear too;
+the separate `symbols` command keeps reporting the dynamic one. The listing is
+capped at 4,096 entries. An image without `.symtab` prints
+`no .symtab section`; non-ELF answers `binary/unsupported`.
+
 ### `segments <file>`
 
 ```bash

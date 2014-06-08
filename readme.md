@@ -63,6 +63,7 @@ open-ida pe-delay-imports ./samples/app.exe
 open-ida pe-bound-imports ./samples/app.exe
 open-ida pe-rich-header ./samples/app.exe
 open-ida dynamic ./samples/app.elf
+open-ida elf-symbols ./samples/app.elf
 open-ida segments ./samples/app.elf
 open-ida notes ./samples/app.elf
 open-ida certificates ./samples/app.exe

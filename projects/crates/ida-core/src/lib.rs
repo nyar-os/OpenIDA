@@ -20,6 +20,7 @@ mod debug;
 mod diff;
 mod disasm;
 mod dynamic;
+mod elf_symbols;
 mod entropy;
 mod error;
 mod load_config;
@@ -53,6 +54,7 @@ pub use debug::{CodeViewInfo, DebugEntry, DebugReport};
 pub use diff::{DiffRange, DiffReport};
 pub use disasm::{DisassembleOptions, DisassemblyInstruction, DisassemblyReport, DisassemblySyntax};
 pub use dynamic::ElfDynamicReport;
+pub use elf_symbols::{ElfStaticSymbol, ElfStaticSymbolsReport};
 pub use entropy::{EntropyReport, OverlayInfo, SectionEntropy};
 pub use error::{IdaError, Result};
 pub use load_config::{CodeIntegrityInfo, PeLoadConfigReport};
@@ -254,6 +256,11 @@ impl BinaryView {
     /// Reports ELF `PT_INTERP` and `PT_DYNAMIC` dependencies.
     pub fn dynamic(&self) -> Result<ElfDynamicReport> {
         dynamic::analyze(&self.session)
+    }
+
+    /// Lists the ELF static symbol table (`.symtab`) entries.
+    pub fn static_symbols(&self) -> Result<ElfStaticSymbolsReport> {
+        elf_symbols::analyze(&self.session)
     }
 
     /// Decodes the ELF program header table.
@@ -555,6 +562,11 @@ impl OpenIda {
         dynamic::analyze(&self.session)
     }
 
+    /// Lists the ELF static symbol table (`.symtab`) entries.
+    pub fn static_symbols(&self) -> Result<ElfStaticSymbolsReport> {
+        elf_symbols::analyze(&self.session)
+    }
+
     /// Decodes the ELF program header table.
     pub fn segments(&self) -> Result<ElfSegmentsReport> {
         segments::analyze(&self.session)
@@ -689,6 +701,7 @@ pub fn capabilities() -> serde_json::Value {
             "pe-tls": "supported",
             "pe-load-config": "supported",
             "elf-dynamic": "supported",
+            "elf-static-symbols": "supported",
             "elf-notes": "supported",
             "elf-program-headers": "supported",
             "disassembly": "supported",

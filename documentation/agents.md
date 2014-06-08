@@ -38,6 +38,7 @@ containers are rejected, and unknown containers are rejected.
 | List PE bound imports | `open-ida pe-bound-imports <file>` | Descriptor timestamp, module name and inline forwarder refs |
 | Decode PE Rich header | `open-ida pe-rich-header <file>` | XOR key, DanS/Rich offsets and compid/build/count entries |
 | Read ELF dependencies | `open-ida dynamic <file>` | Interpreter, SONAME, needed libraries, rpath/runpath |
+| List ELF static symbols | `open-ida elf-symbols <file>` | `.symtab` name, value, size, type, binding, visibility and section |
 | List ELF program headers | `open-ida segments <file>` | Segment type, offset, addresses, sizes, permissions and alignment |
 | Read ELF notes | `open-ida notes <file>` | GNU build id, ABI tag, GNU properties |
 | List PE certificates | `open-ida certificates <file>` | Attribute certificate table headers, `PKCS#7` shape (not verified) |

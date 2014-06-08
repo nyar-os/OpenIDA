@@ -44,6 +44,7 @@ export interface NativeBinding {
     binary_delay_imports(handle: number): string;
     binary_bound_imports(handle: number): string;
     binary_rich_header(handle: number): string;
+    binary_static_symbols(handle: number): string;
     binary_dynamic(handle: number): string;
     binary_segments(handle: number): string;
     binary_notes(handle: number): string;

@@ -1969,6 +1969,191 @@ fn pe_rich_header_reports_absence_and_rejects_non_pe() {
     assert_eq!(elf.rich_header().unwrap_err().code(), "binary/unsupported");
 }
 
+/// ELF64 with a `.symtab`, `.strtab` and `.shstrtab` behind five sections.
+fn elf64_symtab_bytes() -> Vec<u8> {
+    let mut bytes = vec![0u8; 0x2400];
+    bytes[0..4].copy_from_slice(b"\x7fELF");
+    bytes[4] = 2;
+    bytes[5] = 1;
+    bytes[6] = 1;
+    put_u16(&mut bytes, 16, 3);
+    put_u16(&mut bytes, 18, 0x3e);
+    put_u32(&mut bytes, 20, 1);
+    put_u64(&mut bytes, 24, 0x1050);
+    put_u64(&mut bytes, 40, 0x40);
+    put_u16(&mut bytes, 58, 64);
+    put_u16(&mut bytes, 60, 5);
+    put_u16(&mut bytes, 62, 4);
+
+    // .text
+    put_u32(&mut bytes, 0x80, 1);
+    put_u32(&mut bytes, 0x84, 1);
+    put_u64(&mut bytes, 0x98, 0x200);
+    put_u64(&mut bytes, 0xa0, 0x100);
+    // .symtab
+    put_u32(&mut bytes, 0xc0, 7);
+    put_u32(&mut bytes, 0xc4, 2);
+    put_u64(&mut bytes, 0xd8, 0x2000);
+    put_u64(&mut bytes, 0xe0, 72);
+    put_u32(&mut bytes, 0xe8, 3);
+    put_u32(&mut bytes, 0xec, 1);
+    put_u64(&mut bytes, 0xf8, 24);
+    // .strtab
+    put_u32(&mut bytes, 0x100, 15);
+    put_u32(&mut bytes, 0x104, 3);
+    put_u64(&mut bytes, 0x118, 0x2100);
+    put_u64(&mut bytes, 0x120, 0x40);
+    // .shstrtab
+    put_u32(&mut bytes, 0x140, 23);
+    put_u32(&mut bytes, 0x144, 3);
+    put_u64(&mut bytes, 0x158, 0x2200);
+    put_u64(&mut bytes, 0x160, 0x40);
+
+    bytes[0x2201..0x2207].copy_from_slice(b".text\0");
+    bytes[0x2207..0x220f].copy_from_slice(b".symtab\0");
+    bytes[0x220f..0x2217].copy_from_slice(b".strtab\0");
+    bytes[0x2217..0x2221].copy_from_slice(b".shstrtab\0");
+
+    bytes[0x2100..0x2106].copy_from_slice(b"\0main\0");
+    bytes[0x2106..0x210d].copy_from_slice(b"buffer\0");
+
+    // sym1: GLOBAL/FUNC in .text
+    put_u32(&mut bytes, 0x2018, 1);
+    bytes[0x201c] = 0x12;
+    put_u16(&mut bytes, 0x201e, 1);
+    put_u64(&mut bytes, 0x2020, 0x1050);
+    put_u64(&mut bytes, 0x2028, 42);
+    // sym2: WEAK/HIDDEN OBJECT in COMMON
+    put_u32(&mut bytes, 0x2030, 6);
+    bytes[0x2034] = 0x21;
+    bytes[0x2035] = 2;
+    put_u16(&mut bytes, 0x2036, 0xfff2);
+    put_u64(&mut bytes, 0x2040, 8);
+    bytes
+}
+
+#[test]
+fn elf_static_symbols_list_symtab_entries() {
+    let view = BinaryView::from_bytes("symtab.elf", elf64_symtab_bytes());
+    let report = view.static_symbols().expect("ELF .symtab");
+
+    assert!(report.present);
+    assert!(report.is64);
+    assert!(!report.truncated);
+    assert_eq!(report.total, 3);
+    assert_eq!(report.symbols.len(), 3);
+
+    assert_eq!(report.symbols[0].name, "");
+    assert_eq!(report.symbols[0].section, "UND");
+
+    let main = &report.symbols[1];
+    assert_eq!(main.name, "main");
+    assert_eq!(main.value, 0x1050);
+    assert_eq!(main.size, 42);
+    assert_eq!(main.symbol_type, "FUNC");
+    assert_eq!(main.binding, "GLOBAL");
+    assert_eq!(main.visibility, "DEFAULT");
+    assert_eq!(main.section, ".text");
+
+    let buffer = &report.symbols[2];
+    assert_eq!(buffer.name, "buffer");
+    assert_eq!(buffer.size, 8);
+    assert_eq!(buffer.symbol_type, "OBJECT");
+    assert_eq!(buffer.binding, "WEAK");
+    assert_eq!(buffer.visibility, "HIDDEN");
+    assert_eq!(buffer.section, "COM");
+}
+
+/// ELF32 with the same `.symtab` content in 32-bit layouts.
+fn elf32_symtab_bytes() -> Vec<u8> {
+    let mut bytes = vec![0u8; 0x2400];
+    bytes[0..4].copy_from_slice(b"\x7fELF");
+    bytes[4] = 1;
+    bytes[5] = 1;
+    bytes[6] = 1;
+    put_u16(&mut bytes, 16, 3);
+    put_u16(&mut bytes, 18, 3);
+    put_u32(&mut bytes, 20, 1);
+    put_u32(&mut bytes, 24, 0x1050);
+    put_u32(&mut bytes, 32, 0x34);
+    put_u16(&mut bytes, 46, 40);
+    put_u16(&mut bytes, 48, 5);
+    put_u16(&mut bytes, 50, 4);
+
+    // .text
+    put_u32(&mut bytes, 0x5c, 1);
+    put_u32(&mut bytes, 0x60, 1);
+    put_u32(&mut bytes, 0x6c, 0x200);
+    put_u32(&mut bytes, 0x70, 0x100);
+    // .symtab
+    put_u32(&mut bytes, 0x84, 7);
+    put_u32(&mut bytes, 0x88, 2);
+    put_u32(&mut bytes, 0x94, 0x2000);
+    put_u32(&mut bytes, 0x98, 48);
+    put_u32(&mut bytes, 0x9c, 3);
+    put_u32(&mut bytes, 0xa0, 1);
+    put_u32(&mut bytes, 0xa8, 16);
+    // .strtab
+    put_u32(&mut bytes, 0xac, 15);
+    put_u32(&mut bytes, 0xb0, 3);
+    put_u32(&mut bytes, 0xbc, 0x2100);
+    put_u32(&mut bytes, 0xc0, 0x40);
+    // .shstrtab
+    put_u32(&mut bytes, 0xd4, 23);
+    put_u32(&mut bytes, 0xd8, 3);
+    put_u32(&mut bytes, 0xe4, 0x2200);
+    put_u32(&mut bytes, 0xe8, 0x40);
+
+    bytes[0x2201..0x2207].copy_from_slice(b".text\0");
+    bytes[0x2207..0x220f].copy_from_slice(b".symtab\0");
+    bytes[0x220f..0x2217].copy_from_slice(b".strtab\0");
+    bytes[0x2217..0x2221].copy_from_slice(b".shstrtab\0");
+
+    bytes[0x2100..0x2106].copy_from_slice(b"\0main\0");
+    bytes[0x2106..0x210d].copy_from_slice(b"buffer\0");
+
+    // sym1: GLOBAL/FUNC in .text
+    put_u32(&mut bytes, 0x2010, 1);
+    put_u32(&mut bytes, 0x2014, 0x1050);
+    put_u32(&mut bytes, 0x2018, 42);
+    bytes[0x201c] = 0x12;
+    put_u16(&mut bytes, 0x201e, 1);
+    // sym2: WEAK/HIDDEN OBJECT in COMMON
+    put_u32(&mut bytes, 0x2020, 6);
+    put_u32(&mut bytes, 0x2028, 8);
+    bytes[0x202c] = 0x21;
+    bytes[0x202d] = 2;
+    put_u16(&mut bytes, 0x202e, 0xfff2);
+    bytes
+}
+
+#[test]
+fn elf32_static_symbols_list_symtab_entries() {
+    let view = BinaryView::from_bytes("symtab32.elf", elf32_symtab_bytes());
+    let report = view.static_symbols().expect("ELF32 .symtab");
+
+    assert!(report.present);
+    assert!(!report.is64);
+    assert_eq!(report.total, 3);
+    let main = &report.symbols[1];
+    assert_eq!(main.name, "main");
+    assert_eq!(main.value, 0x1050);
+    assert_eq!(main.symbol_type, "FUNC");
+    assert_eq!(main.section, ".text");
+    assert_eq!(report.symbols[2].section, "COM");
+}
+
+#[test]
+fn elf_static_symbols_report_absence_and_reject_non_pe() {
+    let report = BinaryView::from_bytes("stripped.elf", elf64_bytes()).static_symbols().expect("ELF .symtab");
+    assert!(!report.present);
+    assert_eq!(report.total, 0);
+    assert!(report.symbols.is_empty());
+
+    let pe = BinaryView::from_bytes("sample.exe", pe_bytes());
+    assert_eq!(pe.static_symbols().unwrap_err().code(), "binary/unsupported");
+}
+
 /// ELF64 with `PT_LOAD`, `PT_INTERP` and `PT_DYNAMIC` program headers.
 fn elf_dynamic_bytes() -> Vec<u8> {
     let mut bytes = vec![0u8; 0x500];

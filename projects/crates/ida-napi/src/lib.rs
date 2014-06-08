@@ -249,6 +249,10 @@ fn rich_header_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.rich_header()?))
 }
 
+fn static_symbols_report(handle: u64) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.static_symbols()?))
+}
+
 fn dynamic_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.dynamic()?))
 }
@@ -553,6 +557,16 @@ fn binary_bound_imports(ctx: CallContext) -> Result<JsValue> {
 fn binary_rich_header(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     match rich_header_report(handle) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Lists the ELF static symbol table (`.symtab`) entries.
+#[function]
+fn binary_static_symbols(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    match static_symbols_report(handle) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
@@ -1243,6 +1257,7 @@ register_module![
     binary_delay_imports,
     binary_bound_imports,
     binary_rich_header,
+    binary_static_symbols,
     binary_dynamic,
     binary_notes,
     binary_certificates,

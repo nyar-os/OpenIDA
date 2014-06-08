@@ -575,6 +575,26 @@ export interface PeRichHeaderReport {
     readonly truncated: boolean;
 }
 
+/** One `.symtab` entry. */
+export interface ElfStaticSymbol {
+    readonly name: string;
+    readonly value: number;
+    readonly size: number;
+    readonly symbolType: string;
+    readonly binding: string;
+    readonly visibility: string;
+    readonly section: string;
+}
+
+/** Bounded ELF static symbol listing. */
+export interface ElfStaticSymbolsReport {
+    readonly present: boolean;
+    readonly is64: boolean;
+    readonly symbols: readonly ElfStaticSymbol[];
+    readonly total: number;
+    readonly truncated: boolean;
+}
+
 /** Dynamic linking facts of one ELF image. */
 export interface ElfDynamicReport {
     readonly present: boolean;

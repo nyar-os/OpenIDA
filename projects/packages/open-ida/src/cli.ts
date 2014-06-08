@@ -24,6 +24,7 @@ import type {
     ElfDynamicReport,
     ElfNotesReport,
     ElfSegmentsReport,
+    ElfStaticSymbolsReport,
     EncodedStringsReport,
     EntropyReport,
     ExportsReport,
@@ -323,6 +324,22 @@ function describeRichHeader(report: PeRichHeaderReport): string {
     for (const entry of report.entries) {
         const name = entry.name === null ? '' : ` · ${entry.name}`;
         lines.push(`  ${hex(entry.compId)} · build ${entry.build} · count ${entry.count}${name}`);
+    }
+    return lines.join('\n');
+}
+
+function describeStaticSymbols(report: ElfStaticSymbolsReport): string {
+    if (!report.present) {
+        return 'no .symtab section';
+    }
+    const header = entriesHeader(report.symbols.length, report.total, 'symbol(s)', report.truncated);
+    const lines = [`${header} · ${report.is64 ? 'ELF64' : 'ELF32'}`];
+    for (const symbol of report.symbols) {
+        const name = symbol.name.length === 0 ? '(null)' : symbol.name;
+        lines.push(
+            `  ${hex(symbol.value)} · size ${symbol.size} · ${symbol.symbolType}/${symbol.binding}` +
+                `/${symbol.visibility} · ${symbol.section} · ${name}`,
+        );
     }
     return lines.join('\n');
 }
@@ -1025,6 +1042,22 @@ cli.command('pe-rich-header', 'cli.cmd.peRichHeader').actionCtx(async (options, 
     try {
         const report = ida.richHeader();
         ctx.emitResult(report, describeRichHeader(report));
+        return 0;
+    } finally {
+        ida.close();
+    }
+});
+
+cli.command('elf-symbols', 'cli.cmd.elfSymbols').actionCtx(async (options, _args, ctx) => {
+    const file = input(options);
+    if (file === undefined) {
+        ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+        return 2;
+    }
+    const ida = new OpenIDA({ path: file });
+    try {
+        const report = ida.staticSymbols();
+        ctx.emitResult(report, describeStaticSymbols(report));
         return 0;
     } finally {
         ida.close();
