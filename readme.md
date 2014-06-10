@@ -75,6 +75,7 @@ open-ida macho-function-starts ./samples/app.macho --limit 200
 open-ida macho-exports ./samples/app.macho
 open-ida macho-encryption ./samples/app.macho
 open-ida macho-chained-fixups ./samples/app.macho
+open-ida macho-bindings ./samples/app.macho
 open-ida disasm ./samples/app.exe --offset 0x1000 --count 20
 open-ida entropy ./samples/app.exe
 open-ida diff build/app.exe build/app-patched.exe
@@ -91,7 +92,7 @@ the TypeScript session, so a script and a person read the same result.
 - **Format-aware facts.** PE and ELF headers, sections, entry points, image
   bases and hashes; Mach-O load commands, segments, sections, dylibs, UUID,
   build versions and the `LC_SYMTAB` symbol table, plus the architecture table
-  of fat containers. Mach-O stays partial until dyld bindings are decoded.
+  of fat containers. Mach-O stays partial until the rebase stream and the chained pointers are decoded.
 - **Strings in both encodings.** ASCII runs by default, plus the
   ASCII-in-UTF-16LE runs that Windows binaries commonly embed.
 - **Address mapping both ways.** RVA or virtual address to file offset, and file
@@ -127,9 +128,10 @@ drawing sample data.
 - No non-x86 disassembly: ARM and ARM64 return a stable unsupported error.
 - No signature verification: `mitigations` reports whether the certificate
   table is present, not whether the Authenticode signature is valid.
-- No Mach-O dyld bindings: load commands, segments, sections, dylibs, build
-  versions and the `LC_SYMTAB` symbol table are decoded, but bind opcodes are
-  not resolved.
+- No Mach-O runtime binding: load commands, segments, sections, dylibs, build
+  versions, the `LC_SYMTAB` symbol table and the classic dyld bind, weak-bind
+  and lazy-bind opcode streams are decoded, but the rebase stream is not and
+  nothing is bound at runtime.
 - No fat Mach-O in-place inspection: `macho-slices` lists the architecture
   table and `macho-extract` writes one slice to a new file, which `macho` can
   then inspect. The source container is never modified.

@@ -8,20 +8,20 @@ agent-facing documentation lives in [agents.md](agents.md).
 
 ## Project layout
 
-| Path | What it is |
-| --- | --- |
-| `../projects/crates/ida-core` | Rust crate `open-ida-core`: session defaults, `OpenIda` API, PE debug/CodeView and version-resource parsing, Mach-O load-command identity, disassembly, binary diff, entropy and encoded string scanning, stable errors and the capability matrix. Container decoding, imports, exports, symbols, search, hex dumps and patching come from the pinned `boost.rs` binary crates. |
-| `../projects/crates/ida-napi` | Rust crate `open-ida-napi`: `cdylib` Node-API exports and the Studio WebView host. It maps JSON in and JSON out; no analysis lives here. |
-| `projects/packages/open-ida` | TypeScript package `@wae/open-ida`: `OpenIDA` session (`src/api.ts`), CLI (`src/cli.ts`, bin `open-ida`), GUI helpers, stable errors, types and `locales/en-US/cli.json`. |
-| `projects/packages/open-ida/tests` | TypeScript smoke test compiled with `tsconfig.test.json` into `dist-test`. Test files do not live under `src`. |
-| `../projects/crates/ida-core` | Rust integration tests for the core crate. |
-| `projects/packages/open-ida-ui` | `@wae/open-ida-ui`: VMZ static shell for the Studio window. `vmz build . --profile static` emits `dist/static`, staged into `open-ida/dist/gui`. |
-| `projects/packages/open-ida-skills` | `@wae/open-ida-skills`: skill document under `skills/`. No runtime library and no analysis. |
-| `projects/packages/open-ida-<platform>-<arch>` | Five prebuilt addon packages: `win32-x64`, `darwin-x64`, `darwin-arm64`, `linux-x64`, `linux-arm64`. Each is a thin manifest around a staged `.node` file. |
-| `projects/sites/homepage` | `@wae/open-ida-homepage`: VMZ product site. |
-| `wae.config.ts` | Build order, native targets, platform package mapping, staging, skills registration, CI job names and window behaviour. |
-| `Cargo.toml` | Cargo workspace; members are `projects/crates/*`, default members `core` and `napi`. |
-| `pnpm-workspace.yaml` | pnpm workspace covering `projects/packages/*` and `projects/sites/*`. |
+| Path                                           | What it is                                                                                                                                                                                                                                                                                                                                                                      |
+|------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `../projects/crates/ida-core`                  | Rust crate `open-ida-core`: session defaults, `OpenIda` API, PE debug/CodeView and version-resource parsing, Mach-O load-command identity, disassembly, binary diff, entropy and encoded string scanning, stable errors and the capability matrix. Container decoding, imports, exports, symbols, search, hex dumps and patching come from the pinned `boost.rs` binary crates. |
+| `../projects/crates/ida-napi`                  | Rust crate `open-ida-napi`: `cdylib` Node-API exports and the Studio WebView host. It maps JSON in and JSON out; no analysis lives here.                                                                                                                                                                                                                                        |
+| `projects/packages/open-ida`                   | TypeScript package `@wae/open-ida`: `OpenIDA` session (`src/api.ts`), CLI (`src/cli.ts`, bin `open-ida`), GUI helpers, stable errors, types and `locales/en-US/cli.json`.                                                                                                                                                                                                       |
+| `projects/packages/open-ida/tests`             | TypeScript smoke test compiled with `tsconfig.test.json` into `dist-test`. Test files do not live under `src`.                                                                                                                                                                                                                                                                  |
+| `../projects/crates/ida-core`                  | Rust integration tests for the core crate.                                                                                                                                                                                                                                                                                                                                      |
+| `projects/packages/open-ida-ui`                | `@wae/open-ida-ui`: VMZ static shell for the Studio window. `vmz build . --profile static` emits `dist/static`, staged into `open-ida/dist/gui`.                                                                                                                                                                                                                                |
+| `projects/packages/open-ida-skills`            | `@wae/open-ida-skills`: skill document under `skills/`. No runtime library and no analysis.                                                                                                                                                                                                                                                                                     |
+| `projects/packages/open-ida-<platform>-<arch>` | Five prebuilt addon packages: `win32-x64`, `darwin-x64`, `darwin-arm64`, `linux-x64`, `linux-arm64`. Each is a thin manifest around a staged `.node` file.                                                                                                                                                                                                                      |
+| `projects/sites/homepage`                      | `@wae/open-ida-homepage`: VMZ product site.                                                                                                                                                                                                                                                                                                                                     |
+| `wae.config.ts`                                | Build order, native targets, platform package mapping, staging, skills registration, CI job names and window behaviour.                                                                                                                                                                                                                                                         |
+| `Cargo.toml`                                   | Cargo workspace; members are `projects/crates/*`, default members `core` and `napi`.                                                                                                                                                                                                                                                                                            |
+| `pnpm-workspace.yaml`                          | pnpm workspace covering `projects/packages/*` and `projects/sites/*`.                                                                                                                                                                                                                                                                                                           |
 
 The CLI, SDK and Studio all read the same core crate. A behaviour change in
 `core` reaches every surface; `capabilities()` is the single disclosure point.
@@ -107,22 +107,22 @@ The release path is **not wired**:
 
 ## CI workflows
 
-| Workflow | Trigger | What it runs |
-| --- | --- | --- |
-| `check-rust.yml` | Push and pull request to `master` / `dev` | Matrix of Ubuntu, macOS and Windows; installs nightly with `rustfmt` and `clippy`; `cargo build --workspace --release`; `cargo test --workspace --release`. It does not run fmt or clippy checks; `pnpm check:rust` does. |
-| `check-typescript.yml` | Push and pull request to `master` / `dev` | Ubuntu; pnpm and Node 22; `pnpm install --no-frozen-lockfile`; `pnpm typecheck`; `pnpm test`. |
+| Workflow               | Trigger                                   | What it runs                                                                                                                                                                                                              |
+|------------------------|-------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `check-rust.yml`       | Push and pull request to `master` / `dev` | Matrix of Ubuntu, macOS and Windows; installs nightly with `rustfmt` and `clippy`; `cargo build --workspace --release`; `cargo test --workspace --release`. It does not run fmt or clippy checks; `pnpm check:rust` does. |
+| `check-typescript.yml` | Push and pull request to `master` / `dev` | Ubuntu; pnpm and Node 22; `pnpm install --no-frozen-lockfile`; `pnpm typecheck`; `pnpm test`.                                                                                                                             |
 
 ## Documentation map
 
-| File | Audience | Owns |
-| --- | --- | --- |
-| [../readme.md](../readme.md) | readers | Product landing, getting started, highlights and boundaries |
-| [../projects/packages/open-ida/README.md](../projects/packages/open-ida/README.md) | npm readers | Exports, usage, constraints |
-| [capabilities.md](capabilities.md) | everyone | Support matrix, limits and unsupported boundaries |
-| [cli.md](cli.md) | users | Every command, flag, default and exit code |
-| [agents.md](agents.md) | agents | Capability discovery, stable codes and guardrails |
-| [architecture.md](architecture.md) | maintainers | Modules, call path, determinism and error contract |
-| This file | maintainers | Layout, build, CI and release state |
+| File                                                                               | Audience    | Owns                                                        |
+|------------------------------------------------------------------------------------|-------------|-------------------------------------------------------------|
+| [../readme.md](../readme.md)                                                       | readers     | Product landing, getting started, highlights and boundaries |
+| [../projects/packages/open-ida/README.md](../projects/packages/open-ida/README.md) | npm readers | Exports, usage, constraints                                 |
+| [capabilities.md](capabilities.md)                                                 | everyone    | Support matrix, limits and unsupported boundaries           |
+| [cli.md](cli.md)                                                                   | users       | Every command, flag, default and exit code                  |
+| [agents.md](agents.md)                                                             | agents      | Capability discovery, stable codes and guardrails           |
+| [architecture.md](architecture.md)                                                 | maintainers | Modules, call path, determinism and error contract          |
+| This file                                                                          | maintainers | Layout, build, CI and release state                         |
 
 Change the owning file, not a copy. Never put build commands, workspace trees
 or CI notes in a reader-facing README.
