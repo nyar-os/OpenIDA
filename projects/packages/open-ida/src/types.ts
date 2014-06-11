@@ -57,8 +57,12 @@ export type StringEncoding = 'ascii' | 'utf16le' | 'both';
 export interface StringsOptions {
     /** Minimum number of characters in a run; defaults to 4. */
     readonly minLength?: number;
-    /** Maximum number of hits; defaults to 100 and is capped at 10000. */
+    /** Maximum number of hits; defaults to 100 and is capped at 10000 unless `all` is set. */
     readonly limit?: number;
+    /** Number of leading hits to drop before the limit; defaults to 0. */
+    readonly skip?: number;
+    /** Bypass the 10000 cap and return up to 2000000 hits; defaults to false. */
+    readonly all?: boolean;
     /** Encoding to scan for; defaults to `ascii`. */
     readonly encoding?: StringEncoding;
 }
@@ -76,6 +80,8 @@ export interface EncodedStringsReport {
     readonly encoding: StringEncoding;
     readonly minLength: number;
     readonly limit: number;
+    readonly skip: number;
+    readonly all: boolean;
     readonly hits: readonly EncodedStringHit[];
     readonly total: number;
     readonly truncated: boolean;

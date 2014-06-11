@@ -412,7 +412,7 @@ fn encoded_strings_apply_the_limit_once() {
     file.write(b"\x00alpha\x00beta\x00gamma\x00");
     let engine = open_engine(&file);
     let report = engine
-        .strings_encoded(&StringsOptions { encoding: StringEncoding::Both, min_length: 3, limit: 2 })
+        .strings_encoded(&StringsOptions { encoding: StringEncoding::Both, min_length: 3, limit: 2, ..StringsOptions::default() })
         .expect("bounded strings");
 
     assert_eq!(report.total, 3);
@@ -421,6 +421,61 @@ fn encoded_strings_apply_the_limit_once() {
     assert_eq!(report.limit, 2);
     assert_eq!(report.hits[0].value, "alpha");
     assert_eq!(report.hits[1].value, "beta");
+}
+
+#[test]
+fn encoded_strings_page_with_skip_and_uncap_with_all() {
+    let view = BinaryView::from_bytes("paged.bin", b"\x00alpha\x00beta\x00gamma\x00delta\x00".to_vec());
+    let paged = view
+        .strings_encoded(&StringsOptions {
+            encoding: StringEncoding::Ascii,
+            min_length: 3,
+            limit: 2,
+            skip: 2,
+            ..StringsOptions::default()
+        })
+        .expect("paged strings");
+
+    assert_eq!(paged.total, 4);
+    assert_eq!(paged.skip, 2);
+    assert!(!paged.all);
+    assert!(paged.truncated);
+    let values: Vec<&str> = paged.hits.iter().map(|hit| hit.value.as_str()).collect();
+    assert_eq!(values, vec!["gamma", "delta"]);
+
+    let tail = view
+        .strings_encoded(&StringsOptions {
+            encoding: StringEncoding::Ascii,
+            min_length: 3,
+            limit: 100,
+            skip: 9,
+            ..StringsOptions::default()
+        })
+        .expect("skip past the end");
+    assert_eq!(tail.skip, 4);
+    assert!(tail.hits.is_empty());
+    assert!(tail.truncated);
+
+    let uncapped = view
+        .strings_encoded(&StringsOptions {
+            encoding: StringEncoding::Ascii,
+            min_length: 3,
+            limit: 1,
+            all: true,
+            ..StringsOptions::default()
+        })
+        .expect("uncapped strings");
+    assert!(uncapped.all);
+    assert_eq!(uncapped.limit, 2_000_000);
+    assert_eq!(uncapped.hits.len(), 4);
+    assert!(!uncapped.truncated);
+
+    let parsed: StringsOptions = serde_json::from_str(r#"{"skip": 3, "all": true}"#).expect("paged wire options");
+    assert_eq!(parsed.skip, 3);
+    assert!(parsed.all);
+    let defaults: StringsOptions = serde_json::from_str("{}").expect("default wire options");
+    assert_eq!(defaults.skip, 0);
+    assert!(!defaults.all);
 }
 
 #[test]
