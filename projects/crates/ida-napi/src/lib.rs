@@ -19,7 +19,7 @@ use std::{
     time::Instant,
 };
 
-use open_ida_core::{DisassembleOptions, IdaError, OpenIda, OpenIdaOptions, SearchOptions, StringsOptions};
+use open_ida_core::{DisassembleOptions, FindOptions, IdaError, OpenIda, OpenIdaOptions, SearchOptions, StringsOptions};
 use serde::Serialize;
 use serde_json::{Value, json};
 use wae::{
@@ -301,6 +301,12 @@ fn search_report(handle: u64, options_json: &str) -> std::result::Result<Value, 
     with_engine(handle, |engine| encoded(&engine.search(&options)?))
 }
 
+fn find_report(handle: u64, options_json: &str) -> std::result::Result<Value, IdaError> {
+    let options = serde_json::from_str::<FindOptions>(options_json)
+        .map_err(|error| IdaError::parse(format!("invalid FindOptions: {error}")))?;
+    with_engine(handle, |engine| encoded(&engine.find(&options)?))
+}
+
 fn entropy_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.entropy()?))
 }
@@ -388,6 +394,17 @@ fn binary_strings_encoded(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     let options = text(&ctx, 1)?;
     match strings_encoded_report(handle, &options) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Searches the whole file with a byte regex described by an options JSON.
+#[function]
+fn binary_find(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    let options = text(&ctx, 1)?;
+    match find_report(handle, &options) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
@@ -1284,6 +1301,7 @@ register_module![
     binary_diff,
     binary_entropy,
     binary_search,
+    binary_find,
     binary_offset_to_va,
     binary_offset_to_rva,
     binary_close,

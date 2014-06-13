@@ -15,3 +15,4 @@ data-binary-inspect = { workspace = true }
 data-binary-mach-o = { workspace = true }
 data-binary-pe = { workspace = true }
 iced-x86 = { workspace = true }
+regex = { workspace = true }

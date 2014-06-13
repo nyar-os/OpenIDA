@@ -25,6 +25,8 @@ import type {
     EncodedStringsReport,
     EntropyReport,
     ExportsReport,
+    FindOptions,
+    FindReport,
     HexdumpReport,
     ImportsReport,
     MachOReport,
@@ -299,6 +301,11 @@ export class OpenIDA {
     /** Searches for a hex, ASCII or UTF-16LE pattern. */
     search(options: SearchOptions): SearchReport {
         return decode<SearchReport>(() => binding('binary.search').binary_search(this.id, JSON.stringify(options)));
+    }
+
+    /** Searches the whole file with a byte regex. */
+    find(options: FindOptions): FindReport {
+        return decode<FindReport>(() => binding('binary.find').binary_find(this.id, JSON.stringify(options)));
     }
 
     /** Renders a hex dump, falling back to the session defaults. */

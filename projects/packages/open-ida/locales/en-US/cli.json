@@ -38,6 +38,7 @@
             "diff": "Compare two binaries byte for byte and list differing ranges",
             "entropy": "Print whole-file and per-section entropy plus the PE overlay",
             "search": "Search for hex bytes, ASCII text or UTF-16LE text",
+            "find": "Search the whole file with a byte regex and preview every match",
             "offset": "Map a file offset onto an RVA and a virtual address",
             "strings": "Extract printable ASCII or UTF-16LE runs with their file offsets",
             "hexdump": "Print a canonical hex dump of one byte range",
@@ -54,6 +55,9 @@
             "mode": "Pattern kind: hex, ascii or utf16le (default ascii)",
             "case": "Require ASCII letters to match case",
             "word": "Only match patterns surrounded by non-word characters",
+            "pattern": "Regular expression evaluated against the raw bytes (required for find)",
+            "context": "Bytes rendered into each match preview (default 80, capped at 512)",
+            "ignore-case": "Match ASCII letters case-insensitively",
             "start": "First file offset to scan",
             "end": "One past the last file offset to scan",
             "offset": "File offset to inspect, decimal or 0x-prefixed",
@@ -66,7 +70,8 @@
             "out": "Write the patched copy here instead of the source file"
         },
         "err": {
-            "encoding": "`--encoding` must be ascii, utf16le or both"
+            "encoding": "`--encoding` must be ascii, utf16le or both",
+            "pattern": "--pattern <regex> is required"
         }
     }
 }

@@ -28,6 +28,8 @@ import type {
     EncodedStringsReport,
     EntropyReport,
     ExportsReport,
+    FindOptions,
+    FindReport,
     ImportsReport,
     MachOReport,
     MachOCodeSignatureReport,
@@ -725,6 +727,18 @@ function describeSearch(report: SearchReport): string {
     const lines = [header];
     for (const hit of report.hits) {
         lines.push(`  ${hex(hit.offset).padStart(10)}  ${hit.preview}`);
+    }
+    return lines.join('\n');
+}
+
+function describeFind(report: FindReport): string {
+    const header = `${report.hits.length} of ${report.total} match(es)${report.truncated ? ' (truncated)' : ''}`;
+    if (report.hits.length === 0) {
+        return `${header}\n  no matches`;
+    }
+    const lines = [header];
+    for (const hit of report.hits) {
+        lines.push(`  ${hex(hit.offset).padStart(10)} len=${String(hit.length).padStart(4)}  ${hit.preview}`);
     }
     return lines.join('\n');
 }
@@ -1536,6 +1550,59 @@ cli
         try {
             const report = ida.search(searchOptions);
             ctx.emitResult(report, describeSearch(report));
+            return 0;
+        } finally {
+            ida.close();
+        }
+    });
+
+cli
+    .command('find', 'cli.cmd.find')
+    .option('--pattern <regex>', 'cli.opt.pattern')
+    .option('--skip <count>', 'cli.opt.skip')
+    .option('--limit <count>', 'cli.opt.limit')
+    .option('--context <bytes>', 'cli.opt.context')
+    .option('--ignore-case', 'cli.opt.ignore-case')
+    .actionCtx(async (options, _args, ctx) => {
+        const file = input(options);
+        if (file === undefined) {
+            ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+            return 2;
+        }
+        const pattern = text(options, 'pattern');
+        if (pattern === undefined || pattern.length === 0) {
+            ctx.fail('cli.err.pattern', { message: '--pattern <regex> is required' });
+            return 2;
+        }
+        const skipText = text(options, 'skip');
+        const skip = skipText === undefined ? 0 : parseNumber(skipText);
+        if (skip === undefined) {
+            ctx.fail('open-ida.cli.skip', { message: '`--skip <count>` must be a non-negative integer' });
+            return 2;
+        }
+        const limitText = text(options, 'limit');
+        const limit = limitText === undefined ? undefined : parseNumber(limitText);
+        if (limitText !== undefined && (limit === undefined || limit < 1)) {
+            ctx.fail('open-ida.cli.limit', { message: '`--limit <count>` must be a positive integer' });
+            return 2;
+        }
+        const contextText = text(options, 'context');
+        const context = contextText === undefined ? undefined : parseNumber(contextText);
+        if (contextText !== undefined && context === undefined) {
+            ctx.fail('open-ida.cli.context', { message: '`--context <bytes>` must be a non-negative integer' });
+            return 2;
+        }
+        const findOptions: FindOptions = {
+            pattern,
+            caseInsensitive: options['ignore-case'] === true,
+            skip,
+            ...(limit === undefined ? {} : { limit }),
+            ...(context === undefined ? {} : { context }),
+        };
+        const ida = new OpenIDA({ path: file });
+        try {
+            const report = ida.find(findOptions);
+            ctx.emitResult(report, describeFind(report));
             return 0;
         } finally {
             ida.close();

@@ -57,12 +57,15 @@ containers are rejected, and unknown containers are rejected.
 | Triage packing              | `open-ida entropy <file>`                                           | Whole-file and section entropy, PE overlay                                   |
 | Compare builds              | `open-ida diff <left> <right>`                                      | First difference and differing ranges                                        |
 | Search patterns             | `open-ida search <file> <pattern> --mode hex\|ascii\|utf16le`       | Offset and preview                                                           |
+| Search byte regexes         | `open-ida find <file> --pattern <regex> [--ignore-case]`            | Offset, length and printable preview per match                               |
 | Patch                       | `open-ida patch <file> --offset <n> --bytes <hex> --out <copy>`     | Before/after whole-file hashes                                               |
 
 ## Limits agents must respect
 
 - `strings` defaults to 100 hits; the engine caps a request at 10,000, or at
   2,000,000 with `--all`. `--skip <n>` drops leading hits before the limit.
+- `find` defaults to 100 matches; the engine clamps `--limit` to 5,000 and
+  `--context` to 512 bytes. An invalid pattern is `binary/parse`.
 - `disasm` defaults to 64 instructions and caps at 4,096.
 - `diff` reports at most 64 differing ranges.
 - Every bounded report carries `total` and `truncated`.
