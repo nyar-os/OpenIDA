@@ -16,7 +16,7 @@ description: Inspect compiled binaries with OpenIDA. Use when a task involves PE
 `macho-bindings`,
 `macho-slices`, `macho-extract`, `mitigations`, `resources`, `relocations`, `dynamic`, `segments`, `notes`,
 `certificates`, `tls`, `load-config`, `code-signature`, `disasm`, `entropy`, `diff`,
-`search`, `find`,
+`search`, `find`, `dump`,
 `patch` are implemented for the cases listed below. Decompilation,
 debugging and signature verification are
 **not** implemented and the capability matrix reports them as `unsupported` /
@@ -44,6 +44,7 @@ a second analysis engine. Report the stable code instead.
 | map | Find sections, their addresses, sizes and access flags | `sections` table |
 | discover | Locate printable strings and their offsets | `strings` listing with offsets |
 | find | Locate regex matches with printable previews | `find` report with offset, length and preview |
+| dump | Export a raw byte range to a new file        | `dump` report with written count              |
 | read | Show bytes around an offset | `hexdump` or `read` output |
 | resolve | Turn an RVA or virtual address into a file offset | `rva` mapping |
 | link | List imports, exports, symbols or the PDB path | `imports` / `exports` / `symbols` / `debug` report |

@@ -558,6 +558,23 @@ Every match carries its file offset, byte length and a printable preview where
 non-printable bytes render as dots. An invalid pattern exits `1` with a
 `binary/parse` error.
 
+### `dump <file>`
+
+```bash
+open-ida dump ./samples/app.exe --offset 0x1000 --length 64 --output ./smoke_dump.bin
+```
+
+| Flag                | Default | Meaning                                                             |
+|---------------------|---------|---------------------------------------------------------------------|
+| `--offset <offset>` | `0`     | First byte to export, decimal or 0x-prefixed.                       |
+| `--length <size>`   | `256`   | Number of bytes to export; the engine clamps the value at 64 MiB.   |
+| `--output <path>`   | —       | Destination file the raw bytes are written to. Required.            |
+
+The bytes are stored unchanged, so a range can be fed to a second tool without
+a lossy round trip. A range outside the file exits `1` with `binary/range` and
+nothing is written; the report carries the applied `length` and the `written`
+byte count.
+
 ### `patch <file>`
 
 ```bash
@@ -597,6 +614,7 @@ Opens the Studio window. If the window cannot start, the command exits `1` with
 | `open-ida.cli.count`                         | `--count` is not a positive integer.              |
 | `open-ida.cli.encoding` / `cli.err.encoding` | `--encoding` is not `ascii`, `utf16le` or `both`. |
 | `cli.err.pattern`                            | `find` was called without `--pattern`.            |
+| `cli.err.outputRequired`                     | `dump` was called without `--output`.             |
 | `open-ida.cli.mode`                          | `--mode` is not `hex`, `ascii` or `utf16le`.      |
 | `open-ida.cli.syntax`                        | `--syntax` is not `intel`, `masm` or `nasm`.      |
 | `open-ida.cli.bytes`                         | `--bytes` is missing or empty.                    |

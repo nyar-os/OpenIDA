@@ -19,6 +19,7 @@ mod code_signature;
 mod debug;
 mod diff;
 mod disasm;
+mod dump;
 mod dynamic;
 mod elf_symbols;
 mod entropy;
@@ -54,6 +55,7 @@ pub use code_signature::{MachOCodeDirectory, MachOCodeSignatureReport};
 pub use debug::{CodeViewInfo, DebugEntry, DebugReport};
 pub use diff::{DiffRange, DiffReport};
 pub use disasm::{DisassembleOptions, DisassemblyInstruction, DisassemblyReport, DisassemblySyntax};
+pub use dump::{DumpOptions, DumpReport};
 pub use dynamic::ElfDynamicReport;
 pub use elf_symbols::{ElfStaticSymbol, ElfStaticSymbolsReport};
 pub use entropy::{EntropyReport, OverlayInfo, SectionEntropy};
@@ -153,6 +155,11 @@ impl BinaryView {
     /// Searches the whole file with a byte regex described by `options`.
     pub fn find(&self, options: &FindOptions) -> Result<FindReport> {
         find::find(&self.session, options)
+    }
+
+    /// Exports a raw byte range from the file into a caller-chosen path.
+    pub fn dump(&self, options: &DumpOptions) -> Result<DumpReport> {
+        dump::dump(&self.session, options)
     }
 
     /// Lists imported functions.
@@ -469,6 +476,11 @@ impl OpenIda {
         find::find(&self.session, options)
     }
 
+    /// Exports a raw byte range from the file into a caller-chosen path.
+    pub fn dump(&self, options: &DumpOptions) -> Result<DumpReport> {
+        dump::dump(&self.session, options)
+    }
+
     /// Lists imported functions.
     pub fn imports(&self, limit: Option<usize>) -> Result<ImportsReport> {
         self.session.imports(limit).map_err(IdaError::from)
@@ -733,6 +745,7 @@ pub fn capabilities() -> serde_json::Value {
             "overlay": "supported",
             "search": "supported",
             "find": "supported",
+            "dump": "supported",
             "offset-to-va": "supported",
             "offset-to-rva": "supported",
         },

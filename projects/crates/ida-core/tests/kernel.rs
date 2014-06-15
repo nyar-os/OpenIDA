@@ -10,8 +10,8 @@ use std::{
 };
 
 use open_ida_core::{
-    BinaryView, DisassembleOptions, DisassemblySyntax, FindOptions, IdaError, OpenIda, OpenIdaOptions, SearchMode,
-    SearchOptions, StringEncoding, StringsOptions,
+    BinaryView, DisassembleOptions, DisassemblySyntax, DumpOptions, FindOptions, IdaError, OpenIda, OpenIdaOptions,
+    SearchMode, SearchOptions, StringEncoding, StringsOptions,
 };
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
@@ -3123,4 +3123,38 @@ fn find_options_use_camel_case_defaults() {
     assert_eq!(value["hits"][0]["offset"], 0);
     assert_eq!(value["hits"][0]["length"], 2);
     assert_eq!(value["hits"][0]["preview"], "ab.cd");
+}
+
+#[test]
+fn dump_writes_a_byte_range_to_the_output_file() {
+    let view = BinaryView::from_bytes("dump.bin", b"0123456789abcdef".to_vec());
+    let output = TempFile::new("dump-out");
+    let report = view
+        .dump(&DumpOptions { offset: 4, length: 8, output: output.path().display().to_string() })
+        .expect("dump range");
+
+    assert_eq!(report.offset, 4);
+    assert_eq!(report.length, 8);
+    assert_eq!(report.written, 8);
+    assert_eq!(fs::read(output.path()).expect("read output"), b"456789ab");
+
+    let value = serde_json::to_value(&report).expect("serialize dump report");
+    assert_eq!(value["written"], 8);
+    assert!(value.get("output").is_some());
+}
+
+#[test]
+fn dump_clamps_the_length_and_rejects_ranges_outside_the_file() {
+    const CAP: usize = 64 * 1024 * 1024;
+    let view = BinaryView::from_bytes("dump-big.bin", vec![0x41_u8; CAP]);
+    let output = TempFile::new("dump-big-out");
+    let report = view
+        .dump(&DumpOptions { offset: 0, length: CAP + 1024, output: output.path().display().to_string() })
+        .expect("clamped dump");
+    assert_eq!(report.length, CAP);
+    assert_eq!(report.written, CAP);
+    assert_eq!(fs::metadata(output.path()).expect("output metadata").len(), CAP as u64);
+
+    let outside = view.dump(&DumpOptions { offset: CAP as u64 + 1, length: 16, output: output.path().display().to_string() });
+    assert_eq!(outside.unwrap_err().code(), "binary/range");
 }

@@ -39,6 +39,7 @@
             "entropy": "Print whole-file and per-section entropy plus the PE overlay",
             "search": "Search for hex bytes, ASCII text or UTF-16LE text",
             "find": "Search the whole file with a byte regex and preview every match",
+            "dump": "Export a raw byte range from the file to a new file",
             "offset": "Map a file offset onto an RVA and a virtual address",
             "strings": "Extract printable ASCII or UTF-16LE runs with their file offsets",
             "hexdump": "Print a canonical hex dump of one byte range",
@@ -57,6 +58,7 @@
             "word": "Only match patterns surrounded by non-word characters",
             "pattern": "Regular expression evaluated against the raw bytes (required for find)",
             "context": "Bytes rendered into each match preview (default 80, capped at 512)",
+            "output": "Destination file for the exported bytes",
             "ignore-case": "Match ASCII letters case-insensitively",
             "start": "First file offset to scan",
             "end": "One past the last file offset to scan",
@@ -71,7 +73,8 @@
         },
         "err": {
             "encoding": "`--encoding` must be ascii, utf16le or both",
-            "pattern": "--pattern <regex> is required"
+            "pattern": "--pattern <regex> is required",
+            "outputRequired": "--output <path> is required"
         }
     }
 }
