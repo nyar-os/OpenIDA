@@ -58,6 +58,7 @@ export interface NativeBinding {
     binary_search(handle: number, optionsJson: string): string;
     binary_find(handle: number, optionsJson: string): string;
     binary_dump(handle: number, optionsJson: string): string;
+    binary_carve(handle: number, optionsJson: string): string;
     binary_offset_to_va(handle: number, offset: number): string;
     binary_offset_to_rva(handle: number, offset: number): string;
     binary_close(handle: number): boolean;

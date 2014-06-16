@@ -10,8 +10,8 @@ use std::{
 };
 
 use open_ida_core::{
-    BinaryView, DisassembleOptions, DisassemblySyntax, DumpOptions, FindOptions, IdaError, OpenIda, OpenIdaOptions,
-    SearchMode, SearchOptions, StringEncoding, StringsOptions,
+    BinaryView, CarveOptions, DisassembleOptions, DisassemblySyntax, DumpOptions, FindOptions, IdaError, OpenIda,
+    OpenIdaOptions, SearchMode, SearchOptions, StringEncoding, StringsOptions,
 };
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
@@ -3157,4 +3157,109 @@ fn dump_clamps_the_length_and_rejects_ranges_outside_the_file() {
 
     let outside = view.dump(&DumpOptions { offset: CAP as u64 + 1, length: 16, output: output.path().display().to_string() });
     assert_eq!(outside.unwrap_err().code(), "binary/range");
+}
+
+/// Builds a container of zero padding around one printable JavaScript-style
+/// run that mentions the `pending-switch` marker twice.
+fn carve_fixture() -> (Vec<u8>, usize, usize, usize) {
+    let mut js: Vec<u8> = Vec::new();
+    js.extend_from_slice(b"(function(){var mode=\"pending-switch\";document.addEventListener(\"click\",function(){\n");
+    while js.len() < 300 {
+        js.extend_from_slice(b"console.log(mode); ");
+    }
+    js.extend_from_slice(b"var rearm=\"pending-switch\"})})();");
+    let js_len = js.len();
+
+    let mut bytes = vec![0_u8; 2048];
+    let start = bytes.len();
+    bytes.extend_from_slice(&js);
+    let marker = start + js.windows(14).position(|window| window == b"pending-switch").expect("marker");
+    bytes.extend_from_slice(&vec![0_u8; 512]);
+    (bytes, start, marker, js_len)
+}
+
+#[test]
+fn carve_expands_the_printable_run_around_every_marker() {
+    let (bytes, start, marker, js_len) = carve_fixture();
+    let view = BinaryView::from_bytes("carve.bin", bytes);
+    let report = view
+        .carve(&CarveOptions { marker: "pending-switch".into(), ..CarveOptions::default() })
+        .expect("carve regions");
+
+    assert_eq!(report.marker, "pending-switch");
+    assert_eq!(report.min_region, 200);
+    assert_eq!(report.max_region, 262_144);
+    assert_eq!(report.expand_left, 4_096);
+    assert_eq!(report.limit, 20);
+    assert!(report.output_dir.is_none());
+    assert_eq!(report.total, 2);
+    assert!(!report.truncated);
+    assert_eq!(report.regions.len(), 1, "both matches share one printable region");
+
+    let region = &report.regions[0];
+    assert_eq!(region.marker_offset, marker as u64);
+    assert_eq!(region.region_offset, start as u64);
+    assert_eq!(region.region_length, js_len);
+    assert!(region.preview.starts_with("(function(){var mode=\"pending-switch\";"));
+    assert_eq!(region.preview.chars().count(), 120);
+    assert!(region.preview.contains('.'), "the embedded newline renders as a dot");
+    assert!(region.file.is_none());
+}
+
+#[test]
+fn carve_writes_each_region_to_the_output_directory() {
+    let (bytes, start, _marker, js_len) = carve_fixture();
+    let view = BinaryView::from_bytes("carve-out.bin", bytes.clone());
+    let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
+    let dir = std::env::temp_dir().join(format!("open-ida-{}-{id}-carve", std::process::id()));
+    let report = view
+        .carve(&CarveOptions { marker: "pending-switch".into(), output_dir: Some(dir.display().to_string()), ..CarveOptions::default() })
+        .expect("carve with output");
+
+    let file = report.regions[0].file.as_ref().expect("region file");
+    assert!(file.ends_with("carve_0.bin"));
+    assert_eq!(fs::read(file).expect("read region file"), &bytes[start..start + js_len]);
+    fs::remove_dir_all(&dir).expect("cleanup");
+}
+
+#[test]
+fn carve_filters_short_regions_and_clamps_the_limit() {
+    let view = BinaryView::from_bytes("carve-small.bin", b"needle \x00 and more".to_vec());
+    let short = view.carve(&CarveOptions { marker: "needle".into(), ..CarveOptions::default() }).expect("short run");
+    assert_eq!(short.total, 1);
+    assert!(short.regions.is_empty(), "the printable run is shorter than min_region");
+    assert!(!short.truncated);
+
+    let clamped = view.carve(&CarveOptions { marker: "more".into(), limit: 9_999, ..CarveOptions::default() }).expect("clamped");
+    assert_eq!(clamped.limit, 100);
+
+    let (bytes, _start, _marker, _js_len) = carve_fixture();
+    let big = BinaryView::from_bytes("carve-cut.bin", bytes);
+    let cut = big.carve(&CarveOptions { marker: "pending-switch".into(), limit: 1, ..CarveOptions::default() }).expect("cut scan");
+    assert_eq!(cut.limit, 1);
+    assert_eq!(cut.total, 1);
+    assert!(cut.truncated);
+    assert_eq!(cut.regions.len(), 1);
+
+    let error: IdaError =
+        big.carve(&CarveOptions { marker: "(unclosed".into(), ..CarveOptions::default() }).unwrap_err();
+    assert_eq!(error.code(), "binary/parse");
+}
+
+#[test]
+fn carve_options_use_camel_case_defaults() {
+    let defaults: CarveOptions = serde_json::from_str(r#"{ "marker": "ab" }"#).expect("minimal wire options");
+    assert_eq!(defaults.min_region, 200);
+    assert_eq!(defaults.max_region, 262_144);
+    assert_eq!(defaults.expand_left, 4_096);
+    assert_eq!(defaults.limit, 20);
+    assert_eq!(defaults.output_dir, None);
+    assert!(serde_json::from_str::<CarveOptions>("{}").is_err(), "the marker is required");
+
+    let view = BinaryView::from_bytes("carve-wire.bin", b"ab".to_vec());
+    let report = view.carve(&defaults).expect("wire carve");
+    let value = serde_json::to_value(&report).expect("serialize report");
+    assert_eq!(value["minRegion"], 200);
+    assert_eq!(value["expandLeft"], 4_096);
+    assert_eq!(value["outputDir"], serde_json::Value::Null);
 }

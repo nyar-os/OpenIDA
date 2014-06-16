@@ -40,6 +40,7 @@
             "search": "Search for hex bytes, ASCII text or UTF-16LE text",
             "find": "Search the whole file with a byte regex and preview every match",
             "dump": "Export a raw byte range from the file to a new file",
+            "carve": "Carve the printable regions around a byte-regex marker, optionally writing them out",
             "offset": "Map a file offset onto an RVA and a virtual address",
             "strings": "Extract printable ASCII or UTF-16LE runs with their file offsets",
             "hexdump": "Print a canonical hex dump of one byte range",
@@ -59,6 +60,11 @@
             "pattern": "Regular expression evaluated against the raw bytes (required for find)",
             "context": "Bytes rendered into each match preview (default 80, capped at 512)",
             "output": "Destination file for the exported bytes",
+            "marker": "Byte regex that marks the regions to carve (required for carve)",
+            "carveMin": "Shortest region kept, in bytes (default 200)",
+            "carveMax": "Right expansion cap per region, in bytes (default 262144)",
+            "expandLeft": "Left expansion cap per region, in bytes (default 4096)",
+            "carveOut": "Directory the carved regions are written to as carve_<n>.bin",
             "ignore-case": "Match ASCII letters case-insensitively",
             "start": "First file offset to scan",
             "end": "One past the last file offset to scan",
@@ -74,7 +80,8 @@
         "err": {
             "encoding": "`--encoding` must be ascii, utf16le or both",
             "pattern": "--pattern <regex> is required",
-            "outputRequired": "--output <path> is required"
+            "outputRequired": "--output <path> is required",
+            "markerRequired": "--marker <regex> is required"
         }
     }
 }

@@ -575,6 +575,29 @@ a lossy round trip. A range outside the file exits `1` with `binary/range` and
 nothing is written; the report carries the applied `length` and the `written`
 byte count.
 
+### `carve <file>`
+
+```bash
+open-ida carve ./samples/app.exe --marker "pending-switch" --min 200 --limit 5
+open-ida carve ./samples/app.exe --marker "eval\\(" --out ./carved
+```
+
+| Flag                    | Default | Meaning                                                        |
+|-------------------------|---------|----------------------------------------------------------------|
+| `--marker <regex>`      | —       | Byte regex that marks the regions to carve. Required.          |
+| `--min <size>`          | `200`   | Regions shorter than this many bytes are dropped.              |
+| `--max <size>`          | `262144`| Right expansion cap per region, in bytes.                      |
+| `--expand-left <size>`  | `4096`  | Left expansion cap per region, in bytes.                       |
+| `--limit <count>`       | `20`    | Maximum marker matches examined; the engine clamps at 100.     |
+| `--out <dir>`           | —       | Write each region to `<dir>/carve_<n>.bin`, creating the directory. |
+
+Every match expands left and right to the printable boundary (printable ASCII
+plus tab, newline and carriage return), so a plaintext payload hidden in a
+packed or interpreted container is recovered whole. Regions are deduplicated by
+start offset, each carries a 120-character preview where non-printable bytes
+render as dots, and `truncated` marks a scan the limit stopped early. An
+invalid marker exits `1` with a `binary/parse` error.
+
 ### `patch <file>`
 
 ```bash
@@ -615,6 +638,7 @@ Opens the Studio window. If the window cannot start, the command exits `1` with
 | `open-ida.cli.encoding` / `cli.err.encoding` | `--encoding` is not `ascii`, `utf16le` or `both`. |
 | `cli.err.pattern`                            | `find` was called without `--pattern`.            |
 | `cli.err.outputRequired`                     | `dump` was called without `--output`.             |
+| `cli.err.markerRequired`                     | `carve` was called without `--marker`.            |
 | `open-ida.cli.mode`                          | `--mode` is not `hex`, `ascii` or `utf16le`.      |
 | `open-ida.cli.syntax`                        | `--syntax` is not `intel`, `masm` or `nasm`.      |
 | `open-ida.cli.bytes`                         | `--bytes` is missing or empty.                    |

@@ -13,6 +13,8 @@ import type {
     BinaryHandle,
     BinaryInfo,
     Capabilities,
+    CarveOptions,
+    CarveReport,
     CertificatesReport,
     DebugReport,
     DiffReport,
@@ -313,6 +315,11 @@ export class OpenIDA {
     /** Exports a raw byte range from the file into `options.output`. */
     dump(options: DumpOptions): DumpReport {
         return decode<DumpReport>(() => binding('binary.dump').binary_dump(this.id, JSON.stringify(options)));
+    }
+
+    /** Extracts the printable regions around every marker match. */
+    carve(options: CarveOptions): CarveReport {
+        return decode<CarveReport>(() => binding('binary.carve').binary_carve(this.id, JSON.stringify(options)));
     }
 
     /** Renders a hex dump, falling back to the session defaults. */

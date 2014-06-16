@@ -14,6 +14,7 @@
 #![deny(missing_docs)]
 #![recursion_limit = "256"]
 
+mod carve;
 mod certificates;
 mod code_signature;
 mod debug;
@@ -50,6 +51,7 @@ pub use data_binary_inspect::{
     InspectOptions, PatchReport, SearchHit, SearchMode, SearchOptions, SearchReport, SectionInfo as Section, StringHit,
     StringsReport, SymbolEntry, SymbolsReport,
 };
+pub use carve::{CarveOptions, CarveRegion, CarveReport};
 pub use certificates::{CertificatesReport, PeCertificate};
 pub use code_signature::{MachOCodeDirectory, MachOCodeSignatureReport};
 pub use debug::{CodeViewInfo, DebugEntry, DebugReport};
@@ -160,6 +162,11 @@ impl BinaryView {
     /// Exports a raw byte range from the file into a caller-chosen path.
     pub fn dump(&self, options: &DumpOptions) -> Result<DumpReport> {
         dump::dump(&self.session, options)
+    }
+
+    /// Extracts the printable regions around every marker match.
+    pub fn carve(&self, options: &CarveOptions) -> Result<CarveReport> {
+        carve::carve(&self.session, options)
     }
 
     /// Lists imported functions.
@@ -481,6 +488,11 @@ impl OpenIda {
         dump::dump(&self.session, options)
     }
 
+    /// Extracts the printable regions around every marker match.
+    pub fn carve(&self, options: &CarveOptions) -> Result<CarveReport> {
+        carve::carve(&self.session, options)
+    }
+
     /// Lists imported functions.
     pub fn imports(&self, limit: Option<usize>) -> Result<ImportsReport> {
         self.session.imports(limit).map_err(IdaError::from)
@@ -746,6 +758,7 @@ pub fn capabilities() -> serde_json::Value {
             "search": "supported",
             "find": "supported",
             "dump": "supported",
+            "carve": "supported",
             "offset-to-va": "supported",
             "offset-to-rva": "supported",
         },
