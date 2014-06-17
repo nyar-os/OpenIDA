@@ -16,3 +16,4 @@ data-binary-mach-o = { workspace = true }
 data-binary-pe = { workspace = true }
 iced-x86 = { workspace = true }
 regex = { workspace = true }
+brotli = { workspace = true }

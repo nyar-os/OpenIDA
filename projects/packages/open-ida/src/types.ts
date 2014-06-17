@@ -1031,3 +1031,29 @@ export interface CarveReport {
     readonly total: number;
     readonly truncated: boolean;
 }
+
+/** Inputs of one `tauriAssets()` call. */
+export interface TauriAssetsOptions {
+    /** Directory the decoded assets are written to, mirroring their key paths. */
+    readonly outputDir?: string;
+    /** Maximum number of assets to return; defaults to 200 and is capped at 1000. */
+    readonly limit?: number;
+}
+
+/** One embedded Tauri asset recovered from the interleaved table. */
+export interface TauriAsset {
+    readonly key: string;
+    readonly blobOffset: number;
+    readonly compressedLen: number;
+    readonly decompressedLen: number;
+    readonly preview: string;
+    readonly file: string | null;
+}
+
+/** Bounded result of one Tauri asset extraction. */
+export interface TauriAssetsReport {
+    readonly assets: readonly TauriAsset[];
+    readonly total: number;
+    readonly truncated: boolean;
+    readonly outputDir: string | null;
+}
