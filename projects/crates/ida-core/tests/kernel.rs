@@ -3049,9 +3049,9 @@ fn find_reports_regex_hits_with_previews() {
     assert_eq!(report.hits.len(), 2);
     assert!(!report.truncated);
     assert_eq!(report.hits[0].offset, 5);
-    assert_eq!(report.hits[0].length, 11);
-    assert!(report.hits[0].preview.starts_with("marker-1."));
-    assert_eq!(report.hits[1].offset, 22);
+    assert_eq!(report.hits[0].length, 8);
+    assert!(report.hits[0].preview.starts_with("marker-1"));
+    assert_eq!(report.hits[1].offset, 19);
     assert_eq!(report.context, 80);
     assert_eq!(report.limit, 100);
 }
@@ -3062,7 +3062,7 @@ fn find_honours_case_insensitive() {
     let sensitive =
         view.find(&FindOptions { pattern: "marker".into(), ..FindOptions::default() }).expect("sensitive");
     assert_eq!(sensitive.total, 1);
-    assert_eq!(sensitive.hits[0].offset, 15);
+    assert_eq!(sensitive.hits[0].offset, 12);
 
     let insensitive = view
         .find(&FindOptions { pattern: "marker".into(), case_insensitive: true, ..FindOptions::default() })
