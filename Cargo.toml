@@ -28,6 +28,9 @@ regex = "1"
 brotli = "8"
 open-ida-core = { path = "projects/crates/ida-core" }
 
+[workspace.lints.rust]
+missing_docs = "deny"
+
 [profile.release]
 lto = true
 panic = "abort"

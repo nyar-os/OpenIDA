@@ -8,6 +8,9 @@ authors.workspace = true
 repository.workspace = true
 description = "Thin Node-API surface for OpenIDA"
 
+[lints]
+workspace = true
+
 [lib]
 crate-type = ["cdylib"]
 
