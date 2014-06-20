@@ -3160,20 +3160,20 @@ fn dump_clamps_the_length_and_rejects_ranges_outside_the_file() {
 }
 
 /// Builds a container of zero padding around one printable JavaScript-style
-/// run that mentions the `pending-switch` marker twice.
+/// run that mentions the `synthetic-blob` marker twice.
 fn carve_fixture() -> (Vec<u8>, usize, usize, usize) {
     let mut js: Vec<u8> = Vec::new();
-    js.extend_from_slice(b"(function(){var mode=\"pending-switch\";document.addEventListener(\"click\",function(){\n");
+    js.extend_from_slice(b"(function(){var mode=\"synthetic-blob\";document.addEventListener(\"click\",function(){\n");
     while js.len() < 300 {
         js.extend_from_slice(b"console.log(mode); ");
     }
-    js.extend_from_slice(b"var rearm=\"pending-switch\"})})();");
+    js.extend_from_slice(b"var rearm=\"synthetic-blob\"})})();");
     let js_len = js.len();
 
     let mut bytes = vec![0_u8; 2048];
     let start = bytes.len();
     bytes.extend_from_slice(&js);
-    let marker = start + js.windows(14).position(|window| window == b"pending-switch").expect("marker");
+    let marker = start + js.windows(14).position(|window| window == b"synthetic-blob").expect("marker");
     bytes.extend_from_slice(&vec![0_u8; 512]);
     (bytes, start, marker, js_len)
 }
@@ -3183,10 +3183,10 @@ fn carve_expands_the_printable_run_around_every_marker() {
     let (bytes, start, marker, js_len) = carve_fixture();
     let view = BinaryView::from_bytes("carve.bin", bytes);
     let report = view
-        .carve(&CarveOptions { marker: "pending-switch".into(), ..CarveOptions::default() })
+        .carve(&CarveOptions { marker: "synthetic-blob".into(), ..CarveOptions::default() })
         .expect("carve regions");
 
-    assert_eq!(report.marker, "pending-switch");
+    assert_eq!(report.marker, "synthetic-blob");
     assert_eq!(report.min_region, 200);
     assert_eq!(report.max_region, 262_144);
     assert_eq!(report.expand_left, 4_096);
@@ -3200,7 +3200,7 @@ fn carve_expands_the_printable_run_around_every_marker() {
     assert_eq!(region.marker_offset, marker as u64);
     assert_eq!(region.region_offset, start as u64);
     assert_eq!(region.region_length, js_len);
-    assert!(region.preview.starts_with("(function(){var mode=\"pending-switch\";"));
+    assert!(region.preview.starts_with("(function(){var mode=\"synthetic-blob\";"));
     assert_eq!(region.preview.chars().count(), 120);
     assert!(region.preview.contains('.'), "the embedded newline renders as a dot");
     assert!(region.file.is_none());
@@ -3213,7 +3213,7 @@ fn carve_writes_each_region_to_the_output_directory() {
     let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
     let dir = std::env::temp_dir().join(format!("open-ida-{}-{id}-carve", std::process::id()));
     let report = view
-        .carve(&CarveOptions { marker: "pending-switch".into(), output_dir: Some(dir.display().to_string()), ..CarveOptions::default() })
+        .carve(&CarveOptions { marker: "synthetic-blob".into(), output_dir: Some(dir.display().to_string()), ..CarveOptions::default() })
         .expect("carve with output");
 
     let file = report.regions[0].file.as_ref().expect("region file");
@@ -3235,7 +3235,7 @@ fn carve_filters_short_regions_and_clamps_the_limit() {
 
     let (bytes, _start, _marker, _js_len) = carve_fixture();
     let big = BinaryView::from_bytes("carve-cut.bin", bytes);
-    let cut = big.carve(&CarveOptions { marker: "pending-switch".into(), limit: 1, ..CarveOptions::default() }).expect("cut scan");
+    let cut = big.carve(&CarveOptions { marker: "synthetic-blob".into(), limit: 1, ..CarveOptions::default() }).expect("cut scan");
     assert_eq!(cut.limit, 1);
     assert_eq!(cut.total, 1);
     assert!(cut.truncated);

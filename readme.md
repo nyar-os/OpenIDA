@@ -53,7 +53,7 @@ open-ida sections ./samples/app.exe
 open-ida strings ./samples/app.exe --encoding both
 open-ida find ./samples/app.exe --pattern "https?://" --ignore-case
 open-ida dump ./samples/app.exe --offset 0x1000 --length 64 --output ./range.bin
-open-ida carve ./samples/app.exe --marker "pending-switch" --min 200 --limit 5
+open-ida carve ./samples/app.exe --marker "synthetic-blob" --min 200 --limit 5
 open-ida tauri-assets ./samples/tauri-app.exe --out ./assets
 open-ida imports ./samples/app.exe
 open-ida macho ./samples/app.macho
