@@ -25,10 +25,12 @@ mod elf_symbols;
 mod entropy;
 mod error;
 mod find;
+mod inflate;
 mod load_config;
 mod macho;
 mod mitigations;
 mod notes;
+mod overlay;
 mod pe_bound_imports;
 mod pe_delay_imports;
 mod pe_exception;
@@ -63,6 +65,7 @@ pub use elf_symbols::{ElfStaticSymbol, ElfStaticSymbolsReport};
 pub use entropy::{EntropyReport, OverlayInfo, SectionEntropy};
 pub use error::{IdaError, Result};
 pub use find::{FindHit, FindOptions, FindReport};
+pub use inflate::{InflateFormat, InflateOptions, InflateReport};
 pub use load_config::{CodeIntegrityInfo, PeLoadConfigReport};
 pub use macho::{
     MachOBinding, MachOBindingsReport, MachOChainedFixupsHeader, MachOChainedFixupsReport, MachOChainedImport,
@@ -71,6 +74,7 @@ pub use macho::{
 };
 pub use mitigations::{MitigationsReport, WritableExecutableSection};
 pub use notes::{ElfAbiTag, ElfGnuProperty, ElfNote, ElfNotesReport};
+pub use overlay::{OverlayReport, OverlaySignature};
 pub use pe_bound_imports::{PeBoundForwarder, PeBoundImportsReport, PeBoundModule};
 pub use pe_delay_imports::{PeDelayImportsReport, PeDelayModule, PeDelayThunk};
 pub use pe_exception::{PeExceptionReport, PeRuntimeFunction, PeUnwindInfo};
@@ -333,6 +337,16 @@ impl BinaryView {
     /// Computes whole-file and per-section entropy plus the PE overlay.
     pub fn entropy(&self) -> Result<EntropyReport> {
         entropy::analyze(&self.session)
+    }
+
+    /// Reports the overlay offset, size, entropy and embedded container signatures.
+    pub fn overlay(&self) -> Result<OverlayReport> {
+        overlay::analyze(&self.session)
+    }
+
+    /// Decodes one embedded zlib, gzip or raw DEFLATE stream.
+    pub fn inflate(&self, options: &InflateOptions) -> Result<InflateReport> {
+        inflate::decode(&self.session, options)
     }
 
     /// Searches for a hex, ASCII or UTF-16LE pattern.
@@ -664,6 +678,16 @@ impl OpenIda {
         entropy::analyze(&self.session)
     }
 
+    /// Reports the overlay offset, size, entropy and embedded container signatures.
+    pub fn overlay(&self) -> Result<OverlayReport> {
+        overlay::analyze(&self.session)
+    }
+
+    /// Decodes one embedded zlib, gzip or raw DEFLATE stream.
+    pub fn inflate(&self, options: &InflateOptions) -> Result<InflateReport> {
+        inflate::decode(&self.session, options)
+    }
+
     /// Searches for a hex, ASCII or UTF-16LE pattern.
     pub fn search(&self, options: &SearchOptions) -> Result<SearchReport> {
         self.session.search(options).map_err(IdaError::from)
@@ -766,6 +790,7 @@ pub fn capabilities() -> serde_json::Value {
             "diff": "supported",
             "entropy": "supported",
             "overlay": "supported",
+            "decompression": "supported",
             "search": "supported",
             "find": "supported",
             "dump": "supported",

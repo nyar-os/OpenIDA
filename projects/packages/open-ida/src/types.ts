@@ -825,6 +825,28 @@ export interface EntropyReport {
     readonly overlay: OverlayInfo | null;
 }
 
+/** One container or archive signature found inside a PE overlay. */
+export interface OverlaySignature {
+    readonly offset: number;
+    readonly kind: string;
+    readonly detail: string | null;
+}
+
+/** Anatomy of the bytes that follow the last PE section payload. */
+export interface OverlayReport {
+    readonly present: boolean;
+    readonly offset: number;
+    readonly size: number;
+    readonly ratio: number;
+    readonly entropy: number;
+    readonly leadingMagic: string;
+    readonly leadingKind: string;
+    readonly container: string | null;
+    readonly detail: string | null;
+    readonly signatures: readonly OverlaySignature[];
+    readonly truncated: boolean;
+}
+
 /** One contiguous run of differing bytes. */
 export interface DiffRange {
     readonly offset: number;
@@ -992,6 +1014,35 @@ export interface DumpReport {
     readonly length: number;
     readonly written: number;
     readonly output: string;
+}
+
+/** Compression wrapper accepted by `inflate()`. */
+export type InflateFormat = 'auto' | 'zlib' | 'gzip' | 'raw';
+
+/** Inputs of one `inflate()` call. */
+export interface InflateOptions {
+    /** File offset of the first compressed byte. */
+    readonly offset: number;
+    /** Wrapper to expect; defaults to `auto` and infers it from the first bytes. */
+    readonly format?: InflateFormat;
+    /** Output cap in bytes; defaults to 4 MiB and is capped at 64 MiB. */
+    readonly limit?: number;
+    /** Destination file for the decoded bytes. */
+    readonly output?: string;
+}
+
+/** Result of one `inflate()` call. */
+export interface InflateReport {
+    readonly offset: number;
+    readonly format: string;
+    readonly inputBytes: number;
+    readonly outputBytes: number;
+    readonly limit: number;
+    readonly status: string;
+    readonly truncated: boolean;
+    readonly magic: string;
+    readonly headAscii: string;
+    readonly output: string | null;
 }
 
 /** Inputs of one `carve()` call. */

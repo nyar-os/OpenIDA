@@ -82,6 +82,8 @@ open-ida macho-chained-fixups ./samples/app.macho
 open-ida macho-bindings ./samples/app.macho
 open-ida disasm ./samples/app.exe --offset 0x1000 --count 20
 open-ida entropy ./samples/app.exe
+open-ida overlay ./samples/app.exe
+open-ida inflate ./samples/app.exe --offset 0x600 --out ./payload.bin
 open-ida diff build/app.exe build/app-patched.exe
 ```
 
@@ -110,7 +112,11 @@ the TypeScript session, so a script and a person read the same result.
 - **Binary diff.** Size and hash for both sides, the first differing offset and
   the differing ranges, or a clear `identical` verdict.
 - **Packing triage.** Whole-file and per-section Shannon entropy for PE, ELF and
-  Mach-O, plus the PE overlay.
+  Mach-O, plus an overlay report that names NSIS and PyInstaller containers,
+  archive signatures and the leading magic.
+- **Payload peeking.** Bounded zlib, gzip and raw DEFLATE decoding of one
+  embedded stream, with the decoded magic, ASCII head and an optional output
+  file, so a packed payload can be examined without running it.
 - **Patching you can audit.** Atomic writes with the before and after hash of
   the whole file; pass `--out` to keep the original untouched.
 - **Bounded by default.** Every listing has a limit and reports

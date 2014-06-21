@@ -87,7 +87,7 @@ pub(crate) fn analyze(session: &BinarySession) -> Result<EntropyReport> {
     Ok(EntropyReport { file_size, file_entropy: shannon(bytes), sections, overlay })
 }
 
-fn shannon(bytes: &[u8]) -> f64 {
+pub(crate) fn shannon(bytes: &[u8]) -> f64 {
     if bytes.is_empty() {
         return 0.0;
     }

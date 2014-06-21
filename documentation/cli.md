@@ -511,6 +511,55 @@ open-ida entropy ./samples/app.exe
 Prints whole-file entropy in bits per byte, per-section entropy for PE, ELF and
 Mach-O, and the PE overlay offset and size when one exists.
 
+### `overlay <file>`
+
+```bash
+open-ida overlay ./samples/app.exe
+```
+
+Describes the bytes after the last PE section payload: absolute offset, size,
+share of the file, Shannon entropy, the first 16 bytes as spaced hex and a name
+for them. It also scans the overlay for container signatures and reports a
+`container` when the evidence names one:
+
+- `nsis` for the `NullsoftInst` first header, including its header-size field;
+- `pyinstaller` for the `MEI` cookie, including the Python runtime when the
+  archive records one;
+- the leading archive kind (`zlib`, `gzip`, `7z`, `zip`, `rar`, `cab`, `xz`,
+  `zstd`, `bzip2` or `ar`) when the overlay starts with that signature.
+
+Each entry of `signatures` carries its absolute file offset and kind; the scan
+also recognises `SQLite`, PNG, JPEG, GIF and `MZ` images that point at a real
+`PE\0\0` header. The list keeps at most eight entries per kind and 64 overall,
+so one noisy family cannot hide the distinctive containers, and sets
+`truncated` when it dropped entries. Files
+without trailing bytes answer `present: false`; non-PE input exits `1` with
+`binary/unsupported`.
+
+### `inflate <file>`
+
+```bash
+open-ida inflate ./samples/app.exe --offset 0x600 --out ./payload.bin
+open-ida inflate ./samples/app.exe --offset 0x600 --format raw --limit 65536
+```
+
+| Flag                | Default | Meaning                                                        |
+|---------------------|---------|----------------------------------------------------------------|
+| `--offset <offset>` | `0`     | File offset of the first compressed byte.                      |
+| `--format <format>` | `auto`  | `auto`, `zlib`, `gzip` or `raw` DEFLATE.                       |
+| `--limit <bytes>`   | `4 MiB` | Maximum decoded bytes; the engine clamps the value at 64 MiB.  |
+| `--out <file>`      | —       | Write the decoded bytes to this file; omit to only report.     |
+
+`auto` picks zlib or gzip from the first bytes and falls back to raw DEFLATE.
+The report carries the wrapper used, the decoded length, the `status`
+(`complete`, `output-limit`, `input-truncated`, `checksum`, `stalled` or
+`invalid`), the spaced hex magic and a printable ASCII head. Nothing is
+executed: only bytes are decoded, so the result can be fed to `info`, `strings`
+or another `inflate`. A range outside the file exits `1` with `binary/range`; a
+range that does not decode cleanly (`invalid`, `stalled` or `checksum`) exits
+`1` with `binary/parse` and writes nothing, so a wrong offset cannot leave a
+file full of garbage behind.
+
 ### `diff <left> <right>`
 
 ```bash

@@ -1,7 +1,10 @@
 //! Scanning operations: disassembly, pattern search, byte find, raw dump,
 //! carving and Tauri asset extraction, each driven by an options JSON.
 
-use open_ida_core::{CarveOptions, DisassembleOptions, DumpOptions, FindOptions, IdaError, SearchOptions, TauriAssetsOptions};
+use open_ida_core::{
+    CarveOptions, DisassembleOptions, DumpOptions, FindOptions, IdaError, InflateOptions, SearchOptions,
+    TauriAssetsOptions,
+};
 use serde_json::Value;
 use wae::{CallContext, JsValue, Result};
 
@@ -44,6 +47,12 @@ fn tauri_assets_report(handle: u64, options_json: &str) -> std::result::Result<V
     let options = serde_json::from_str::<TauriAssetsOptions>(options_json)
         .map_err(|error| IdaError::parse(format!("invalid TauriAssetsOptions: {error}")))?;
     with_engine(handle, |engine| encoded(&engine.tauri_assets(&options)?))
+}
+
+fn inflate_report(handle: u64, options_json: &str) -> std::result::Result<Value, IdaError> {
+    let options = serde_json::from_str::<InflateOptions>(options_json)
+        .map_err(|error| IdaError::parse(format!("invalid InflateOptions: {error}")))?;
+    with_engine(handle, |engine| encoded(&engine.inflate(&options)?))
 }
 
 pub(crate) fn binary_disasm(ctx: CallContext) -> Result<JsValue> {
@@ -95,6 +104,15 @@ pub(crate) fn binary_tauri_assets(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     let options = text(&ctx, 1)?;
     match tauri_assets_report(handle, &options) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+pub(crate) fn binary_inflate(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    let options = text(&ctx, 1)?;
+    match inflate_report(handle, &options) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
