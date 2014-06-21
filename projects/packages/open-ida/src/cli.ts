@@ -40,6 +40,8 @@ import type {
     InflateReport,
     NsisOptions,
     NsisReport,
+    AsarOptions,
+    AsarReport,
     OverlayReport,
     MachOReport,
     MachOCodeSignatureReport,
@@ -760,6 +762,22 @@ function describeNsis(report: NsisReport): string {
     }
     for (const file of report.files.slice(0, 20)) {
         lines.push(`  file #${file.index} ${file.output}${file.extracted !== null ? ` -> ${file.extracted}` : ''}`);
+    }
+    return lines.join('\n');
+}
+
+function describeAsar(report: AsarReport): string {
+    const header = report.header;
+    const lines = [
+        `asar ${hex(header.startOffset)} · block ${header.blockSize} B · json ${header.stringSize} B · data ${hex(header.dataStart)}`,
+        `  entries ${report.entryCount} · directories ${report.directoryCount} · packed ${report.packedBytes} B · ${report.entries.length} listed`,
+    ];
+    if (report.truncated) {
+        lines.push('  (listing truncated)');
+    }
+    for (const entry of report.entries.slice(0, 40)) {
+        const where = entry.unpacked ? 'unpacked' : hex(entry.offset ?? 0);
+        lines.push(`  ${String(entry.size).padStart(10)} ${where.padStart(10)}  ${entry.path}${entry.extracted !== null ? ` -> ${entry.extracted}` : ''}`);
     }
     return lines.join('\n');
 }
@@ -1672,6 +1690,45 @@ cli
         try {
             const report = ida.nsis(nsisOptions);
             ctx.emitResult(report, describeNsis(report));
+            return 0;
+        } finally {
+            ida.close();
+        }
+    });
+
+cli
+    .command('asar', 'cli.cmd.asar')
+    .option('--offset <offset>', 'cli.opt.asarOffset')
+    .option('--entries-limit <count>', 'cli.opt.asarEntriesLimit')
+    .option('--extract-dir <dir>', 'cli.opt.asarExtractDir')
+    .option('--extract-limit <bytes>', 'cli.opt.asarExtractLimit')
+    .actionCtx(async (options, _args, ctx) => {
+        const file = input(options);
+        if (file === undefined) {
+            ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+            return 2;
+        }
+        const offsetText = text(options, 'offset');
+        const offset = offsetText === undefined ? undefined : parseNumber(offsetText);
+        if (offsetText !== undefined && offset === undefined) {
+            ctx.fail('open-ida.cli.offset', { message: '`--offset <offset>` must be a non-negative integer' });
+            return 2;
+        }
+        const entriesLimitText = text(options, 'entries-limit');
+        const entriesLimit = entriesLimitText === undefined ? undefined : parseNumber(entriesLimitText);
+        const extractLimitText = text(options, 'extract-limit');
+        const extractLimit = extractLimitText === undefined ? undefined : parseNumber(extractLimitText);
+        const extractDir = text(options, 'extract-dir');
+        const asarOptions: AsarOptions = {
+            ...(offset === undefined ? {} : { offset }),
+            ...(entriesLimit === undefined ? {} : { entriesLimit }),
+            ...(extractDir === undefined ? {} : { extractDir }),
+            ...(extractLimit === undefined ? {} : { extractLimit }),
+        };
+        const ida = new OpenIDA({ path: file });
+        try {
+            const report = ida.asar(asarOptions);
+            ctx.emitResult(report, describeAsar(report));
             return 0;
         } finally {
             ida.close();

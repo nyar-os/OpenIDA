@@ -587,6 +587,29 @@ without an NSIS header exits `1` with `binary/parse`; solid archives and
 `lzma`/`bzip2` framing answer `binary/unsupported` for extraction because only
 the DEFLATE and stored paths are decoded.
 
+### `asar <file>`
+
+```bash
+open-ida asar ./samples/app.asar
+open-ida asar ./samples/app.asar --extract-dir ./source
+open-ida asar ./samples/app.asar --offset 0x1000 --entries-limit 8192
+```
+
+| Flag                      | Default   | Meaning                                                    |
+|---------------------------|-----------|------------------------------------------------------------|
+| `--offset <offset>`       | `0`       | Absolute offset of the archive start.                      |
+| `--entries-limit <count>` | `4096`    | Maximum listed file entries; capped at 65536.              |
+| `--extract-dir <dir>`     | —         | Extract the packed entries into this directory.            |
+| `--extract-limit <bytes>` | `256 MiB` | Maximum bytes per extracted entry; capped at 1 GiB.        |
+
+Decodes one Electron `asar` archive statically: the sixteen-byte header (magic,
+block size, string-block size, JSON length), the derived data-area offset and
+the full file tree with every entry's size, absolute packed offset and
+`unpacked` flag. Entries marked `unpacked` are stored loose next to the archive
+and carry no packed bytes. A `--extract-dir` request writes each packed entry
+under the directory, mirroring its archive path; traversal-safe names only.
+Input whose first header word is not `4` exits `1` with `binary/parse`.
+
 ### `diff <left> <right>`
 
 ```bash

@@ -1114,6 +1114,46 @@ export interface NsisReport {
     readonly truncated: boolean;
 }
 
+/** Inputs of one `asar()` call. */
+export interface AsarOptions {
+    /** Absolute offset of the archive start; defaults to the file start. */
+    readonly offset?: number;
+    /** Cap on listed file entries; defaults to 4096 and is capped at 65536. */
+    readonly entriesLimit?: number;
+    /** Directory the packed entries are extracted into. */
+    readonly extractDir?: string;
+    /** Cap on one extracted file in bytes; defaults to 256 MiB and is capped at 1 GiB. */
+    readonly extractLimit?: number;
+}
+
+/** The 16-byte asar header plus the derived data-area facts. */
+export interface AsarHeader {
+    readonly startOffset: number;
+    readonly blockSize: number;
+    readonly stringBlockSize: number;
+    readonly stringSize: number;
+    readonly dataStart: number;
+}
+
+/** One file listed in the asar header tree. */
+export interface AsarEntry {
+    readonly path: string;
+    readonly size: number;
+    readonly offset: number | null;
+    readonly unpacked: boolean;
+    readonly extracted: string | null;
+}
+
+/** Full decode of one asar archive. */
+export interface AsarReport {
+    readonly header: AsarHeader;
+    readonly entryCount: number;
+    readonly directoryCount: number;
+    readonly packedBytes: number;
+    readonly entries: AsarEntry[];
+    readonly truncated: boolean;
+}
+
 /** Inputs of one `carve()` call. */
 export interface CarveOptions {
     /** Byte regex that marks the regions of interest. */

@@ -13,6 +13,7 @@
 
 #![recursion_limit = "256"]
 
+mod asar;
 mod carve;
 mod certificates;
 mod code_signature;
@@ -54,6 +55,7 @@ pub use data_binary_inspect::{
     InspectOptions, PatchReport, SearchHit, SearchMode, SearchOptions, SearchReport, SectionInfo as Section, StringHit,
     StringsReport, SymbolEntry, SymbolsReport,
 };
+pub use asar::{AsarEntry, AsarHeader, AsarOptions, AsarReport};
 pub use carve::{CarveOptions, CarveRegion, CarveReport};
 pub use certificates::{CertificatesReport, PeCertificate};
 pub use code_signature::{MachOCodeDirectory, MachOCodeSignatureReport};
@@ -354,6 +356,11 @@ impl BinaryView {
     /// Decodes the NSIS installer container: header, blocks, script and files.
     pub fn nsis(&self, options: &NsisOptions) -> Result<NsisReport> {
         nsis::analyze(&self.session, options)
+    }
+
+    /// Decodes an Electron asar archive: header, file tree and optional extraction.
+    pub fn asar(&self, options: &AsarOptions) -> Result<AsarReport> {
+        asar::analyze(&self.session, options)
     }
 
     /// Searches for a hex, ASCII or UTF-16LE pattern.
@@ -700,6 +707,11 @@ impl OpenIda {
         nsis::analyze(&self.session, options)
     }
 
+    /// Decodes an Electron asar archive: header, file tree and optional extraction.
+    pub fn asar(&self, options: &AsarOptions) -> Result<AsarReport> {
+        asar::analyze(&self.session, options)
+    }
+
     /// Searches for a hex, ASCII or UTF-16LE pattern.
     pub fn search(&self, options: &SearchOptions) -> Result<SearchReport> {
         self.session.search(options).map_err(IdaError::from)
@@ -804,6 +816,7 @@ pub fn capabilities() -> serde_json::Value {
             "overlay": "supported",
             "decompression": "supported",
             "nsis-containers": "supported",
+            "asar-archives": "supported",
             "search": "supported",
             "find": "supported",
             "dump": "supported",
