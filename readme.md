@@ -84,6 +84,7 @@ open-ida disasm ./samples/app.exe --offset 0x1000 --count 20
 open-ida entropy ./samples/app.exe
 open-ida overlay ./samples/app.exe
 open-ida inflate ./samples/app.exe --offset 0x600 --out ./payload.bin
+open-ida nsis ./samples/installer.exe --extract-dir ./payload
 open-ida diff build/app.exe build/app-patched.exe
 ```
 
@@ -117,6 +118,11 @@ the TypeScript session, so a script and a person read the same result.
 - **Payload peeking.** Bounded zlib, gzip and raw DEFLATE decoding of one
   embedded stream, with the decoded magic, ASCII head and an optional output
   file, so a packed payload can be examined without running it.
+- **Installer decoding.** NSIS containers decoded to the first header, the
+  solid/non-solid framing and method, the eight header blocks, the script
+  command stream with every opcode named and its parameters rendered from the
+  string table, and the `File` extraction manifest, with optional DEFLATE/stored
+  payload extraction.
 - **Patching you can audit.** Atomic writes with the before and after hash of
   the whole file; pass `--out` to keep the original untouched.
 - **Bounded by default.** Every listing has a limit and reports

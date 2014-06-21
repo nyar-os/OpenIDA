@@ -35,6 +35,8 @@ import type {
     ImportsReport,
     InflateOptions,
     InflateReport,
+    NsisOptions,
+    NsisReport,
     OverlayReport,
     MachOReport,
     MachOSlicesReport,
@@ -315,6 +317,11 @@ export class OpenIDA {
     /** Decodes one embedded zlib, gzip or raw DEFLATE stream. */
     inflate(options: InflateOptions): InflateReport {
         return decode<InflateReport>(() => binding('binary.inflate').binary_inflate(this.id, JSON.stringify(options)));
+    }
+
+    /** Decodes one NSIS installer container, optionally extracting its payload files. */
+    nsis(options: NsisOptions = {}): NsisReport {
+        return decode<NsisReport>(() => binding('binary.nsis').binary_nsis(this.id, JSON.stringify(options)));
     }
 
     /** Searches for a hex, ASCII or UTF-16LE pattern. */

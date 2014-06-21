@@ -92,6 +92,12 @@ fn binary_inflate(ctx: CallContext) -> Result<JsValue> {
     scan::binary_inflate(ctx)
 }
 
+/// Decodes one NSIS installer container, described by an options JSON.
+#[function]
+fn binary_nsis(ctx: CallContext) -> Result<JsValue> {
+    scan::binary_nsis(ctx)
+}
+
 /// Reports the PE overlay anatomy and its embedded container signatures.
 #[function]
 fn binary_overlay(ctx: CallContext) -> Result<JsValue> {
@@ -412,6 +418,7 @@ register_module![
     binary_carve,
     binary_tauri_assets,
     binary_inflate,
+    binary_nsis,
     binary_overlay,
     binary_offset_to_va,
     binary_offset_to_rva,

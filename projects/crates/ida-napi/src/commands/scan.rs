@@ -2,7 +2,7 @@
 //! carving and Tauri asset extraction, each driven by an options JSON.
 
 use open_ida_core::{
-    CarveOptions, DisassembleOptions, DumpOptions, FindOptions, IdaError, InflateOptions, SearchOptions,
+    CarveOptions, DisassembleOptions, DumpOptions, FindOptions, IdaError, InflateOptions, NsisOptions, SearchOptions,
     TauriAssetsOptions,
 };
 use serde_json::Value;
@@ -53,6 +53,12 @@ fn inflate_report(handle: u64, options_json: &str) -> std::result::Result<Value,
     let options = serde_json::from_str::<InflateOptions>(options_json)
         .map_err(|error| IdaError::parse(format!("invalid InflateOptions: {error}")))?;
     with_engine(handle, |engine| encoded(&engine.inflate(&options)?))
+}
+
+fn nsis_report(handle: u64, options_json: &str) -> std::result::Result<Value, IdaError> {
+    let options = serde_json::from_str::<NsisOptions>(options_json)
+        .map_err(|error| IdaError::parse(format!("invalid NsisOptions: {error}")))?;
+    with_engine(handle, |engine| encoded(&engine.nsis(&options)?))
 }
 
 pub(crate) fn binary_disasm(ctx: CallContext) -> Result<JsValue> {
@@ -113,6 +119,15 @@ pub(crate) fn binary_inflate(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     let options = text(&ctx, 1)?;
     match inflate_report(handle, &options) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+pub(crate) fn binary_nsis(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    let options = text(&ctx, 1)?;
+    match nsis_report(handle, &options) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }

@@ -560,6 +560,33 @@ range that does not decode cleanly (`invalid`, `stalled` or `checksum`) exits
 `1` with `binary/parse` and writes nothing, so a wrong offset cannot leave a
 file full of garbage behind.
 
+### `nsis <file>`
+
+```bash
+open-ida nsis ./samples/installer.exe
+open-ida nsis ./samples/installer.exe --extract-dir ./payload
+open-ida nsis ./samples/installer.exe --offset 0x12000 --commands-limit 8192
+```
+
+| Flag                       | Default    | Meaning                                                       |
+|----------------------------|------------|---------------------------------------------------------------|
+| `--offset <offset>`        | scan       | Absolute offset of the NSIS first header.                     |
+| `--commands-limit <count>` | `4096`     | Maximum rendered script commands; capped at 65536.            |
+| `--strings-limit <count>`  | `8192`     | Maximum rendered strings; capped at 65536.                    |
+| `--extract-dir <dir>`      | —          | Extract the `File` payload files into this directory.         |
+| `--extract-limit <bytes>`  | `256 MiB`  | Maximum bytes per extracted file; capped at 1 GiB.            |
+
+Decodes one NSIS 2/3 installer container: the 28-byte first header, the
+container framing (solid or non-solid, `none`/`deflate`/`lzma`/`bzip2`), the
+eight header blocks, the script command stream with every opcode named and its
+parameters rendered from the string table, the string table itself and the
+`File` extraction manifest. Nothing is executed: only bytes are decoded. A
+`--extract-dir` request writes each `File` chunk (raw DEFLATE decoded, stored
+bytes copied) under the directory, mirroring the installer output path. Input
+without an NSIS header exits `1` with `binary/parse`; solid archives and
+`lzma`/`bzip2` framing answer `binary/unsupported` for extraction because only
+the DEFLATE and stored paths are decoded.
+
 ### `diff <left> <right>`
 
 ```bash

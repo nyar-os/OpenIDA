@@ -11,7 +11,7 @@ use std::{
 
 use open_ida_core::{
     BinaryView, CarveOptions, DisassembleOptions, DisassemblySyntax, DumpOptions, FindOptions, IdaError, InflateFormat,
-    InflateOptions, OpenIda, OpenIdaOptions, SearchMode, SearchOptions, StringEncoding, StringsOptions,
+    InflateOptions, NsisOptions, OpenIda, OpenIdaOptions, SearchMode, SearchOptions, StringEncoding, StringsOptions,
     TauriAssetsOptions, scan_assets,
 };
 
@@ -3091,6 +3091,73 @@ fn overlay_is_absent_without_trailing_bytes() {
 fn overlay_rejects_non_pe_input() {
     let error = BinaryView::from_bytes("image.elf", elf64_bytes()).overlay().expect_err("unsupported");
     assert_eq!(error.code(), "binary/unsupported");
+}
+
+/// Builds a synthetic uncompressed `NSIS` header block with two `File` commands.
+fn nsis_block() -> Vec<u8> {
+    let mut block = vec![0u8; 139];
+    put_u32(&mut block, 0, 0);
+    // block table: pages, sections, entries, strings, langtables, ctlcolors, font, data
+    put_u32(&mut block, 20, 68); // entries.offset
+    put_u32(&mut block, 24, 2); // entries.num
+    put_u32(&mut block, 28, 124); // strings.offset
+    put_u32(&mut block, 36, 139); // langtables.offset (ends the string table)
+    // command 0: File, output = string char 1
+    put_u32(&mut block, 68, 20);
+    put_u32(&mut block, 68 + 4, 0);
+    put_u32(&mut block, 68 + 8, 1);
+    put_u32(&mut block, 68 + 12, u32::MAX);
+    // command 1: File, output = string char 9
+    put_u32(&mut block, 96, 20);
+    put_u32(&mut block, 96 + 8, 9);
+    put_u32(&mut block, 96 + 12, u32::MAX);
+    // string table (latin-1): "", "app.exe", "hello"
+    block[124] = 0x00;
+    block[125..132].copy_from_slice(b"app.exe");
+    block[132] = 0x00;
+    block[133..138].copy_from_slice(b"hello");
+    block[138] = 0x00;
+    block
+}
+
+#[test]
+fn nsis_decodes_an_uncompressed_container() {
+    let block = nsis_block();
+    let header_size = block.len() as u32;
+
+    // 28-byte first header, then the framing word, then the header block.
+    let mut container = vec![0u8; 32];
+    container[4..8].copy_from_slice(&[0xef, 0xbe, 0xad, 0xde]);
+    container[8..20].copy_from_slice(b"NullsoftInst");
+    put_u32(&mut container, 20, header_size);
+    // framing word equal to the header size selects the uncompressed path
+    put_u32(&mut container, 28, header_size);
+    container.extend_from_slice(&block);
+
+    let mut bytes = pe_bytes();
+    let start = bytes.len();
+    bytes.extend_from_slice(&container);
+
+    let report = BinaryView::from_bytes("setup.exe", bytes).nsis(&NsisOptions::default()).expect("nsis");
+    assert_eq!(report.header.start_offset as usize, start);
+    assert_eq!(report.header.method, "none");
+    assert!(!report.header.solid);
+    assert!(!report.unicode);
+    assert_eq!(report.string_chars, 15);
+    assert_eq!(report.strings, vec!["app.exe".to_string(), "hello".to_string()]);
+    assert_eq!(report.command_count, 2);
+    assert_eq!(report.commands[0].name, "File");
+    assert_eq!(report.commands[0].rendered[1], "app.exe");
+    assert_eq!(report.files.len(), 2);
+    assert_eq!(report.files[0].output, "app.exe");
+    assert_eq!(report.files[1].output, "hello");
+    assert!(report.files.iter().all(|file| file.data_offset.is_none()));
+}
+
+#[test]
+fn nsis_rejects_a_non_nsis_input() {
+    let error = BinaryView::from_bytes("plain.exe", pe_bytes()).nsis(&NsisOptions::default()).expect_err("parse");
+    assert_eq!(error.code(), "binary/parse");
 }
 
 #[test]

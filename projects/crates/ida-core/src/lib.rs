@@ -30,6 +30,7 @@ mod load_config;
 mod macho;
 mod mitigations;
 mod notes;
+mod nsis;
 mod overlay;
 mod pe_bound_imports;
 mod pe_delay_imports;
@@ -74,6 +75,7 @@ pub use macho::{
 };
 pub use mitigations::{MitigationsReport, WritableExecutableSection};
 pub use notes::{ElfAbiTag, ElfGnuProperty, ElfNote, ElfNotesReport};
+pub use nsis::{NsisBlock, NsisCommand, NsisFile, NsisHeader, NsisOptions, NsisReport};
 pub use overlay::{OverlayReport, OverlaySignature};
 pub use pe_bound_imports::{PeBoundForwarder, PeBoundImportsReport, PeBoundModule};
 pub use pe_delay_imports::{PeDelayImportsReport, PeDelayModule, PeDelayThunk};
@@ -347,6 +349,11 @@ impl BinaryView {
     /// Decodes one embedded zlib, gzip or raw DEFLATE stream.
     pub fn inflate(&self, options: &InflateOptions) -> Result<InflateReport> {
         inflate::decode(&self.session, options)
+    }
+
+    /// Decodes the NSIS installer container: header, blocks, script and files.
+    pub fn nsis(&self, options: &NsisOptions) -> Result<NsisReport> {
+        nsis::analyze(&self.session, options)
     }
 
     /// Searches for a hex, ASCII or UTF-16LE pattern.
@@ -688,6 +695,11 @@ impl OpenIda {
         inflate::decode(&self.session, options)
     }
 
+    /// Decodes the NSIS installer container: header, blocks, script and files.
+    pub fn nsis(&self, options: &NsisOptions) -> Result<NsisReport> {
+        nsis::analyze(&self.session, options)
+    }
+
     /// Searches for a hex, ASCII or UTF-16LE pattern.
     pub fn search(&self, options: &SearchOptions) -> Result<SearchReport> {
         self.session.search(options).map_err(IdaError::from)
@@ -791,6 +803,7 @@ pub fn capabilities() -> serde_json::Value {
             "entropy": "supported",
             "overlay": "supported",
             "decompression": "supported",
+            "nsis-containers": "supported",
             "search": "supported",
             "find": "supported",
             "dump": "supported",
