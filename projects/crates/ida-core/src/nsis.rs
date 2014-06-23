@@ -192,9 +192,9 @@ pub fn analyze(session: &BinarySession, options: &NsisOptions) -> Result<NsisRep
     let start = locate(session, options.offset)?;
     let head = session.read(start, FIRST_HEADER_SIZE)?;
 
-    let flags = word(&head, 0);
-    let header_size = word(&head, 20);
-    let arc_size = word(&head, 24);
+    let flags = word(head, 0);
+    let header_size = word(head, 20);
+    let arc_size = word(head, 24);
     let data_stream_offset = start + FIRST_HEADER_SIZE;
 
     if header_size == 0 || header_size as usize > MAX_HEADER_BLOCK {
@@ -202,10 +202,10 @@ pub fn analyze(session: &BinarySession, options: &NsisOptions) -> Result<NsisRep
     }
 
     let probe = session.read(data_stream_offset, 8)?;
-    let framing = word(&probe, 0);
-    let (method, solid, compressed_header_size) = classify_framing(framing, header_size, &probe);
+    let framing = word(probe, 0);
+    let (method, solid, compressed_header_size) = classify_framing(framing, header_size, probe);
 
-    let block = decompress_header(session, data_stream_offset, header_size, &method, solid)?;
+    let block = decompress_header(session, data_stream_offset, header_size, method, solid)?;
 
     let header = NsisHeader {
         start_offset: start,
@@ -359,17 +359,17 @@ fn decompress_header(session: &BinarySession, data_stream_offset: u64, header_si
 
     if solid {
         let stream = session.read(data_stream_offset + 4, SOLID_PROBE)?;
-        return match decompress_to_vec_with_limit(&stream, header_size as usize) {
+        return match decompress_to_vec_with_limit(stream, header_size as usize) {
             Ok(block) => Ok(block),
             Err(error) if error.output.len() >= header_size as usize => Ok(error.output[..header_size as usize].to_vec()),
             Err(error) => Err(IdaError::parse(format!("the solid NSIS stream did not decode cleanly ({:?})", error.status))),
         };
     }
 
-    let size_field = word(&session.read(data_stream_offset, 4)?, 0);
+    let size_field = word(session.read(data_stream_offset, 4)?, 0);
     let compressed = (size_field & 0x7fff_ffff) as u64;
     let stream = session.read(data_stream_offset + 4, compressed)?;
-    match decompress_to_vec_with_limit(&stream, header_size as usize + 1) {
+    match decompress_to_vec_with_limit(stream, header_size as usize + 1) {
         Ok(block) if block.len() >= header_size as usize => Ok(block[..header_size as usize].to_vec()),
         Ok(block) => Err(IdaError::parse(format!(
             "the NSIS header block decoded to {} bytes, not the announced {header_size}",
@@ -641,7 +641,7 @@ fn read_files(commands: &[NsisCommand], header: &NsisHeader, session: &BinarySes
         if let (Some(base), Some(position)) = (header.data_base, command.params.get(2).copied().filter(|value| *value != u32::MAX)) {
             let offset = base + u64::from(position);
             if let Some(chunk) = session.read(offset, 4).ok().filter(|bytes| bytes.len() == 4) {
-                let packed = word(&chunk, 0);
+                let packed = word(chunk, 0);
                 let size = u64::from(packed & 0x7fff_ffff);
                 if offset + 4 + size <= session.size() {
                     entry.data_offset = Some(offset);
@@ -680,7 +680,7 @@ fn extract_files(session: &BinarySession, files: &mut [NsisFile], directory: &Pa
         }
         let stream = session.read(offset + 4, size)?;
         let output = if file.compressed_size.is_some() {
-            match decompress_to_vec_with_limit(&stream, limit) {
+            match decompress_to_vec_with_limit(stream, limit) {
                 Ok(bytes) => bytes,
                 Err(error) => {
                     return Err(IdaError::parse(format!(
