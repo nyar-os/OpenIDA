@@ -60,6 +60,8 @@ import type {
     PeRichHeaderReport,
     PeLoadConfigReport,
     PeTlsReport,
+    PycOptions,
+    PycReport,
     ReadReport,
     RelocationsReport,
     ResourcesReport,
@@ -329,6 +331,11 @@ export class OpenIDA {
     /** Decodes one Electron asar archive, optionally extracting its packed entries. */
     asar(options: AsarOptions = {}): AsarReport {
         return decode<AsarReport>(() => binding('binary.asar').binary_asar(this.id, JSON.stringify(options)));
+    }
+
+    /** Decodes one CPython marshal stream or pyc container and disassembles it. */
+    pyc(options: PycOptions = {}): PycReport {
+        return decode<PycReport>(() => binding('binary.pyc').binary_pyc(this.id, JSON.stringify(options)));
     }
 
     /** Searches for a hex, ASCII or UTF-16LE pattern. */

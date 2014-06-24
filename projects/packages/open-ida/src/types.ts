@@ -1154,6 +1154,79 @@ export interface AsarReport {
     readonly truncated: boolean;
 }
 
+/** Framing of the input bytes for one `pyc()` call. */
+export type PycFormat = "auto" | "marshal" | "pyc";
+
+/** Inputs of one `pyc()` call. */
+export interface PycOptions {
+    /** Absolute offset of the stream start; defaults to the file start. */
+    readonly offset?: number;
+    /** Stream framing; `auto` picks `marshal` on the version byte, else `pyc`. */
+    readonly format?: PycFormat;
+    /** Keep only code objects whose `qualname` or `name` contains this text. */
+    readonly code?: string;
+    /** Cap on decoded code objects; defaults to 1024 and is capped at 16384. */
+    readonly codeLimit?: number;
+    /** Cap on emitted instructions; defaults to 65536 and is capped at 1048576. */
+    readonly instructionLimit?: number;
+}
+
+/** One decoded constant of a code object. */
+export interface PycConst {
+    readonly kind: string;
+    readonly repr: string;
+    readonly codeIndex: number | null;
+}
+
+/** One disassembled instruction of a code object. */
+export interface PycInstruction {
+    readonly offset: number;
+    readonly opcode: number;
+    readonly name: string;
+    readonly arg: number | null;
+    readonly resolved: string | null;
+    readonly caches: number;
+}
+
+/** One decoded code object with its disassembly. */
+export interface PycCodeObject {
+    readonly index: number;
+    readonly qualname: string;
+    readonly name: string;
+    readonly filename: string;
+    readonly argcount: number;
+    readonly posonlyargcount: number;
+    readonly kwonlyargcount: number;
+    readonly stacksize: number;
+    readonly flags: number;
+    readonly flagsText: string;
+    readonly firstlineno: number;
+    readonly codeLen: number;
+    readonly linetableLen: number;
+    readonly exceptiontableLen: number;
+    readonly names: readonly string[];
+    readonly varnames: readonly string[];
+    readonly freevars: readonly string[];
+    readonly cellvars: readonly string[];
+    readonly consts: readonly PycConst[];
+    readonly instructions: readonly PycInstruction[];
+    readonly truncated: boolean;
+}
+
+/** Full decode of one marshal stream or pyc container. */
+export interface PycReport {
+    readonly startOffset: number;
+    readonly sourceFormat: string;
+    readonly marshalVersion: number | null;
+    readonly pycMagic: number | null;
+    readonly pycFlags: number | null;
+    readonly python: string | null;
+    readonly codeCount: number;
+    readonly instructionCount: number;
+    readonly codes: readonly PycCodeObject[];
+    readonly truncated: boolean;
+}
+
 /** Inputs of one `carve()` call. */
 export interface CarveOptions {
     /** Byte regex that marks the regions of interest. */

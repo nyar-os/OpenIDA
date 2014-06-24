@@ -42,6 +42,9 @@ import type {
     NsisReport,
     AsarOptions,
     AsarReport,
+    PycFormat,
+    PycOptions,
+    PycReport,
     OverlayReport,
     MachOReport,
     MachOCodeSignatureReport,
@@ -778,6 +781,25 @@ function describeAsar(report: AsarReport): string {
     for (const entry of report.entries.slice(0, 40)) {
         const where = entry.unpacked ? 'unpacked' : hex(entry.offset ?? 0);
         lines.push(`  ${String(entry.size).padStart(10)} ${where.padStart(10)}  ${entry.path}${entry.extracted !== null ? ` -> ${entry.extracted}` : ''}`);
+    }
+    return lines.join('\n');
+}
+
+function describePyc(report: PycReport): string {
+    const version = report.python ?? 'CPython marshal';
+    const lines = [
+        `pyc ${hex(report.startOffset)} · ${report.sourceFormat} · ${version} · ${report.codeCount} code object(s) · ${report.instructionCount} instruction(s)${report.truncated ? ' (truncated)' : ''}`,
+    ];
+    for (const code of report.codes) {
+        lines.push(
+            `  ${code.qualname} · ${code.filename}:${code.firstlineno} · args ${code.argcount} · stack ${code.stacksize} · flags ${code.flagsText === '' ? '0' : code.flagsText} · ${code.instructions.length} instr · ${code.consts.length} const(s)`,
+        );
+        for (const instruction of code.instructions) {
+            const arg = instruction.arg === null ? '     ' : String(instruction.arg).padStart(5);
+            const resolved = instruction.resolved === null || instruction.resolved === '' ? '' : ` (${instruction.resolved})`;
+            const caches = instruction.caches === 0 ? '' : ` +${instruction.caches} cache`;
+            lines.push(`    ${String(instruction.offset).padStart(6)} ${instruction.name.padEnd(32)}${arg}${resolved}${caches}`);
+        }
     }
     return lines.join('\n');
 }
@@ -1729,6 +1751,60 @@ cli
         try {
             const report = ida.asar(asarOptions);
             ctx.emitResult(report, describeAsar(report));
+            return 0;
+        } finally {
+            ida.close();
+        }
+    });
+
+cli
+    .command('pyc', 'cli.cmd.pyc')
+    .option('--offset <offset>', 'cli.opt.pycOffset')
+    .option('--format <format>', 'cli.opt.pycFormat')
+    .option('--code <qualname>', 'cli.opt.pycCode')
+    .option('--code-limit <count>', 'cli.opt.pycCodeLimit')
+    .option('--instruction-limit <count>', 'cli.opt.pycInstructionLimit')
+    .actionCtx(async (options, _args, ctx) => {
+        const file = input(options);
+        if (file === undefined) {
+            ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+            return 2;
+        }
+        const offsetText = text(options, 'offset');
+        const offset = offsetText === undefined ? undefined : parseNumber(offsetText);
+        if (offsetText !== undefined && offset === undefined) {
+            ctx.fail('open-ida.cli.offset', { message: '`--offset <offset>` must be a non-negative integer' });
+            return 2;
+        }
+        const formatText = text(options, 'format') ?? 'auto';
+        if (!['auto', 'marshal', 'pyc'].includes(formatText)) {
+            ctx.fail('open-ida.cli.format', { message: '`--format` must be auto, marshal or pyc' });
+            return 2;
+        }
+        const codeLimitText = text(options, 'code-limit');
+        const codeLimit = codeLimitText === undefined ? undefined : parseNumber(codeLimitText);
+        if (codeLimit === undefined && codeLimitText !== undefined) {
+            ctx.fail('open-ida.cli.limit', { message: '`--code-limit <count>` must be a non-negative integer' });
+            return 2;
+        }
+        const instructionLimitText = text(options, 'instruction-limit');
+        const instructionLimit = instructionLimitText === undefined ? undefined : parseNumber(instructionLimitText);
+        if (instructionLimit === undefined && instructionLimitText !== undefined) {
+            ctx.fail('open-ida.cli.limit', { message: '`--instruction-limit <count>` must be a non-negative integer' });
+            return 2;
+        }
+        const code = text(options, 'code');
+        const pycOptions: PycOptions = {
+            format: formatText as PycFormat,
+            ...(offset === undefined ? {} : { offset }),
+            ...(code === undefined ? {} : { code }),
+            ...(codeLimit === undefined ? {} : { codeLimit }),
+            ...(instructionLimit === undefined ? {} : { instructionLimit }),
+        };
+        const ida = new OpenIDA({ path: file });
+        try {
+            const report = ida.pyc(pycOptions);
+            ctx.emitResult(report, describePyc(report));
             return 0;
         } finally {
             ida.close();
