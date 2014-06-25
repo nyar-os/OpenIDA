@@ -104,12 +104,6 @@ fn binary_asar(ctx: CallContext) -> Result<JsValue> {
     scan::binary_asar(ctx)
 }
 
-/// Decodes one CPython marshal stream or pyc container, described by an options JSON.
-#[function]
-fn binary_pyc(ctx: CallContext) -> Result<JsValue> {
-    scan::binary_pyc(ctx)
-}
-
 /// Reports the PE overlay anatomy and its embedded container signatures.
 #[function]
 fn binary_overlay(ctx: CallContext) -> Result<JsValue> {
@@ -314,7 +308,7 @@ fn binary_macho_extract(ctx: CallContext) -> Result<JsValue> {
     macho::binary_macho_extract(ctx)
 }
 
-/// Disassembles x86 / x64 instructions described by an options JSON.
+/// Disassembles x86 / x64 instructions or CPython bytecode, described by an options JSON.
 #[function]
 fn binary_disasm(ctx: CallContext) -> Result<JsValue> {
     scan::binary_disasm(ctx)
@@ -432,7 +426,6 @@ register_module![
     binary_inflate,
     binary_nsis,
     binary_asar,
-    binary_pyc,
     binary_overlay,
     binary_offset_to_va,
     binary_offset_to_rva,

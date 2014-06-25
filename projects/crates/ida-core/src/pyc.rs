@@ -215,6 +215,25 @@ fn default_instruction_limit() -> usize {
     DEFAULT_INSTRUCTION_LIMIT
 }
 
+/// Whether a window of bytes looks like bytecode rather than machine code.
+///
+/// The unified disassembly route uses this to pick the bytecode path when
+/// `--format auto` meets a `marshal` stream (a version prefix byte, the
+/// referenced code type `0xE3` or the bare code type `c`) or a `.pyc`
+/// container (a two-byte magic in the assigned range followed by `CR LF`).
+/// Classified containers stay on the machine path; an explicit `--format`
+/// always overrides this guess.
+pub fn sniff(bytes: &[u8]) -> bool {
+    if matches!(bytes.first(), Some(2..=6) | Some(&0xE3) | Some(&b'c')) {
+        return true;
+    }
+    if bytes.len() >= 4 && bytes[2] == 0x0D && bytes[3] == 0x0A {
+        let magic = u16::from_le_bytes([bytes[0], bytes[1]]);
+        return (2000..=4000).contains(&magic) && magic % 2 == 0;
+    }
+    false
+}
+
 /// Decodes the `marshal` stream of one open session.
 pub fn analyze(session: &BinarySession, options: &PycOptions) -> Result<PycReport> {
     let start = options.offset.unwrap_or(0);

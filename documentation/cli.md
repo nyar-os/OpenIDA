@@ -491,16 +491,42 @@ containers must be sliced first.
 
 ```bash
 open-ida disasm ./samples/app.exe --offset 0x1000 --count 20 --syntax intel
+open-ida disasm ./samples/app.pyc
+open-ida disasm ./samples/app.pyc --code main
+open-ida disasm ./samples/payload.bin --offset 0x60e45 --format pyc
 ```
 
-| Flag                | Default | Meaning                                |
-|---------------------|---------|----------------------------------------|
-| `--offset <offset>` | `0`     | File offset to start decoding.         |
-| `--count <count>`   | `64`    | Maximum instructions; capped at 4,096. |
-| `--syntax <syntax>` | `intel` | `intel`, `masm` or `nasm`.             |
+| Flag                           | Default | Meaning                                                          |
+|--------------------------------|---------|------------------------------------------------------------------|
+| `--offset <offset>`            | `0`     | File offset to start decoding.                                   |
+| `--count <count>`              | `64`    | Maximum x86 instructions; capped at 4,096.                       |
+| `--syntax <syntax>`            | `intel` | `intel`, `masm` or `nasm` (x86 path only).                       |
+| `--format <format>`            | `auto`  | `auto` sniffs bytecode, else `x86` or `pyc`.                     |
+| `--code <qualname>`            | —       | Keep code objects whose `qualname` or `name` contains it (pyc).  |
+| `--code-limit <count>`         | `1024`  | Maximum decoded code objects; capped at 16384 (pyc).             |
+| `--instruction-limit <count>`  | `65536` | Maximum emitted bytecode instructions; capped at 1048576 (pyc).  |
 
-Only x86 and x64 are decoded. PE reports virtual addresses derived from the
-image base; other architectures answer `binary/unsupported`.
+`auto` reads the bytes at `--offset`: a `marshal` code type or version byte,
+or a `.pyc` magic followed by `CR LF`, selects the CPython bytecode path;
+anything else decodes machine code.
+
+The x86 path only decodes x86 and x64. PE reports virtual addresses derived
+from the image base; other architectures answer `binary/unsupported`.
+
+The bytecode path decodes one CPython `marshal` stream statically and
+disassembles every code object it finds. `marshal` streams are read with or
+without the leading version byte `2` through `6` that `PyMarshal_Write`
+writes; the code-object field order decoded here is the one CPython 3.11
+through 3.13 share. The bytecode is walked as word-code pairs: the opcode byte
+names the instruction, the argument byte resolves against the names, constants
+and locals tables (jump targets are rendered as absolute `co_code` offsets),
+and inline cache slots — the only place the opcode byte `0` appears in
+non-adaptive code — are counted against the preceding instruction. The framing
+inside the bytecode path picks `marshal` when the first byte is a code type
+byte or a version byte `2` through `6`, else it skips the sixteen-byte `.pyc`
+header and names the interpreter from the magic. Strings interned by the
+stream are resolved through their reference table. Nothing is executed. Input
+that is not a decodable `marshal` stream exits `1` with `binary/parse`.
 
 ### `entropy <file>`
 
@@ -609,37 +635,6 @@ the full file tree with every entry's size, absolute packed offset and
 and carry no packed bytes. A `--extract-dir` request writes each packed entry
 under the directory, mirroring its archive path; traversal-safe names only.
 Input whose first header word is not `4` exits `1` with `binary/parse`.
-
-### `pyc <file>`
-
-```bash
-open-ida pyc ./samples/app.pyc
-open-ida pyc ./samples/payload.bin --offset 0x60e45 --format marshal
-open-ida pyc ./samples/app.pyc --code main
-```
-
-| Flag                           | Default  | Meaning                                                     |
-|--------------------------------|----------|-------------------------------------------------------------|
-| `--offset <offset>`            | `0`      | Absolute offset of the stream start.                        |
-| `--format <format>`            | `auto`   | `auto`, `marshal` (raw dump) or `pyc` (16-byte header).     |
-| `--code <qualname>`            | —        | Keep code objects whose `qualname` or `name` contains it.   |
-| `--code-limit <count>`         | `1024`   | Maximum decoded code objects; capped at 16384.              |
-| `--instruction-limit <count>`  | `65536`  | Maximum emitted instructions; capped at 1048576.            |
-
-Decodes one CPython `marshal` stream statically and disassembles every code
-object it finds. `marshal` streams are read with or without the leading
-version byte `2` through `6` that `PyMarshal_Write` writes; the code-object
-field order decoded here is the one CPython 3.11 through 3.13 share. The bytecode
-is walked as word-code pairs: the opcode byte names the instruction, the
-argument byte resolves against the names, constants and locals tables (jump
-targets are rendered as absolute `co_code` offsets), and inline cache slots —
-the only place the opcode byte `0` appears in non-adaptive code — are counted
-against the preceding instruction. `auto` framing picks `marshal` when the
-first byte is a code type byte or a version byte `2` through `6`, else it skips the
-sixteen-byte `.pyc` header and names the interpreter from the magic. Strings
-interned by the stream are resolved through their reference table. Nothing is
-executed. Input that is not a decodable `marshal` stream exits `1` with
-`binary/parse`.
 
 ### `diff <left> <right>`
 

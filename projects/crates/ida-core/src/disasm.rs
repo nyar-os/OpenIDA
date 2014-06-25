@@ -59,6 +59,16 @@ pub struct DisassembleOptions {
     pub syntax: DisassemblySyntax,
 }
 
+impl Default for DisassembleOptions {
+    fn default() -> Self {
+        Self {
+            offset: 0,
+            count: default_count(),
+            syntax: DisassemblySyntax::default(),
+        }
+    }
+}
+
 impl DisassembleOptions {
     /// Builds options that start at `offset` with the documented defaults.
     pub fn new(offset: u64) -> Self {

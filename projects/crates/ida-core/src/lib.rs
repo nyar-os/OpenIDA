@@ -85,6 +85,9 @@ pub use pe_delay_imports::{PeDelayImportsReport, PeDelayModule, PeDelayThunk};
 pub use pe_exception::{PeExceptionReport, PeRuntimeFunction, PeUnwindInfo};
 pub use pe_rich_header::{PeRichEntry, PeRichHeaderReport};
 pub use pyc::{PycCodeObject, PycConst, PycFormat, PycInstruction, PycOptions, PycReport};
+
+/// Whether a byte window looks like a `marshal` stream or a `.pyc` container.
+pub use pyc::sniff as sniff_pyc;
 pub use relocations::{RelocationBlock, RelocationKindCount, RelocationsReport};
 pub use resources::{PeResource, ResourcesReport};
 pub use segments::{ElfSegment, ElfSegmentsReport};
