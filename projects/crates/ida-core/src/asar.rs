@@ -37,7 +37,7 @@ const DEFAULT_EXTRACT_LIMIT: usize = 256 * 1024 * 1024;
 /// Hard cap on the JSON header block.
 const MAX_JSON_SIZE: usize = 64 * 1024 * 1024;
 
-/// Inputs of one [`crate::OpenIda::asar`] call.
+/// Inputs of the `asar` route of [`crate::OpenIda::unpack`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AsarOptions {

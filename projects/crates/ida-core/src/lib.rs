@@ -44,6 +44,7 @@ mod segments;
 mod tauri;
 mod text;
 mod tls;
+mod unpack;
 mod version;
 
 use std::path::{Path, PathBuf};
@@ -56,7 +57,7 @@ pub use data_binary_inspect::{
     InspectOptions, PatchReport, SearchHit, SearchMode, SearchOptions, SearchReport, SectionInfo as Section, StringHit,
     StringsReport, SymbolEntry, SymbolsReport,
 };
-pub use asar::{AsarEntry, AsarHeader, AsarOptions, AsarReport};
+pub use asar::{AsarEntry, AsarHeader, AsarReport};
 pub use carve::{CarveOptions, CarveRegion, CarveReport};
 pub use certificates::{CertificatesReport, PeCertificate};
 pub use code_signature::{MachOCodeDirectory, MachOCodeSignatureReport};
@@ -78,7 +79,7 @@ pub use macho::{
 };
 pub use mitigations::{MitigationsReport, WritableExecutableSection};
 pub use notes::{ElfAbiTag, ElfGnuProperty, ElfNote, ElfNotesReport};
-pub use nsis::{NsisBlock, NsisCommand, NsisFile, NsisHeader, NsisOptions, NsisReport};
+pub use nsis::{NsisBlock, NsisCommand, NsisFile, NsisHeader, NsisReport};
 pub use overlay::{OverlayReport, OverlaySignature};
 pub use pe_bound_imports::{PeBoundForwarder, PeBoundImportsReport, PeBoundModule};
 pub use pe_delay_imports::{PeDelayImportsReport, PeDelayModule, PeDelayThunk};
@@ -94,6 +95,9 @@ pub use segments::{ElfSegment, ElfSegmentsReport};
 pub use tauri::{TauriAsset, TauriAssetsOptions, TauriAssetsReport, scan_assets};
 pub use text::{EncodedStringHit, EncodedStringsReport, StringEncoding, StringsOptions};
 pub use tls::{PeTlsCallback, PeTlsReport};
+pub use unpack::{
+    SevenZEntry, SevenZFolder, SevenZPackRange, SevenZReport, UnpackFormat, UnpackOptions, UnpackReport,
+};
 pub use version::{FixedFileInfo, VersionReport, VersionString};
 
 impl From<data_binary_inspect::InspectError> for IdaError {
@@ -358,14 +362,9 @@ impl BinaryView {
         inflate::decode(&self.session, options)
     }
 
-    /// Decodes the NSIS installer container: header, blocks, script and files.
-    pub fn nsis(&self, options: &NsisOptions) -> Result<NsisReport> {
-        nsis::analyze(&self.session, options)
-    }
-
-    /// Decodes an Electron asar archive: header, file tree and optional extraction.
-    pub fn asar(&self, options: &AsarOptions) -> Result<AsarReport> {
-        asar::analyze(&self.session, options)
+    /// Decodes one container (`7z`, `asar` or `NSIS`) selected or sniffed by `format`.
+    pub fn unpack(&self, options: &UnpackOptions) -> Result<UnpackReport> {
+        unpack::analyze(&self.session, options)
     }
 
     /// Decodes a CPython marshal stream or pyc container and disassembles it.
@@ -712,14 +711,9 @@ impl OpenIda {
         inflate::decode(&self.session, options)
     }
 
-    /// Decodes the NSIS installer container: header, blocks, script and files.
-    pub fn nsis(&self, options: &NsisOptions) -> Result<NsisReport> {
-        nsis::analyze(&self.session, options)
-    }
-
-    /// Decodes an Electron asar archive: header, file tree and optional extraction.
-    pub fn asar(&self, options: &AsarOptions) -> Result<AsarReport> {
-        asar::analyze(&self.session, options)
+    /// Decodes one container (`7z`, `asar` or `NSIS`) selected or sniffed by `format`.
+    pub fn unpack(&self, options: &UnpackOptions) -> Result<UnpackReport> {
+        unpack::analyze(&self.session, options)
     }
 
     /// Decodes a CPython marshal stream or pyc container and disassembles it.
@@ -776,6 +770,8 @@ pub fn capabilities() -> serde_json::Value {
             "inspect": "boost.rs/data-binary-inspect",
             "binary": "boost.rs/data-binary-pe",
             "machO": "boost.rs/data-binary-mach-o",
+            "sevenZ": "boost.rs/data-binary-sevenz",
+            "compression": "boost.rs/data-compression",
             "digest": "boost.rs/data-checksum",
         },
         "formats": {
@@ -830,8 +826,8 @@ pub fn capabilities() -> serde_json::Value {
             "entropy": "supported",
             "overlay": "supported",
             "decompression": "supported",
-            "nsis-containers": "supported",
-            "asar-archives": "supported",
+            "unpack-archives": "supported",
+            "sevenz-archives": "supported",
             "cpython-bytecode": "supported",
             "search": "supported",
             "find": "supported",

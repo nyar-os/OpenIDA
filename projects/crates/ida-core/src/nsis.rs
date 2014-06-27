@@ -12,13 +12,14 @@
 use std::path::{Component, Path, PathBuf};
 
 use data_binary_inspect::BinarySession;
+use data_compression::{CodecLimits, Lzma1};
 use miniz_oxide::inflate::decompress_to_vec_with_limit;
 use serde::{Deserialize, Serialize};
 
 use crate::{IdaError, Result};
 
 /// The `NSIS` first-header signature: `0xDEADBEEF` then `NullsoftInst`.
-const SIGNATURE: &[u8] = b"\xef\xbe\xad\xdeNullsoftInst";
+pub(crate) const SIGNATURE: &[u8] = b"\xef\xbe\xad\xdeNullsoftInst";
 
 /// Size of the first header struct (flags, signature, header size, arc size).
 const FIRST_HEADER_SIZE: u64 = 28;
@@ -41,7 +42,7 @@ const SOLID_PROBE: u64 = 16 * 1024 * 1024;
 /// Size of one script command (`NSIS` 3): opcode plus six parameters.
 const COMMAND_SIZE: usize = 28;
 
-/// Inputs of one [`crate::OpenIda::nsis`] call.
+/// Inputs of the `NSIS` route of [`crate::OpenIda::unpack`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NsisOptions {
@@ -286,7 +287,7 @@ pub fn analyze(session: &BinarySession, options: &NsisOptions) -> Result<NsisRep
 }
 
 /// Finds the first header: `offset` when given, otherwise a signature scan.
-fn locate(session: &BinarySession, offset: Option<u64>) -> Result<u64> {
+pub(crate) fn locate(session: &BinarySession, offset: Option<u64>) -> Result<u64> {
     if let Some(value) = offset {
         let head = session.read(value, FIRST_HEADER_SIZE)?;
         if head[4..20] == *SIGNATURE {
@@ -349,12 +350,36 @@ fn is_lzma(bytes: &[u8]) -> bool {
 
 /// Recovers the decompressed header block.
 fn decompress_header(session: &BinarySession, data_stream_offset: u64, header_size: u32, method: &str, solid: bool) -> Result<Vec<u8>> {
-    if method != "deflate" && method != "none" {
-        return Err(IdaError::unsupported(format!("the NSIS header block is {method}-compressed; only deflate and none are decoded")));
+    if method != "deflate" && method != "none" && method != "lzma" {
+        return Err(IdaError::unsupported(format!("the NSIS header block is {method}-compressed; only deflate, lzma and none are decoded")));
     }
 
     if method == "none" {
         return Ok(session.read(data_stream_offset + 4, header_size as u64)?.to_vec());
+    }
+
+    if method == "lzma" {
+        let stream = if solid {
+            let available = session.size().saturating_sub(data_stream_offset + 4);
+            session.read(data_stream_offset + 4, SOLID_PROBE.min(available))?
+        }
+        else {
+            let size_field = word(session.read(data_stream_offset, 4)?, 0);
+            session.read(data_stream_offset + 4, (size_field & 0x7fff_ffff) as u64)?
+        };
+        if stream.len() < 13 {
+            return Err(IdaError::parse("the NSIS LZMA stream is shorter than its properties header"));
+        }
+        let properties: [u8; 5] = stream[..5].try_into().expect("five-byte window");
+        let facts = Lzma1::decode_raw(&properties, &stream[13..], Some(u64::from(header_size)), CodecLimits::new())
+            .map_err(|error| IdaError::parse(format!("the NSIS LZMA header block did not decode: {error}")))?;
+        if facts.value.len() != header_size as usize {
+            return Err(IdaError::parse(format!(
+                "the NSIS LZMA header block decoded to {} bytes, not the announced {header_size}",
+                facts.value.len()
+            )));
+        }
+        return Ok(facts.value);
     }
 
     if solid {
