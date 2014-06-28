@@ -2,8 +2,8 @@
 //! carving and Tauri asset extraction, each driven by an options JSON.
 
 use open_ida_core::{
-    AsarOptions, CarveOptions, DisassembleOptions, DisassemblySyntax, DumpOptions, FindOptions, IdaError, InflateOptions,
-    NsisOptions, PycFormat, PycOptions, SearchOptions, TauriAssetsOptions, sniff_pyc,
+    CarveOptions, DisassembleOptions, DisassemblySyntax, DumpOptions, FindOptions, IdaError, InflateOptions, PycFormat, PycOptions,
+    SearchOptions, TauriAssetsOptions, UnpackOptions, sniff_pyc,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -105,16 +105,10 @@ fn inflate_report(handle: u64, options_json: &str) -> std::result::Result<Value,
     with_engine(handle, |engine| encoded(&engine.inflate(&options)?))
 }
 
-fn nsis_report(handle: u64, options_json: &str) -> std::result::Result<Value, IdaError> {
-    let options = serde_json::from_str::<NsisOptions>(options_json)
-        .map_err(|error| IdaError::parse(format!("invalid NsisOptions: {error}")))?;
-    with_engine(handle, |engine| encoded(&engine.nsis(&options)?))
-}
-
-fn asar_report(handle: u64, options_json: &str) -> std::result::Result<Value, IdaError> {
-    let options = serde_json::from_str::<AsarOptions>(options_json)
-        .map_err(|error| IdaError::parse(format!("invalid AsarOptions: {error}")))?;
-    with_engine(handle, |engine| encoded(&engine.asar(&options)?))
+fn unpack_report(handle: u64, options_json: &str) -> std::result::Result<Value, IdaError> {
+    let options = serde_json::from_str::<UnpackOptions>(options_json)
+        .map_err(|error| IdaError::parse(format!("invalid UnpackOptions: {error}")))?;
+    with_engine(handle, |engine| encoded(&engine.unpack(&options)?))
 }
 
 pub(crate) fn binary_disasm(ctx: CallContext) -> Result<JsValue> {
@@ -180,19 +174,10 @@ pub(crate) fn binary_inflate(ctx: CallContext) -> Result<JsValue> {
     }
 }
 
-pub(crate) fn binary_nsis(ctx: CallContext) -> Result<JsValue> {
+pub(crate) fn binary_unpack(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     let options = text(&ctx, 1)?;
-    match nsis_report(handle, &options) {
-        Ok(value) => respond(&ctx, &value),
-        Err(error) => Err(failure(error)),
-    }
-}
-
-pub(crate) fn binary_asar(ctx: CallContext) -> Result<JsValue> {
-    let handle = handle(&ctx, 0)?;
-    let options = text(&ctx, 1)?;
-    match asar_report(handle, &options) {
+    match unpack_report(handle, &options) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }

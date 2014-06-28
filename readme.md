@@ -85,8 +85,8 @@ open-ida disasm ./samples/app.pyc --code main
 open-ida entropy ./samples/app.exe
 open-ida overlay ./samples/app.exe
 open-ida inflate ./samples/app.exe --offset 0x600 --out ./payload.bin
-open-ida nsis ./samples/installer.exe --extract-dir ./payload
-open-ida asar ./samples/app.asar --extract-dir ./source
+open-ida unpack ./samples/installer.exe --format nsis --extract-dir ./payload
+open-ida unpack ./samples/app.asar --extract-dir ./source
 open-ida diff build/app.exe build/app-patched.exe
 ```
 
@@ -120,15 +120,17 @@ the TypeScript session, so a script and a person read the same result.
 - **Payload peeking.** Bounded zlib, gzip and raw DEFLATE decoding of one
   embedded stream, with the decoded magic, ASCII head and an optional output
   file, so a packed payload can be examined without running it.
-- **Installer decoding.** NSIS containers decoded to the first header, the
-  solid/non-solid framing and method, the eight header blocks, the script
-  command stream with every opcode named and its parameters rendered from the
-  string table, and the `File` extraction manifest, with optional DEFLATE/stored
-  payload extraction.
-- **Archive decoding.** Electron `asar` archives decoded to the sixteen-byte
-  header, the data-area offset and the full file tree with every entry's size,
-  packed offset and `unpacked` flag, with optional extraction that mirrors the
-  archive paths.
+- **Installer decoding.** `unpack --format nsis` decodes NSIS containers to the
+  first header, the solid/non-solid framing and method, the eight header
+  blocks, the script command stream with every opcode named and its parameters
+  rendered from the string table, and the `File` extraction manifest, with
+  optional DEFLATE, LZMA or stored payload extraction.
+- **Archive decoding.** `unpack` decodes Electron `asar` archives to the
+  sixteen-byte header, the data-area offset and the full file tree with every
+  entry's size, packed offset and `unpacked` flag, and indexes `7z` containers
+  to the version, coder methods, packed folders and entry table with entries
+  decoded through internalized pure-Rust LZMA1/LZMA2/BCJ codecs; optional
+  extraction mirrors the archive paths.
 - **Bytecode decoding.** CPython `marshal` streams and `.pyc` containers
   decoded statically through `disasm --format pyc` to every code object, with
   the 3.11 through 3.13 bytecode disassembled as word-code pairs: opcode names,

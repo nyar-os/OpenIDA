@@ -35,10 +35,8 @@ import type {
     ImportsReport,
     InflateOptions,
     InflateReport,
-    NsisOptions,
-    NsisReport,
-    AsarOptions,
-    AsarReport,
+    UnpackOptions,
+    UnpackReport,
     OverlayReport,
     MachOReport,
     MachOSlicesReport,
@@ -322,14 +320,9 @@ export class OpenIDA {
         return decode<InflateReport>(() => binding('binary.inflate').binary_inflate(this.id, JSON.stringify(options)));
     }
 
-    /** Decodes one NSIS installer container, optionally extracting its payload files. */
-    nsis(options: NsisOptions = {}): NsisReport {
-        return decode<NsisReport>(() => binding('binary.nsis').binary_nsis(this.id, JSON.stringify(options)));
-    }
-
-    /** Decodes one Electron asar archive, optionally extracting its packed entries. */
-    asar(options: AsarOptions = {}): AsarReport {
-        return decode<AsarReport>(() => binding('binary.asar').binary_asar(this.id, JSON.stringify(options)));
+    /** Decodes one `7z`, `asar` or `NSIS` container, optionally extracting its entries. */
+    unpack(options: UnpackOptions = {}): UnpackReport {
+        return decode<UnpackReport>(() => binding('binary.unpack').binary_unpack(this.id, JSON.stringify(options)));
     }
 
     /** Searches for a hex, ASCII or UTF-16LE pattern. */

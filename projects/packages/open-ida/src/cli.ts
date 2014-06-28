@@ -38,10 +38,11 @@ import type {
     InflateFormat,
     InflateOptions,
     InflateReport,
-    NsisOptions,
     NsisReport,
-    AsarOptions,
     AsarReport,
+    SevenZReport,
+    UnpackFormat,
+    UnpackOptions,
     DisassemblyFormat,
     PycReport,
     OverlayReport,
@@ -780,6 +781,23 @@ function describeAsar(report: AsarReport): string {
     for (const entry of report.entries.slice(0, 40)) {
         const where = entry.unpacked ? 'unpacked' : hex(entry.offset ?? 0);
         lines.push(`  ${String(entry.size).padStart(10)} ${where.padStart(10)}  ${entry.path}${entry.extracted !== null ? ` -> ${entry.extracted}` : ''}`);
+    }
+    return lines.join('\n');
+}
+
+function describeSevenZ(report: SevenZReport): string {
+    const lines = [
+        `7z ${hex(report.startOffset)} · v${report.version} · ${report.entryCount} entry(s) · ${report.folderCount} folder(s) · ${report.totalUnpackSize} B unpacked`,
+        `  methods ${report.methods.length === 0 ? 'none' : report.methods.join(', ')} · ${report.entries.length} listed`,
+    ];
+    if (report.truncated) {
+        lines.push('  (listing truncated)');
+    }
+    for (const entry of report.entries.slice(0, 40)) {
+        const kind = entry.isDir ? 'dir ' : entry.isAnti ? 'anti' : 'file';
+        lines.push(
+            `  ${kind} ${String(entry.size ?? 0).padStart(10)}  ${entry.name}${entry.extracted !== null ? ` -> ${entry.extracted}` : ''}`,
+        );
     }
     return lines.join('\n');
 }
@@ -1709,58 +1727,23 @@ cli
     });
 
 cli
-    .command('nsis', 'cli.cmd.nsis')
-    .option('--offset <offset>', 'cli.opt.nsisOffset')
-    .option('--commands-limit <count>', 'cli.opt.nsisCommandsLimit')
-    .option('--strings-limit <count>', 'cli.opt.nsisStringsLimit')
-    .option('--extract-dir <dir>', 'cli.opt.nsisExtractDir')
-    .option('--extract-limit <bytes>', 'cli.opt.nsisExtractLimit')
+    .command('unpack', 'cli.cmd.unpack')
+    .option('--format <format>', 'cli.opt.unpackFormat')
+    .option('--offset <offset>', 'cli.opt.unpackOffset')
+    .option('--entries-limit <count>', 'cli.opt.unpackEntriesLimit')
+    .option('--commands-limit <count>', 'cli.opt.unpackCommandsLimit')
+    .option('--strings-limit <count>', 'cli.opt.unpackStringsLimit')
+    .option('--extract-dir <dir>', 'cli.opt.unpackExtractDir')
+    .option('--extract-limit <bytes>', 'cli.opt.unpackExtractLimit')
     .actionCtx(async (options, _args, ctx) => {
         const file = input(options);
         if (file === undefined) {
             ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
             return 2;
         }
-        const offsetText = text(options, 'offset');
-        const offset = offsetText === undefined ? undefined : parseNumber(offsetText);
-        if (offsetText !== undefined && offset === undefined) {
-            ctx.fail('open-ida.cli.offset', { message: '`--offset <offset>` must be a non-negative integer' });
-            return 2;
-        }
-        const commandsLimitText = text(options, 'commands-limit');
-        const commandsLimit = commandsLimitText === undefined ? undefined : parseNumber(commandsLimitText);
-        const stringsLimitText = text(options, 'strings-limit');
-        const stringsLimit = stringsLimitText === undefined ? undefined : parseNumber(stringsLimitText);
-        const extractLimitText = text(options, 'extract-limit');
-        const extractLimit = extractLimitText === undefined ? undefined : parseNumber(extractLimitText);
-        const extractDir = text(options, 'extract-dir');
-        const nsisOptions: NsisOptions = {
-            ...(offset === undefined ? {} : { offset }),
-            ...(commandsLimit === undefined ? {} : { commandsLimit }),
-            ...(stringsLimit === undefined ? {} : { stringsLimit }),
-            ...(extractDir === undefined ? {} : { extractDir }),
-            ...(extractLimit === undefined ? {} : { extractLimit }),
-        };
-        const ida = new OpenIDA({ path: file });
-        try {
-            const report = ida.nsis(nsisOptions);
-            ctx.emitResult(report, describeNsis(report));
-            return 0;
-        } finally {
-            ida.close();
-        }
-    });
-
-cli
-    .command('asar', 'cli.cmd.asar')
-    .option('--offset <offset>', 'cli.opt.asarOffset')
-    .option('--entries-limit <count>', 'cli.opt.asarEntriesLimit')
-    .option('--extract-dir <dir>', 'cli.opt.asarExtractDir')
-    .option('--extract-limit <bytes>', 'cli.opt.asarExtractLimit')
-    .actionCtx(async (options, _args, ctx) => {
-        const file = input(options);
-        if (file === undefined) {
-            ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+        const format = text(options, 'format') ?? 'auto';
+        if (!['auto', '7z', 'asar', 'nsis'].includes(format)) {
+            ctx.fail('open-ida.cli.format', { message: '`--format <format>` must be auto, 7z, asar or nsis' });
             return 2;
         }
         const offsetText = text(options, 'offset');
@@ -1771,19 +1754,28 @@ cli
         }
         const entriesLimitText = text(options, 'entries-limit');
         const entriesLimit = entriesLimitText === undefined ? undefined : parseNumber(entriesLimitText);
+        const commandsLimitText = text(options, 'commands-limit');
+        const commandsLimit = commandsLimitText === undefined ? undefined : parseNumber(commandsLimitText);
+        const stringsLimitText = text(options, 'strings-limit');
+        const stringsLimit = stringsLimitText === undefined ? undefined : parseNumber(stringsLimitText);
         const extractLimitText = text(options, 'extract-limit');
         const extractLimit = extractLimitText === undefined ? undefined : parseNumber(extractLimitText);
         const extractDir = text(options, 'extract-dir');
-        const asarOptions: AsarOptions = {
+        const unpackOptions: UnpackOptions = {
+            format: format as UnpackFormat,
             ...(offset === undefined ? {} : { offset }),
             ...(entriesLimit === undefined ? {} : { entriesLimit }),
+            ...(commandsLimit === undefined ? {} : { commandsLimit }),
+            ...(stringsLimit === undefined ? {} : { stringsLimit }),
             ...(extractDir === undefined ? {} : { extractDir }),
             ...(extractLimit === undefined ? {} : { extractLimit }),
         };
         const ida = new OpenIDA({ path: file });
         try {
-            const report = ida.asar(asarOptions);
-            ctx.emitResult(report, describeAsar(report));
+            const report = ida.unpack(unpackOptions);
+            const described =
+                report.format === '7z' ? describeSevenZ(report) : report.format === 'asar' ? describeAsar(report) : describeNsis(report);
+            ctx.emitResult(report, described);
             return 0;
         } finally {
             ida.close();

@@ -586,55 +586,46 @@ range that does not decode cleanly (`invalid`, `stalled` or `checksum`) exits
 `1` with `binary/parse` and writes nothing, so a wrong offset cannot leave a
 file full of garbage behind.
 
-### `nsis <file>`
+### `unpack <file>`
 
 ```bash
-open-ida nsis ./samples/installer.exe
-open-ida nsis ./samples/installer.exe --extract-dir ./payload
-open-ida nsis ./samples/installer.exe --offset 0x12000 --commands-limit 8192
+open-ida unpack ./samples/installer.exe --format nsis --extract-dir ./payload
+open-ida unpack ./samples/app.asar --entries-limit 200
+open-ida unpack ./samples/archive.7z --format 7z
 ```
 
-| Flag                       | Default    | Meaning                                                       |
-|----------------------------|------------|---------------------------------------------------------------|
-| `--offset <offset>`        | scan       | Absolute offset of the NSIS first header.                     |
-| `--commands-limit <count>` | `4096`     | Maximum rendered script commands; capped at 65536.            |
-| `--strings-limit <count>`  | `8192`     | Maximum rendered strings; capped at 65536.                    |
-| `--extract-dir <dir>`      | —          | Extract the `File` payload files into this directory.         |
-| `--extract-limit <bytes>`  | `256 MiB`  | Maximum bytes per extracted file; capped at 1 GiB.            |
+| Flag                       | Default   | Meaning                                                       |
+|----------------------------|-----------|---------------------------------------------------------------|
+| `--format <fmt>`           | `auto`    | `auto`, `7z`, `asar` or `nsis`; other values fail.            |
+| `--offset <offset>`        | sniff     | Absolute container start; `auto` scans the file for NSIS.     |
+| `--entries-limit <count>`  | `4096`    | Maximum listed entries; capped at 65536.                      |
+| `--commands-limit <count>` | `4096`    | Maximum rendered NSIS script commands; capped at 65536.       |
+| `--strings-limit <count>`  | `8192`    | Maximum rendered NSIS strings; capped at 65536.               |
+| `--extract-dir <dir>`      | —         | Extract container entries into this directory.                |
+| `--extract-limit <bytes>`  | `256 MiB` | Maximum bytes per extracted file; capped at 1 GiB.            |
 
-Decodes one NSIS 2/3 installer container: the 28-byte first header, the
-container framing (solid or non-solid, `none`/`deflate`/`lzma`/`bzip2`), the
-eight header blocks, the script command stream with every opcode named and its
-parameters rendered from the string table, the string table itself and the
-`File` extraction manifest. Nothing is executed: only bytes are decoded. A
-`--extract-dir` request writes each `File` chunk (raw DEFLATE decoded, stored
-bytes copied) under the directory, mirroring the installer output path. Input
-without an NSIS header exits `1` with `binary/parse`; solid archives and
-`lzma`/`bzip2` framing answer `binary/unsupported` for extraction because only
-the DEFLATE and stored paths are decoded.
+One semantic verb for every container format. `auto` sniffs the bytes at
+`--offset`: the `7z` signature header, the `asar` pickle magic followed by a
+JSON object, or the `NullsoftInst` first header (the whole file is scanned when
+no `--offset` is given); an explicit format skips the sniff.
 
-### `asar <file>`
+The `nsis` route decodes the 28-byte first header, the container framing (solid
+or non-solid, `none`/`deflate`/`lzma`/`bzip2`), the eight header blocks, the
+script command stream with every opcode named and its parameters rendered from
+the string table, the string table itself and the `File` extraction manifest;
+`--extract-dir` writes each `File` chunk under the directory, mirroring the
+installer output path. The `asar` route decodes the sixteen-byte header, the
+derived data-area offset and the full file tree with every entry's size,
+absolute packed offset and `unpacked` flag. The `7z` route indexes the
+signature header and the main header, reporting the container version, coder
+methods, packed folders with their coder chains and pack ranges, and the entry
+table; entries decode through the internalized pure-Rust LZMA1/LZMA2/BCJ
+codecs. Nothing is executed: only bytes are decoded, and extraction writes
+traversal-safe names only. Input without any supported signature exits `1`
+with `binary/parse`; `bzip2` NSIS framing answers `binary/unsupported`.
 
-```bash
-open-ida asar ./samples/app.asar
-open-ida asar ./samples/app.asar --extract-dir ./source
-open-ida asar ./samples/app.asar --offset 0x1000 --entries-limit 8192
-```
-
-| Flag                      | Default   | Meaning                                                    |
-|---------------------------|-----------|------------------------------------------------------------|
-| `--offset <offset>`       | `0`       | Absolute offset of the archive start.                      |
-| `--entries-limit <count>` | `4096`    | Maximum listed file entries; capped at 65536.              |
-| `--extract-dir <dir>`     | —         | Extract the packed entries into this directory.            |
-| `--extract-limit <bytes>` | `256 MiB` | Maximum bytes per extracted entry; capped at 1 GiB.        |
-
-Decodes one Electron `asar` archive statically: the sixteen-byte header (magic,
-block size, string-block size, JSON length), the derived data-area offset and
-the full file tree with every entry's size, absolute packed offset and
-`unpacked` flag. Entries marked `unpacked` are stored loose next to the archive
-and carry no packed bytes. A `--extract-dir` request writes each packed entry
-under the directory, mirroring its archive path; traversal-safe names only.
-Input whose first header word is not `4` exits `1` with `binary/parse`.
+`json` emits the same shape as the TypeScript `UnpackReport`, tagged by
+`format`.
 
 ### `diff <left> <right>`
 
