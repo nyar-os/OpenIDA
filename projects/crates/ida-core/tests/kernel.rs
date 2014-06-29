@@ -3779,12 +3779,6 @@ fn unpack_rejects_a_non_sevenz_input_on_the_explicit_route() {
     assert_eq!(error.code(), "binary/parse");
 }
 
-/// Writes a `marshal` int object.
-fn marshal_int(out: &mut Vec<u8>, value: i32) {
-    out.push(b'i');
-    out.extend_from_slice(&value.to_le_bytes());
-}
-
 /// Writes one raw little-endian word of a code object header field.
 fn marshal_word(out: &mut Vec<u8>, value: i32) {
     out.extend_from_slice(&value.to_le_bytes());
@@ -3821,11 +3815,11 @@ fn marshal_bytes(out: &mut Vec<u8>, bytes: &[u8]) {
     out.extend_from_slice(bytes);
 }
 
-/// Writes a `marshal` tuple of exactly `count` items.
-fn marshal_tuple(out: &mut Vec<u8>, count: usize, items: impl FnOnce(&mut Vec<u8>)) {
+/// Writes a `marshal` tuple of exactly `count` items from encoded `bytes`.
+fn marshal_tuple(out: &mut Vec<u8>, count: usize, bytes: &[u8]) {
     out.push(b'(');
     out.extend_from_slice(&(count as i32).to_le_bytes());
-    items(out);
+    out.extend_from_slice(bytes);
 }
 
 /// Writes the empty 3.11+ `localsplus` pair for the locals tables.
@@ -3835,35 +3829,37 @@ fn marshal_localsplus(out: &mut Vec<u8>) {
     marshal_bytes(out, &[]);
 }
 
-/// Writes one 3.11 code object with the fixed field order.
-fn marshal_code(
-    out: &mut Vec<u8>,
+/// Field values of one synthetic 3.11 code object.
+struct CodeSpec<'a> {
     stacksize: i32,
     flags: i32,
-    code: &[u8],
+    code: &'a [u8],
     consts_count: usize,
-    consts: impl FnOnce(&mut Vec<u8>),
+    consts: &'a [u8],
     names_count: usize,
-    names: impl FnOnce(&mut Vec<u8>),
-    filename: &str,
-    name: &str,
-    qualname: impl FnOnce(&mut Vec<u8>),
+    names: &'a [u8],
+    filename: &'a str,
+    name: &'a str,
+    qualname: &'a [u8],
     firstlineno: i32,
-) {
+}
+
+/// Writes one 3.11 code object with the fixed field order.
+fn marshal_code(out: &mut Vec<u8>, spec: &CodeSpec<'_>) {
     out.push(0xE3);
     marshal_word(out, 0);
     marshal_word(out, 0);
     marshal_word(out, 0);
-    marshal_word(out, stacksize);
-    marshal_word(out, flags);
-    marshal_bytes(out, code);
-    marshal_tuple(out, consts_count, consts);
-    marshal_tuple(out, names_count, names);
+    marshal_word(out, spec.stacksize);
+    marshal_word(out, spec.flags);
+    marshal_bytes(out, spec.code);
+    marshal_tuple(out, spec.consts_count, spec.consts);
+    marshal_tuple(out, spec.names_count, spec.names);
     marshal_localsplus(out);
-    marshal_string(out, filename);
-    marshal_string(out, name);
-    qualname(out);
-    marshal_word(out, firstlineno);
+    marshal_string(out, spec.filename);
+    marshal_string(out, spec.name);
+    out.extend_from_slice(spec.qualname);
+    marshal_word(out, spec.firstlineno);
     marshal_bytes(out, &[]);
     marshal_bytes(out, &[]);
 }
@@ -3871,37 +3867,49 @@ fn marshal_code(
 /// Builds a synthetic module holding one nested function, as `marshal` v4.
 fn pyc_fixture() -> Vec<u8> {
     let mut helper = Vec::new();
+    let mut helper_consts = Vec::new();
+    marshal_small_int(&mut helper_consts, 42);
+    let mut helper_qualname = Vec::new();
+    marshal_ref(&mut helper_qualname, 3);
     marshal_code(
         &mut helper,
-        1,
-        65,
-        &[0x97, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x64, 0x00, 0x53, 0x00],
-        1,
-        |o| marshal_small_int(o, 42),
-        0,
-        |_| {},
-        "fixture.py",
-        "helper",
-        |o| marshal_ref(o, 3),
-        2,
+        &CodeSpec {
+            stacksize: 1,
+            flags: 65,
+            code: &[0x97, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x64, 0x00, 0x53, 0x00],
+            consts_count: 1,
+            consts: &helper_consts,
+            names_count: 0,
+            names: &[],
+            filename: "fixture.py",
+            name: "helper",
+            qualname: &helper_qualname,
+            firstlineno: 2,
+        },
     );
     let mut module = Vec::new();
+    let mut module_consts = Vec::new();
+    marshal_none(&mut module_consts);
+    module_consts.extend_from_slice(&helper);
+    let mut module_names = Vec::new();
+    marshal_string(&mut module_names, "helper");
+    let mut module_qualname = Vec::new();
+    marshal_string(&mut module_qualname, "<module>");
     marshal_code(
         &mut module,
-        2,
-        64,
-        &[0x97, 0x00, 0x64, 0x01, 0x84, 0x00, 0x5A, 0x00, 0x64, 0x00, 0x53, 0x00],
-        2,
-        |o| {
-            marshal_none(o);
-            o.extend_from_slice(&helper);
+        &CodeSpec {
+            stacksize: 2,
+            flags: 64,
+            code: &[0x97, 0x00, 0x64, 0x01, 0x84, 0x00, 0x5A, 0x00, 0x64, 0x00, 0x53, 0x00],
+            consts_count: 2,
+            consts: &module_consts,
+            names_count: 1,
+            names: &module_names,
+            filename: "fixture.py",
+            name: "<module>",
+            qualname: &module_qualname,
+            firstlineno: 1,
         },
-        1,
-        |o| marshal_string(o, "helper"),
-        "fixture.py",
-        "<module>",
-        |o| marshal_string(o, "<module>"),
-        1,
     );
     let mut out = Vec::new();
     out.extend_from_slice(&module);
