@@ -84,6 +84,7 @@
             "unpackExtractLimit": "Maximum bytes per extracted file (default 256 MiB, capped at 1 GiB)",
             "disasmFormat": "Decoding path: auto, x86 or pyc (default auto)",
             "disasmCode": "Keep only code objects whose qualname or name contains this text (pyc only)",
+            "disasmPython": "Opcode table for a raw marshal stream: 311, 312 or 313 (pyc containers use their magic; pyc only)",
             "disasmCodeLimit": "Maximum decoded code objects (default 1024, capped at 16384; pyc only)",
             "disasmInstructionLimit": "Maximum emitted bytecode instructions (default 65536, capped at 1048576; pyc only)",
             "ignore-case": "Match ASCII letters case-insensitively",

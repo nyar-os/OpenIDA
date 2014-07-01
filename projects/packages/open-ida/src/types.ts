@@ -885,6 +885,8 @@ export interface DisassembleOptions {
     readonly format?: DisassemblyFormat;
     /** Keep only code objects whose `qualname` or `name` contains this text. Applies to `pyc` only. */
     readonly code?: string;
+    /** Opcode table for a raw marshal stream: `311`, `312` or `313`. A pyc container always selects the table named by its magic. Applies to `pyc` only. */
+    readonly python?: number;
     /** Cap on decoded code objects; defaults to 1024 and is capped at 16384. Applies to `pyc` only. */
     readonly codeLimit?: number;
     /** Cap on emitted instructions; defaults to 65536 and is capped at 1048576. Applies to `pyc` only. */
@@ -1259,6 +1261,8 @@ export interface PycReport {
     readonly pycMagic: number | null;
     readonly pycFlags: number | null;
     readonly python: string | null;
+    /** Opcode table the bytecode was decoded with, e.g. `3.12`. */
+    readonly opcodeTable: string;
     readonly codeCount: number;
     readonly instructionCount: number;
     readonly codes: readonly PycCodeObject[];
