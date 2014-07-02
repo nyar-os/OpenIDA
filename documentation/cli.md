@@ -494,6 +494,7 @@ open-ida disasm ./samples/app.exe --offset 0x1000 --count 20 --syntax intel
 open-ida disasm ./samples/app.pyc
 open-ida disasm ./samples/app.pyc --code main
 open-ida disasm ./samples/payload.bin --offset 0x60e45 --format pyc
+open-ida disasm ./samples/payload.bin --offset 0x60e45 --format pyc --python 313
 ```
 
 | Flag                           | Default | Meaning                                                          |
@@ -503,6 +504,7 @@ open-ida disasm ./samples/payload.bin --offset 0x60e45 --format pyc
 | `--syntax <syntax>`            | `intel` | `intel`, `masm` or `nasm` (x86 path only).                       |
 | `--format <format>`            | `auto`  | `auto` sniffs bytecode, else `x86` or `pyc`.                     |
 | `--code <qualname>`            | —       | Keep code objects whose `qualname` or `name` contains it (pyc).  |
+| `--python <version>`           | `312`   | Opcode table for a raw marshal stream: `311`, `312` or `313`.    |
 | `--code-limit <count>`         | `1024`  | Maximum decoded code objects; capped at 16384 (pyc).             |
 | `--instruction-limit <count>`  | `65536` | Maximum emitted bytecode instructions; capped at 1048576 (pyc).  |
 
@@ -517,10 +519,15 @@ The bytecode path decodes one CPython `marshal` stream statically and
 disassembles every code object it finds. `marshal` streams are read with or
 without the leading version byte `2` through `6` that `PyMarshal_Write`
 writes; the code-object field order decoded here is the one CPython 3.11
-through 3.13 share. The bytecode is walked as word-code pairs: the opcode byte
-names the instruction, the argument byte resolves against the names, constants
-and locals tables (jump targets are rendered as absolute `co_code` offsets),
-and inline cache slots — the only place the opcode byte `0` appears in
+through 3.13 share. The opcode table follows the interpreter: a `.pyc`
+container's magic names it authoritatively (3.11, 3.12 or 3.13; an unknown
+magic exits `1` with `binary/parse`), while a raw `marshal` stream without a
+magic decodes with the 3.12 table unless `--python` pins another. The bytecode
+is walked as word-code pairs: the opcode byte names the instruction through
+the selected table, the argument byte resolves against the names, constants
+and locals tables (jump targets are rendered as absolute `co_code` offsets,
+and 3.12 onward count the preceding instruction's inline cache slots into the
+target), and inline cache slots — the only place the opcode byte `0` appears in
 non-adaptive code — are counted against the preceding instruction. The framing
 inside the bytecode path picks `marshal` when the first byte is a code type
 byte or a version byte `2` through `6`, else it skips the sixteen-byte `.pyc`
