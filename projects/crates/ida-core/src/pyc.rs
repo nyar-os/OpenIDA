@@ -241,6 +241,40 @@ pub fn sniff(bytes: &[u8]) -> bool {
     false
 }
 
+/// Decodes one `marshal` stream whose root is a `PYZ` module dictionary:
+/// dotted names mapped to `(is_package, offset, length)` triples. Used by
+/// the PyInstaller reader; anything else is a parse error.
+pub(crate) fn marshal_module_toc(bytes: &[u8]) -> Result<Vec<(String, bool, u64, u64)>> {
+    let table = crate::pyc_opcodes::table_for(DEFAULT_PYTHON).expect("the default opcode table exists");
+    let mut parser = Parser::new(bytes, 1, 0, DEFAULT_PYTHON, table);
+    let root = parser.stream()?;
+    let Value::Dict(pairs) = root else {
+        return Err(IdaError::parse("the PYZ table of contents is not a marshal dictionary"));
+    };
+    let mut out = Vec::with_capacity(pairs.len());
+    for (key, value) in pairs {
+        let (Value::Str(name), Value::Tuple(fields)) = (key, value) else {
+            return Err(IdaError::parse("the PYZ table of contents holds a name that does not map to a triple"));
+        };
+        if fields.len() != 3 {
+            return Err(IdaError::parse(format!("the PYZ entry {name} does not have three fields")));
+        }
+        let number = |value: &Value| match value {
+            Value::Int(word) => u64::try_from(*word).ok(),
+            Value::Bool(flag) => Some(u64::from(*flag)),
+            _ => None,
+        };
+        let Some(offset) = number(&fields[1]) else {
+            return Err(IdaError::parse(format!("the PYZ entry {name} has a non-numeric offset")));
+        };
+        let Some(length) = number(&fields[2]) else {
+            return Err(IdaError::parse(format!("the PYZ entry {name} has a non-numeric length")));
+        };
+        out.push((name.clone(), number(&fields[0]).unwrap_or(0) != 0, offset, length));
+    }
+    Ok(out)
+}
+
 /// Decodes the `marshal` stream of one open session.
 pub fn analyze(session: &BinarySession, options: &PycOptions) -> Result<PycReport> {
     let start = options.offset.unwrap_or(0);
@@ -338,7 +372,7 @@ pub fn analyze(session: &BinarySession, options: &PycOptions) -> Result<PycRepor
 }
 
 /// Names the interpreter version from a `.pyc` magic number.
-fn magic_version(magic: u32) -> Option<u16> {
+pub(crate) fn magic_version(magic: u32) -> Option<u16> {
     Some(match magic & 0xffff {
         3413 => 308,
         3425 => 309,

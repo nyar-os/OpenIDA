@@ -39,6 +39,7 @@ mod pe_exception;
 mod pe_rich_header;
 mod pyc;
 mod pyc_opcodes;
+mod pyinstaller;
 mod relocations;
 mod resources;
 mod segments;
@@ -87,6 +88,7 @@ pub use pe_delay_imports::{PeDelayImportsReport, PeDelayModule, PeDelayThunk};
 pub use pe_exception::{PeExceptionReport, PeRuntimeFunction, PeUnwindInfo};
 pub use pe_rich_header::{PeRichEntry, PeRichHeaderReport};
 pub use pyc::{PycCodeObject, PycConst, PycFormat, PycInstruction, PycOptions, PycReport};
+pub use pyinstaller::{PyInstallerEntry, PyInstallerModule, PyInstallerOptions, PyInstallerReport};
 
 /// Whether a byte window looks like a `marshal` stream or a `.pyc` container.
 pub use pyc::sniff as sniff_pyc;
@@ -829,6 +831,7 @@ pub fn capabilities() -> serde_json::Value {
             "decompression": "supported",
             "unpack-archives": "supported",
             "sevenz-archives": "supported",
+            "pyinstaller-archives": "supported",
             "cpython-bytecode": "supported",
             "search": "supported",
             "find": "supported",
