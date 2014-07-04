@@ -599,12 +599,13 @@ file full of garbage behind.
 open-ida unpack ./samples/installer.exe --format nsis --extract-dir ./payload
 open-ida unpack ./samples/app.asar --entries-limit 200
 open-ida unpack ./samples/archive.7z --format 7z
+open-ida unpack ./samples/frozen.exe --format pyinstaller --extract-dir ./payload
 ```
 
 | Flag                       | Default   | Meaning                                                       |
 |----------------------------|-----------|---------------------------------------------------------------|
-| `--format <fmt>`           | `auto`    | `auto`, `7z`, `asar` or `nsis`; other values fail.            |
-| `--offset <offset>`        | sniff     | Absolute container start; `auto` scans the file for NSIS.     |
+| `--format <fmt>`           | `auto`    | `auto`, `7z`, `asar`, `nsis`, `pyinstaller` or `pyz`; other values fail. |
+| `--offset <offset>`        | sniff     | Absolute container start; `auto` scans the file for the signatures. |
 | `--entries-limit <count>`  | `4096`    | Maximum listed entries; capped at 65536.                      |
 | `--commands-limit <count>` | `4096`    | Maximum rendered NSIS script commands; capped at 65536.       |
 | `--strings-limit <count>`  | `8192`    | Maximum rendered NSIS strings; capped at 65536.               |
@@ -613,8 +614,9 @@ open-ida unpack ./samples/archive.7z --format 7z
 
 One semantic verb for every container format. `auto` sniffs the bytes at
 `--offset`: the `7z` signature header, the `asar` pickle magic followed by a
-JSON object, or the `NullsoftInst` first header (the whole file is scanned when
-no `--offset` is given); an explicit format skips the sniff.
+JSON object, the `NullsoftInst` first header, the `PYZ\0` archive magic or the
+PyInstaller `MEI` cookie in the last kilobyte (the whole file is scanned when no
+`--offset` is given); an explicit format skips the sniff.
 
 The `nsis` route decodes the 28-byte first header, the container framing (solid
 or non-solid, `none`/`deflate`/`lzma`/`bzip2`), the eight header blocks, the
@@ -627,8 +629,16 @@ absolute packed offset and `unpacked` flag. The `7z` route indexes the
 signature header and the main header, reporting the container version, coder
 methods, packed folders with their coder chains and pack ranges, and the entry
 table; entries decode through the internalized pure-Rust LZMA1/LZMA2/BCJ
-codecs. Nothing is executed: only bytes are decoded, and extraction writes
-traversal-safe names only. Input without any supported signature exits `1`
+codecs. The `pyinstaller` route locates the `MEI` cookie in the last kilobyte,
+decodes the `CArchive` table of contents (name, type code, kind, package-relative
+offset, declared and stored length, zlib flag per entry) and parses the embedded
+`PYZ` archive with the engine's own `marshal` decoder, listing every module's
+dotted name and package flag; `--extract-dir` writes each payload decoded and
+each `PYZ` module as a bare `marshal` stream under the archive's directory,
+which `disasm --format pyc` decodes with the `python` pin. The `pyz` route
+decodes a standalone `PYZ` archive directly and names the interpreter from its
+four-byte magic. Nothing is executed: only bytes are decoded, and extraction
+writes traversal-safe names only. Input without any supported signature exits `1`
 with `binary/parse`; `bzip2` NSIS framing answers `binary/unsupported`.
 
 `json` emits the same shape as the TypeScript `UnpackReport`, tagged by
