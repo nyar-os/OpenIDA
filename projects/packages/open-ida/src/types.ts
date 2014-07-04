@@ -1059,7 +1059,7 @@ export interface InflateReport {
 }
 
 /** Container format selector of one `unpack()` call. */
-export type UnpackFormat = 'auto' | '7z' | 'asar' | 'nsis';
+export type UnpackFormat = 'auto' | '7z' | 'asar' | 'nsis' | 'pyinstaller' | 'pyz';
 
 /** Inputs of one `unpack()` call. */
 export interface UnpackOptions {
@@ -1205,11 +1205,55 @@ export interface SevenZReport {
     readonly truncated: boolean;
 }
 
+/** One `CArchive` table-of-contents entry. */
+export interface PyInstallerEntry {
+    readonly index: number;
+    readonly name: string;
+    readonly typecode: string;
+    readonly kind: string;
+    readonly offset: number;
+    readonly length: number;
+    readonly compressLength: number;
+    readonly compressed: boolean;
+    readonly moduleCount: number | null;
+    readonly modules: PyInstallerModule[];
+    readonly extracted: string | null;
+    readonly truncated: boolean;
+}
+
+/** One module listed in a `PYZ` table of contents. */
+export interface PyInstallerModule {
+    readonly name: string;
+    readonly isPackage: boolean;
+    readonly offset: number;
+    readonly length: number;
+    readonly extracted: string | null;
+}
+
+/** Full decode of one PyInstaller `CArchive` or standalone `PYZ` container. */
+export interface PyInstallerReport {
+    readonly archiveKind: string;
+    readonly startOffset: number;
+    readonly cookieOffset: number | null;
+    readonly packageLength: number | null;
+    readonly tocOffset: number | null;
+    readonly tocLength: number | null;
+    readonly versionWord: number | null;
+    readonly version: string | null;
+    readonly pythonMagic: number | null;
+    readonly python: string | null;
+    readonly entryCount: number;
+    readonly entries: PyInstallerEntry[];
+    readonly modules: PyInstallerModule[];
+    readonly truncated: boolean;
+}
+
 /** The decoded container, discriminated by the format that produced it. */
 export type UnpackReport =
     | ({ readonly format: '7z' } & SevenZReport)
     | ({ readonly format: 'asar' } & AsarReport)
-    | ({ readonly format: 'nsis' } & NsisReport);
+    | ({ readonly format: 'nsis' } & NsisReport)
+    | ({ readonly format: 'pyinstaller' } & PyInstallerReport);
 
 /** One decoded constant of a code object. */
 export interface PycConst {

@@ -320,7 +320,7 @@ export class OpenIDA {
         return decode<InflateReport>(() => binding('binary.inflate').binary_inflate(this.id, JSON.stringify(options)));
     }
 
-    /** Decodes one `7z`, `asar` or `NSIS` container, optionally extracting its entries. */
+    /** Decodes one `7z`, `asar`, `NSIS` or PyInstaller container, optionally extracting its entries. */
     unpack(options: UnpackOptions = {}): UnpackReport {
         return decode<UnpackReport>(() => binding('binary.unpack').binary_unpack(this.id, JSON.stringify(options)));
     }
