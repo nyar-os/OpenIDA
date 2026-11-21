@@ -12,4 +12,5 @@ description = "Minimal binary inspection kernel for OpenIDA"
 serde = { workspace = true }
 serde_json = { workspace = true }
 data-binary-pe = { workspace = true }
+data-binary-mach-o = { workspace = true }
 data-checksum = { workspace = true }
