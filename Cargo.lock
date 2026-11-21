@@ -40,12 +40,12 @@ checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 [[package]]
 name = "data-binary-mach-o"
 version = "0.1.0"
-source = "git+https://github.com/oovm/boost.rs?rev=3a3fe251c22514569edb2854433329a7ae7095db#3a3fe251c22514569edb2854433329a7ae7095db"
+source = "git+https://github.com/oovm/boost.rs?rev=2c1ac27c2650e41ff8907102ec14c3509522a806#2c1ac27c2650e41ff8907102ec14c3509522a806"
 
 [[package]]
 name = "data-binary-pe"
 version = "0.1.0"
-source = "git+https://github.com/oovm/boost.rs?rev=3a3fe251c22514569edb2854433329a7ae7095db#3a3fe251c22514569edb2854433329a7ae7095db"
+source = "git+https://github.com/oovm/boost.rs?rev=2c1ac27c2650e41ff8907102ec14c3509522a806#2c1ac27c2650e41ff8907102ec14c3509522a806"
 dependencies = [
  "serde",
 ]
@@ -53,7 +53,7 @@ dependencies = [
 [[package]]
 name = "data-checksum"
 version = "0.1.0"
-source = "git+https://github.com/oovm/boost.rs?rev=3a3fe251c22514569edb2854433329a7ae7095db#3a3fe251c22514569edb2854433329a7ae7095db"
+source = "git+https://github.com/oovm/boost.rs?rev=2c1ac27c2650e41ff8907102ec14c3509522a806#2c1ac27c2650e41ff8907102ec14c3509522a806"
 
 [[package]]
 name = "dispatch2"
