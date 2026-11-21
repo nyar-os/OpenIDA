@@ -157,7 +157,7 @@
                 <li><b>Validate.</b> The offset and length are checked against the file size first.</li>
                 <li><b>Stage.</b> Patched bytes go to a sibling temporary file with the same directory.</li>
                 <li><b>Rename.</b> The temporary file replaces the target, so a partial write is never visible.</li>
-                <li><b>Report.</b> The result carries the target path, offset, length and the whole-file FNV-1a hash before and after.</li>
+                <li><b>Report.</b> The result carries the target path, offset, length and the whole-file XXH64 hash before and after.</li>
                 <li><b>Keep the source.</b> Pass an output path and the opened file is left untouched.</li>
             </ol>
         </section>

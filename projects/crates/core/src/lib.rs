@@ -53,7 +53,7 @@ pub struct BinaryInfo {
     pub format: String,
     /// Detected architecture: `x86`, `x64`, `arm64` or `unknown`.
     pub architecture: String,
-    /// FNV-1a 64-bit hash of the whole file, as 16 hex digits.
+    /// XXH64 hash of the whole file, as 16 hex digits.
     pub hash: String,
     /// Container header flavour, such as `PE32+`, `ELF64` or `Mach-O 64`.
     pub magic: Option<String>,
@@ -85,9 +85,9 @@ pub struct PatchReport {
     pub offset: u64,
     /// Number of bytes written.
     pub length: u64,
-    /// FNV-1a hash of the file before patching.
+    /// XXH64 hash of the file before patching.
     pub before_hash: String,
-    /// FNV-1a hash of the file after patching.
+    /// XXH64 hash of the file after patching.
     pub after_hash: String,
 }
 
@@ -147,7 +147,7 @@ impl BinaryView {
             size: self.size(),
             format: self.format.as_str().to_string(),
             architecture: self.architecture().as_str().to_string(),
-            hash: fnv_hex(&self.bytes),
+            hash: content_hash(&self.bytes),
             magic: None,
             endian: None,
             entry: None,
@@ -283,10 +283,10 @@ impl BinaryView {
             )));
         }
 
-        let before_hash = fnv_hex(&self.bytes);
+        let before_hash = content_hash(&self.bytes);
         let mut updated = self.bytes.clone();
         updated[offset as usize..end as usize].copy_from_slice(data);
-        let after_hash = fnv_hex(&updated);
+        let after_hash = content_hash(&updated);
         let target = output.map_or_else(|| self.path.clone(), Path::to_path_buf);
         atomic_write(&target, &updated)?;
         if output.is_none() {
@@ -311,6 +311,10 @@ impl BinaryView {
 pub fn capabilities() -> serde_json::Value {
     json!({
         "engine": { "package": "open-ida-core", "version": env!("CARGO_PKG_VERSION") },
+        "upstream": {
+            "binary": "boost.rs/data-binary-pe",
+            "digest": "boost.rs/data-checksum",
+        },
         "formats": {
             "pe": "supported",
             "elf": "supported",
@@ -373,14 +377,11 @@ fn push_hit(hits: &mut Vec<StringHit>, offset: usize, bytes: &[u8]) {
     });
 }
 
-/// FNV-1a 64-bit hash, rendered as 16 hex digits.
-fn fnv_hex(bytes: &[u8]) -> String {
-    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
-    for byte in bytes {
-        hash ^= *byte as u64;
-        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
-    }
-    format!("{hash:016x}")
+/// XXH64 hash from the shared `data-checksum` crate, rendered as 16 hex digits.
+fn content_hash(bytes: &[u8]) -> String {
+    let mut hash = data_checksum::XxHash64::new();
+    hash.write(bytes);
+    format!("{:016x}", hash.finish())
 }
 
 /// Writes bytes to a sibling temporary file and renames it into place.

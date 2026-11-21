@@ -38,6 +38,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 
 [[package]]
+name = "data-binary-pe"
+version = "0.1.0"
+source = "git+https://github.com/oovm/boost.rs?rev=724adc8c76c8f38ef99b616aab91c23c0469a158#724adc8c76c8f38ef99b616aab91c23c0469a158"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "data-checksum"
+version = "0.1.0"
+source = "git+https://github.com/oovm/boost.rs?rev=724adc8c76c8f38ef99b616aab91c23c0469a158#724adc8c76c8f38ef99b616aab91c23c0469a158"
+
+[[package]]
 name = "dispatch2"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -268,6 +281,8 @@ dependencies = [
 name = "open-ida-core"
 version = "0.0.0"
 dependencies = [
+ "data-binary-pe",
+ "data-checksum",
  "serde",
  "serde_json",
 ]
