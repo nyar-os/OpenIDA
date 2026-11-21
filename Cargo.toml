@@ -1,0 +1,24 @@
+[workspace]
+resolver = "2"
+members = ["projects/crates/*"]
+default-members = ["projects/crates/core", "projects/crates/napi"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.90"
+license = "Apache-2.0"
+authors = ["OpenIDA Authors"]
+repository = "https://github.com/nyar-os/OpenIDA"
+
+[workspace.dependencies]
+# Shared host facade for the Node-API and WebView surfaces. Cross-repo git
+# dependencies pin the full 40-character revision so local builds and CI resolve
+# the same commit.
+wae = { git = "https://github.com/doki-land/wae-framework.git", rev = "f92f818fde7174154d77a87b55a5e44b367034c9", default-features = false, features = ["webview"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+lto = true
+panic = "abort"

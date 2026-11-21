@@ -1,0 +1,346 @@
+<template>
+    <SiteShell page="features">
+        <div class="page-head">
+            <span class="eyebrow">Features</span>
+            <h1>What the engine can prove</h1>
+            <p class="lead">
+                OpenIDA reports only what it decodes. Every item below is backed by an
+                operation the command line can run today. Anything else is named as
+                missing, not implied by a menu entry.
+            </p>
+        </div>
+
+        <section class="section">
+            <div class="section-head">
+                <div>
+                    <span class="eyebrow">Containers</span>
+                    <h2>Header decoding</h2>
+                </div>
+                <p>Detection is by magic bytes, never by file extension.</p>
+            </div>
+            <div class="cols-3">
+                <article class="feature-card">
+                    <header>
+                        <h3>Portable Executable</h3>
+                        <span class="chip chip--accent">supported</span>
+                    </header>
+                    <ul>
+                        <li>DOS <code>MZ</code> stub and the <code>PE\0\0</code> signature.</li>
+                        <li>PE32 and PE32+ optional headers.</li>
+                        <li>COFF machine mapped to x86, x64 or arm64.</li>
+                        <li>Image base, entry RVA and section count.</li>
+                    </ul>
+                </article>
+                <article class="feature-card">
+                    <header>
+                        <h3>ELF</h3>
+                        <span class="chip chip--accent">supported</span>
+                    </header>
+                    <ul>
+                        <li>ELF32 and ELF64 little-endian files.</li>
+                        <li>Machine, entry point and section count.</li>
+                        <li>Section names resolved through the name table.</li>
+                        <li>Big-endian files are rejected, not guessed.</li>
+                    </ul>
+                </article>
+                <article class="feature-card feature-card--quiet">
+                    <header>
+                        <h3>Mach-O</h3>
+                        <span class="chip chip--warn">header only</span>
+                    </header>
+                    <ul>
+                        <li>32- and 64-bit magic, both byte orders.</li>
+                        <li>CPU type mapped to x86, x64 or arm64.</li>
+                        <li>File type and load-command count.</li>
+                        <li>Sections and load commands are not decoded.</li>
+                    </ul>
+                </article>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-head">
+                <div>
+                    <span class="eyebrow">Layout</span>
+                    <h2>Section maps and address translation</h2>
+                </div>
+                <p>Addresses stay checkable: each result is a number, not an interpretation.</p>
+            </div>
+            <div class="table-wrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Field</th>
+                            <th scope="col">Meaning</th>
+                            <th scope="col">Where it comes from</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="mono">name</td>
+                            <td>Section name, trimmed at the first NUL.</td>
+                            <td>PE section table or ELF name table</td>
+                        </tr>
+                        <tr>
+                            <td class="mono">virtualAddress</td>
+                            <td>RVA for PE, virtual address for ELF.</td>
+                            <td>Section header</td>
+                        </tr>
+                        <tr>
+                            <td class="mono">virtualSize</td>
+                            <td>Resident size in memory.</td>
+                            <td>Section header</td>
+                        </tr>
+                        <tr>
+                            <td class="mono">rawPointer</td>
+                            <td>File offset of the section data.</td>
+                            <td>Section header</td>
+                        </tr>
+                        <tr>
+                            <td class="mono">rawSize</td>
+                            <td>Number of bytes stored on disk.</td>
+                            <td>Section header</td>
+                        </tr>
+                        <tr>
+                            <td class="mono">readable / writable / executable</td>
+                            <td>Access flags decoded from the flag word.</td>
+                            <td>PE characteristics or ELF <code>sh_flags</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="section-note">
+                <code>open-ida rva</code> maps a PE RVA or an ELF virtual address onto a
+                file offset. A value in zero-filled memory or outside every section is
+                rejected with <code>binary/range</code>.
+            </p>
+        </section>
+
+        <section class="section">
+            <div class="section-head">
+                <div>
+                    <span class="eyebrow">Reading</span>
+                    <h2>Strings, hex and raw bytes</h2>
+                </div>
+                <p>Three views of the same bytes, each with an explicit bound.</p>
+            </div>
+            <div class="cols-2">
+                <article class="feature-card">
+                    <h3>Printable runs</h3>
+                    <p>
+                        Strings are printable ASCII runs of at least the requested
+                        length, reported with their file offset and byte length. The
+                        default minimum is four and the default limit is one hundred.
+                    </p>
+                </article>
+                <article class="feature-card">
+                    <h3>Canonical dump</h3>
+                    <p>
+                        The hex dump uses the familiar
+                        <code>offset  bytes  |ascii|</code> layout, sixteen bytes per
+                        row, with a space after the eighth byte and printable ASCII
+                        shown on the right.
+                    </p>
+                </article>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-head">
+                <div>
+                    <span class="eyebrow">Writing</span>
+                    <h2>A patch you can audit</h2>
+                </div>
+                <p>Nothing is written until the whole range fits the file.</p>
+            </div>
+            <ol class="detail-list">
+                <li><b>Validate.</b> The offset and length are checked against the file size first.</li>
+                <li><b>Stage.</b> Patched bytes go to a sibling temporary file with the same directory.</li>
+                <li><b>Rename.</b> The temporary file replaces the target, so a partial write is never visible.</li>
+                <li><b>Report.</b> The result carries the target path, offset, length and the whole-file FNV-1a hash before and after.</li>
+                <li><b>Keep the source.</b> Pass an output path and the opened file is left untouched.</li>
+            </ol>
+        </section>
+
+        <section class="section">
+            <div class="section-head">
+                <div>
+                    <span class="eyebrow">Surfaces</span>
+                    <h2>One engine, three callers</h2>
+                </div>
+                <p>The CLI, the studio and the agent skill consume the same reports.</p>
+            </div>
+            <div class="cols-3">
+                <article class="feature-card">
+                    <h3>Command line</h3>
+                    <p><code>info</code>, <code>sections</code>, <code>strings</code>, <code>hexdump</code>, <code>rva</code>, <code>patch</code> and <code>capabilities</code>, each mapping to one operation.</p>
+                </article>
+                <article class="feature-card">
+                    <h3>Studio</h3>
+                    <p>The window reads the same handles over its bridge. Without a host it shows a disconnected state and no sample data.</p>
+                </article>
+                <article class="feature-card">
+                    <h3>Agent skill</h3>
+                    <p>The skill document repeats the implemented routes and the hard rules: no invented sections, no unverified patches.</p>
+                </article>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-head">
+                <div>
+                    <span class="eyebrow">Contract</span>
+                    <h2>Errors that can be compared</h2>
+                </div>
+                <p>Every failure carries a stable code, so callers never parse prose.</p>
+            </div>
+            <div class="table-wrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Code</th>
+                            <th scope="col">Meaning</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td class="mono">binary/parse</td><td>The container is recognised but its header or table is malformed.</td></tr>
+                        <tr><td class="mono">binary/range</td><td>An offset, length, RVA or patch target is outside the file.</td></tr>
+                        <tr><td class="mono">binary/unsupported</td><td>The operation is not implemented for this container.</td></tr>
+                        <tr><td class="mono">binary/io</td><td>The file could not be read or written.</td></tr>
+                        <tr><td class="mono">handle/invalid</td><td>No live binary has that handle.</td></tr>
+                        <tr><td class="mono">capability/not-implemented</td><td>No engine is connected, or the requested feature is not wired.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-head">
+                <div>
+                    <span class="eyebrow">Honesty</span>
+                    <h2>Not in this build</h2>
+                </div>
+                <p>These are absent by design, not hidden behind a disabled button with fake output.</p>
+            </div>
+            <ul class="missing-list">
+                <li>Disassembly, instruction decoding and an assembly view.</li>
+                <li>Decompilation, pseudo-code and control-flow graphs.</li>
+                <li>A debugger, breakpoints or process attachment.</li>
+                <li>Import, export, symbol and relocation tables.</li>
+                <li>Mach-O sections, segments and load-command bodies.</li>
+                <li>Big-endian ELF and any byte order not reported by the header.</li>
+            </ul>
+        </section>
+
+        <section class="cta-band">
+            <div>
+                <h2>Check the boundary yourself</h2>
+                <p><code>open-ida capabilities</code> is the source of truth for what this build implements.</p>
+            </div>
+            <div class="cta-band__actions">
+                <Link to="RoadmapPage" class="btn btn--primary">
+                    Roadmap
+                </Link>
+                <a class="btn btn--ghost" href="https://github.com/nyar-os/OpenIDA" rel="noopener">
+                    Source
+                </a>
+            </div>
+        </section>
+    </SiteShell>
+</template>
+
+<style>
+.feature-card {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    padding: 20px;
+    border: 1px solid var(--ida-line);
+    border-radius: var(--ida-radius);
+    background: var(--ida-surface);
+}
+
+.feature-card--quiet {
+    background: var(--ida-surface-2);
+}
+
+.feature-card header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.feature-card h3 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.feature-card p {
+    margin: 0;
+    color: var(--ida-muted);
+    font-size: 14px;
+}
+
+.feature-card ul {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--ida-muted);
+    font-size: 14px;
+}
+
+.feature-card li {
+    margin: 5px 0;
+}
+
+.section-note {
+    margin: 12px 0 0;
+    color: var(--ida-muted);
+    font-size: 13px;
+}
+
+.detail-list {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding-left: 20px;
+    color: var(--ida-muted);
+    font-size: 14px;
+}
+
+.detail-list b {
+    color: var(--ida-ink);
+}
+
+.missing-list {
+    columns: 2;
+    column-gap: 32px;
+    margin: 0;
+    padding-left: 20px;
+    color: var(--ida-muted);
+    font-size: 14px;
+}
+
+.missing-list li {
+    margin: 0 0 8px;
+    break-inside: avoid;
+}
+
+@media (max-width: 720px) {
+    .missing-list {
+        columns: 1;
+    }
+}
+</style>
+
+<script client>
+export default class FeaturesPage {
+    static meta() {
+        return {
+            title: "OpenIDA features — headers, sections, strings, hex and patches",
+            description:
+                "Implemented OpenIDA features: PE and ELF headers, section maps, RVA translation, strings, hex dumps and atomic patches. Mach-O is header-only.",
+        };
+    }
+}
+</script>

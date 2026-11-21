@@ -1,0 +1,253 @@
+<template>
+    <header class="site-header">
+        <a class="skip-link" href="#main">Skip to content</a>
+        <div class="site-header__inner">
+            <Link to="IndexPage" class="brand">
+                <span class="brand__mark">ID</span>
+                <span class="brand__name">OpenIDA</span>
+            </Link>
+
+            <button type="button" class="menu-toggle" :aria-expanded="open ? 'true' : 'false'" aria-controls="site-nav" aria-label="Toggle navigation" @click="toggleMenu">
+                <span class="menu-toggle__bar"></span>
+                <span class="menu-toggle__bar"></span>
+            </button>
+
+            <nav id="site-nav" class="nav" aria-label="Primary" :data-open="open ? 'true' : 'false'">
+                <Link to="IndexPage" data-nav="home" :data-active="activeId === 'home' ? 'true' : 'false'">
+                    Home
+                </Link>
+                <Link to="FeaturesPage" data-nav="features" :data-active="activeId === 'features' ? 'true' : 'false'">
+                    Features
+                </Link>
+                <Link to="RoadmapPage" data-nav="roadmap" :data-active="activeId === 'roadmap' ? 'true' : 'false'">
+                    Roadmap
+                </Link>
+                <a class="nav-source nav-source--mobile" href="https://github.com/nyar-os/OpenIDA" rel="noopener">Source</a>
+            </nav>
+
+            <span class="dev-chip">In development</span>
+            <a class="nav-source" href="https://github.com/nyar-os/OpenIDA" rel="noopener">Source</a>
+        </div>
+    </header>
+</template>
+
+<style>
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 16px;
+    z-index: 20;
+    padding: 8px 14px;
+    border: 1px solid var(--ida-line);
+    border-radius: var(--ida-radius);
+    background: var(--ida-surface);
+    color: var(--ida-ink);
+    font-size: 14px;
+}
+
+.skip-link:focus-visible {
+    top: 10px;
+}
+
+.site-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-bottom: 1px solid var(--ida-line);
+    background: rgba(242, 246, 246, 0.94);
+    backdrop-filter: blur(8px);
+}
+
+.site-header__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    max-width: var(--ida-maxw);
+    margin: 0 auto;
+    padding: 13px 24px;
+}
+
+.brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    flex: none;
+    color: var(--ida-ink);
+}
+
+.brand:hover {
+    text-decoration: none;
+}
+
+.brand__mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--ida-accent);
+    color: #f4fbfa;
+    font-family: var(--ida-mono);
+    font-weight: 700;
+    font-size: 12px;
+}
+
+.brand__name {
+    font-weight: 650;
+    font-size: 18px;
+}
+
+.nav {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    flex: 1;
+    margin-left: 8px;
+}
+
+.nav a {
+    color: var(--ida-muted);
+    font-size: 15px;
+}
+
+.nav a:hover {
+    color: var(--ida-ink);
+    text-decoration: none;
+}
+
+.nav a[data-active="true"] {
+    color: var(--ida-accent);
+}
+
+.dev-chip {
+    flex: none;
+    padding: 3px 10px;
+    border: 1px solid var(--ida-line);
+    border-radius: 999px;
+    background: var(--ida-surface-2);
+    color: var(--ida-muted);
+    font-size: 11px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.nav-source {
+    flex: none;
+    padding: 5px 14px;
+    border: 1px solid var(--ida-line);
+    border-radius: 999px;
+    color: var(--ida-ink);
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.nav-source:hover {
+    border-color: var(--ida-accent);
+    text-decoration: none;
+}
+
+.nav-source--mobile {
+    display: none;
+}
+
+.menu-toggle {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 36px;
+    height: 32px;
+    padding: 0 8px;
+    border: 1px solid var(--ida-line);
+    border-radius: 8px;
+    background: var(--ida-surface);
+    cursor: pointer;
+}
+
+.menu-toggle__bar {
+    display: block;
+    height: 1.5px;
+    background: var(--ida-ink);
+}
+
+@media (max-width: 760px) {
+    .site-header__inner {
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 11px 18px;
+    }
+
+    .menu-toggle {
+        display: flex;
+        margin-left: auto;
+    }
+
+    .dev-chip {
+        order: 3;
+    }
+
+    .nav-source {
+        display: none;
+    }
+
+    .nav {
+        display: none;
+        order: 4;
+        flex: 1 0 100%;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+        margin: 4px 0 0;
+        padding: 6px 0;
+        border-top: 1px solid var(--ida-line);
+    }
+
+    .nav[data-open="true"] {
+        display: flex;
+    }
+
+    .nav a {
+        padding: 9px 4px;
+        border-bottom: 1px solid var(--ida-line);
+        font-size: 16px;
+    }
+
+    .nav a:last-child {
+        border-bottom: 0;
+    }
+
+    .nav-source--mobile {
+        display: inline-flex;
+    }
+}
+</style>
+
+<script client>
+const NAV_BY_PATH = {
+    "/": "home",
+    "/features": "features",
+    "/roadmap": "roadmap",
+};
+
+export default class SiteHeader {
+    activeId = "";
+    open = false;
+
+    onMount() {
+        this.resolveActive();
+    }
+
+    toggleMenu() {
+        this.open = !this.open;
+    }
+
+    resolveActive() {
+        if (typeof window === "undefined" || !window.location) return;
+        const path = (window.location.pathname || "/").replace(/\/+$/, "") || "/";
+        this.activeId = NAV_BY_PATH[path] ?? "";
+    }
+}
+</script>

@@ -1,0 +1,10 @@
+{
+    schemaVersion: 1,
+    defaultLocale: 'en-us',
+    // The public site ships English only.
+    routing: { strategy: 'none' },
+    locales: [
+        { id: 'en-us', label: 'English', direction: 'ltr' },
+    ],
+    missing: 'warning',
+}

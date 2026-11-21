@@ -1,0 +1,28 @@
+{
+    "name": "@wae/open-ida-skills",
+    "version": "0.0.0",
+    "private": true,
+    "description": "Agent skills for OpenIDA: binary inspection, section maps, strings and patch verification",
+    "license": "Apache-2.0",
+    "type": "module",
+    "engines": {
+        "node": ">=18"
+    },
+    "files": [
+        "skills"
+    ],
+    "keywords": [
+        "open-ida",
+        "binary",
+        "pe",
+        "elf",
+        "macho",
+        "skills",
+        "agent"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/nyar-os/OpenIDA.git",
+        "directory": "projects/packages/open-ida-skills"
+    }
+}

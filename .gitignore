@@ -1,4 +1,23 @@
-.idea/
-*.iml
+# OS
+.DS_Store/
+thumbs.db
+time-travel.*
+
+# IDE
 .vscode/
 .vs/
+.idea/
+*.iml
+
+# Rust
+target/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+*.node
+pnpm-debug.log*
+
+# VMZ
+.cache/

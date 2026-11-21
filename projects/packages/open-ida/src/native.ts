@@ -1,0 +1,81 @@
+/**
+ * Native addon discovery.
+ *
+ * The addon only maps values: binary semantics stay in the built-in engine. An
+ * absent addon is a declarative state, so capability calls report
+ * `capability/not-implemented` instead of inventing an analysis result.
+ */
+
+import { createRequire } from 'node:module';
+
+const requireNative = createRequire(import.meta.url);
+
+/** Orthogonal exports of the built addon. Binary calls return JSON; close returns a boolean. */
+export interface NativeBinding {
+    version(): string;
+    capabilities(): string;
+    binary_open(path: string): string;
+    binary_info(handle: number): string;
+    binary_sections(handle: number): string;
+    binary_strings(handle: number, minLen: number, limit?: number): string;
+    binary_hexdump(handle: number, offset: number, length: number): string;
+    binary_read(handle: number, offset: number, length: number): string;
+    binary_patch(handle: number, offset: number, hexBytes: string, outputPath?: string): string;
+    binary_rva(handle: number, rva: number): string;
+    binary_close(handle: number): boolean;
+    openGui(options?: { title?: string; contentDir?: string; width?: number; height?: number }): string;
+    pumpEvents(): string;
+    closeGui(): string;
+    isGuiOpen(): boolean;
+}
+
+let cached: NativeBinding | null | undefined;
+
+/** Loads the addon once, or returns `undefined` when it is not installed. */
+export function nativeBinding(): NativeBinding | undefined {
+    if (cached === undefined) {
+        cached = load();
+    }
+    return cached ?? undefined;
+}
+
+function load(): NativeBinding | null {
+    for (const candidate of candidates()) {
+        try {
+            return requireNative(candidate) as NativeBinding;
+        } catch (error) {
+            if (candidate === explicitPath()) {
+                throw error;
+            }
+            if (!isModuleNotFound(error, candidate)) {
+                throw error;
+            }
+        }
+    }
+    return null;
+}
+
+function candidates(): string[] {
+    const explicit = explicitPath();
+    if (explicit) {
+        return [explicit];
+    }
+    return [`@wae/open-ida-${process.platform}-${process.arch}`];
+}
+
+function explicitPath(): string | undefined {
+    const value = process.env.OPEN_IDA_NATIVE;
+    return value !== undefined && value.length > 0 ? value : undefined;
+}
+
+function isModuleNotFound(error: unknown, candidate: string): boolean {
+    if (typeof error !== 'object' || error === null) {
+        return false;
+    }
+    const code = (error as { code?: unknown }).code;
+    // Node prints the resolved path, which uses the platform separator on
+    // Windows. Normalize it so a linked platform package without a built
+    // addon is still treated as "not installed" instead of a fatal error.
+    const message = (error as Error).message.replace(/\\/g, '/');
+    return code === 'MODULE_NOT_FOUND' && message.includes(candidate);
+}

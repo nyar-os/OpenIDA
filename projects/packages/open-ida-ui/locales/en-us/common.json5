@@ -1,0 +1,6 @@
+{
+    "app": {
+        "title": "OpenIDA Studio",
+        "disconnected": "Native host not connected"
+    }
+}

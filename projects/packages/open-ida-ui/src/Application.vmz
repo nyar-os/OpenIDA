@@ -1,0 +1,79 @@
+<template>
+    <div class="oida-app">
+        <slot />
+    </div>
+</template>
+
+<style>
+:root {
+    --oida-bg: #0e1116;
+    --oida-panel: #151a22;
+    --oida-panel-2: #1b222c;
+    --oida-panel-3: #212a36;
+    --oida-ink: #e6edf3;
+    --oida-muted: #8b98a5;
+    --oida-line: #28313d;
+    --oida-accent: #4cc9c0;
+    --oida-accent-soft: #12312f;
+    --oida-warn: #e0b341;
+    --oida-danger: #e06c75;
+    --oida-radius: 8px;
+    --oida-radius-sm: 5px;
+    --oida-mono: "Cascadia Code", "Consolas", monospace;
+    --oida-sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+    --oida-shadow: 0 18px 40px rgba(0, 0, 0, 0.42);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+}
+
+body {
+    background: var(--oida-bg);
+    color: var(--oida-ink);
+    font-family: var(--oida-sans);
+    font-size: 12px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+}
+
+h1,
+h2,
+h3 {
+    margin: 0;
+    font-weight: 600;
+}
+
+button {
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+}
+
+input,
+textarea,
+select {
+    font: inherit;
+    color: inherit;
+}
+
+.oida-app {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+</style>
+
+<script client>
+export default class Application {}
+</script>

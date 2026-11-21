@@ -1,0 +1,6 @@
+{
+    "site": {
+        "title": "OpenIDA",
+        "tagline": "Binary inspection without a toolchain"
+    }
+}

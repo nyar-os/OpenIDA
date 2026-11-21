@@ -1,0 +1,228 @@
+<template>
+    <SiteShell page="roadmap">
+        <div class="page-head">
+            <span class="eyebrow">Roadmap</span>
+            <h1>Phases, not promises</h1>
+            <p class="lead">
+                The scope grows only when a phase ships with tests. There are no dates
+                here, no version numbers and no claim that an unimplemented phase is
+                around the corner.
+            </p>
+        </div>
+
+        <section class="section">
+            <div class="phase phase--done">
+                <header class="phase__head">
+                    <span class="phase__index">01</span>
+                    <div>
+                        <h2>Minimal inspection kernel</h2>
+                        <p class="phase__sub">Shipped in this build</p>
+                    </div>
+                    <span class="chip chip--accent">available</span>
+                </header>
+                <div class="cols-2">
+                    <ul>
+                        <li>Container detection for PE, ELF, Mach-O and unknown bytes.</li>
+                        <li>PE32/PE32+ headers, image base, entry RVA and sections.</li>
+                        <li>ELF32/ELF64 little-endian headers and named sections.</li>
+                        <li>Mach-O header basics.</li>
+                    </ul>
+                    <ul>
+                        <li>Printable string extraction with offsets.</li>
+                        <li>Canonical hex dumps and bounded byte reads.</li>
+                        <li>RVA and virtual-address to file-offset mapping.</li>
+                        <li>Atomic patching with before/after hashes.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="phase">
+                <header class="phase__head">
+                    <span class="phase__index">02</span>
+                    <div>
+                        <h2>Deeper container coverage</h2>
+                        <p class="phase__sub">Planned</p>
+                    </div>
+                    <span class="chip">planned</span>
+                </header>
+                <div class="cols-2">
+                    <ul>
+                        <li>Mach-O sections, segments and load-command bodies.</li>
+                        <li>ELF program headers and segment mapping.</li>
+                        <li>Import and export tables for PE and ELF.</li>
+                        <li>Symbol and relocation tables.</li>
+                    </ul>
+                    <ul>
+                        <li>Big-endian ELF support behind an explicit flag.</li>
+                        <li>PE debug directory and resource tree.</li>
+                        <li>Additional hash algorithms alongside FNV-1a.</li>
+                        <li>Structurally verified patch previews.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="phase">
+                <header class="phase__head">
+                    <span class="phase__index">03</span>
+                    <div>
+                        <h2>Code understanding</h2>
+                        <p class="phase__sub">Not started</p>
+                    </div>
+                    <span class="chip">planned</span>
+                </header>
+                <div class="cols-2">
+                    <ul>
+                        <li>Instruction decoding for x86, x64 and arm64.</li>
+                        <li>Function boundaries and basic-block recovery.</li>
+                        <li>Control-flow graphs for one function at a time.</li>
+                        <li>Cross-references from constants and strings.</li>
+                    </ul>
+                    <ul>
+                        <li>Pseudo-code rendering with explicit uncertainty.</li>
+                        <li>Type recovery as a suggestion, never a fact.</li>
+                        <li>Diffing two builds by sections and functions.</li>
+                    </ul>
+                </div>
+                <p class="phase__note">
+                    This phase is research. Nothing above is wired to a command today,
+                    and the capability matrix will list each item as it lands.
+                </p>
+            </div>
+
+            <div class="phase">
+                <header class="phase__head">
+                    <span class="phase__index">04</span>
+                    <div>
+                        <h2>Runtime inspection</h2>
+                        <p class="phase__sub">Not started</p>
+                    </div>
+                    <span class="chip">planned</span>
+                </header>
+                <div class="cols-2">
+                    <ul>
+                        <li>Attach to a running process on supported platforms.</li>
+                        <li>Breakpoints and single-step execution.</li>
+                        <li>Memory and register snapshots.</li>
+                    </ul>
+                    <ul>
+                        <li>Module enumeration with base addresses.</li>
+                        <li>Read-only defaults and explicit escalation.</li>
+                    </ul>
+                </div>
+                <p class="phase__note">
+                    A debugger is a different product surface. It is not smuggled into
+                    the current file inspector.
+                </p>
+            </div>
+        </section>
+
+        <section class="band">
+            <div>
+                <span class="eyebrow">How this list changes</span>
+                <h2>A phase moves only with tests</h2>
+                <p>
+                    A capability appears here as available when the command line and
+                    studio both route it and the kernel tests cover it. Until then the
+                    matrix reports it as unsupported.
+                </p>
+            </div>
+            <Link to="FeaturesPage" class="btn btn--ghost">
+                Read the features
+            </Link>
+        </section>
+
+        <section class="cta-band">
+            <div>
+                <h2>Follow the work</h2>
+                <p>The source repository is the only distribution today. There are no installers and no public release.</p>
+            </div>
+            <div class="cta-band__actions">
+                <a class="btn btn--primary" href="https://github.com/nyar-os/OpenIDA" rel="noopener">
+                    Source
+                </a>
+                <a class="btn btn--ghost" href="https://github.com/nyar-os/OpenIDA/issues" rel="noopener">
+                    Issues
+                </a>
+            </div>
+        </section>
+    </SiteShell>
+</template>
+
+<style>
+.phase {
+    margin-bottom: 18px;
+    padding: 22px 22px 20px;
+    border: 1px solid var(--ida-line);
+    border-left: 3px solid var(--ida-line);
+    border-radius: var(--ida-radius);
+    background: var(--ida-surface);
+}
+
+.phase--done {
+    border-left-color: var(--ida-accent);
+    background: linear-gradient(90deg, var(--ida-accent-soft), var(--ida-surface) 46%);
+}
+
+.phase__head {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.phase__index {
+    flex: none;
+    color: var(--ida-accent);
+    font-family: var(--ida-mono);
+    font-size: 15px;
+    line-height: 1.3;
+}
+
+.phase__head h2 {
+    margin: 0;
+    font-size: 21px;
+}
+
+.phase__sub {
+    margin: 3px 0 0;
+    color: var(--ida-muted);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.phase__head .chip {
+    margin-left: auto;
+}
+
+.phase ul {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--ida-muted);
+    font-size: 14px;
+}
+
+.phase li {
+    margin: 6px 0;
+}
+
+.phase__note {
+    margin: 14px 0 0;
+    padding-top: 12px;
+    border-top: 1px solid var(--ida-line);
+    color: var(--ida-muted);
+    font-size: 13px;
+}
+</style>
+
+<script client>
+export default class RoadmapPage {
+    static meta() {
+        return {
+            title: "OpenIDA roadmap — phases, not promises",
+            description:
+                "OpenIDA phase one ships the minimal inspection kernel. Deeper container coverage, code understanding and runtime inspection are not started.",
+        };
+    }
+}
+</script>
