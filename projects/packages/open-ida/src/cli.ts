@@ -2,9 +2,9 @@
 /**
  * Command-line assembly only.
  *
- * Every command maps options onto one operation of `service.ts`; binary
- * semantics stay in the built-in engine. Help text and errors come from
- * `@wae/commander`, so the CLI does not grow its own parser.
+ * Every command parses arguments, constructs the `OpenIDA` API and renders its
+ * result; binary semantics stay in the built-in engine. Help text and errors
+ * come from `@wae/commander`, so the CLI does not grow its own parser.
  */
 
 import path from 'node:path';
@@ -12,7 +12,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { createCli } from '@wae/commander';
 
-import * as service from './service.js';
+import { OpenIDA, capabilities } from './api.js';
 import { runGui } from './gui.js';
 import type { BinaryInfo, Capabilities, Section, StringsReport } from './types.js';
 
@@ -110,7 +110,7 @@ function describeStrings(report: StringsReport): string {
 }
 
 cli.command('capabilities', 'cli.cmd.capabilities').actionCtx(async (_options, _args, ctx) => {
-    const matrix = service.capabilities();
+    const matrix = capabilities();
     ctx.emitResult(matrix, describeCapabilities(matrix));
     return 0;
 });
@@ -121,12 +121,13 @@ cli.command('info', 'cli.cmd.info').actionCtx(async (options, _args, ctx) => {
         ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
         return 2;
     }
-    const opened = service.open(file);
+    const ida = new OpenIDA({ path: file });
     try {
-        ctx.emitResult(opened.info, describeInfo(opened.info));
+        const info = ida.info();
+        ctx.emitResult(info, describeInfo(info));
         return 0;
     } finally {
-        service.close(opened.handle);
+        ida.close();
     }
 });
 
@@ -136,13 +137,13 @@ cli.command('sections', 'cli.cmd.sections').actionCtx(async (options, _args, ctx
         ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
         return 2;
     }
-    const opened = service.open(file);
+    const ida = new OpenIDA({ path: file });
     try {
-        const report = service.sections(opened.handle);
+        const report = ida.sections();
         ctx.emitResult(report, describeSections(report.sections));
         return 0;
     } finally {
-        service.close(opened.handle);
+        ida.close();
     }
 });
 
@@ -168,13 +169,13 @@ cli
             ctx.fail('open-ida.cli.limit', { message: '`--limit <count>` must be a positive integer' });
             return 2;
         }
-        const opened = service.open(file);
+        const ida = new OpenIDA({ path: file });
         try {
-            const report = service.strings(opened.handle, min, limit);
+            const report = ida.strings(min, limit);
             ctx.emitResult(report, describeStrings(report));
             return 0;
         } finally {
-            service.close(opened.handle);
+            ida.close();
         }
     });
 
@@ -200,13 +201,13 @@ cli
             ctx.fail('open-ida.cli.length', { message: '`--length <length>` must be a non-negative integer' });
             return 2;
         }
-        const opened = service.open(file);
+        const ida = new OpenIDA({ path: file });
         try {
-            const report = service.hexdump(opened.handle, offset, length);
+            const report = ida.hexdump(offset, length);
             ctx.emitResult(report, report.text.length > 0 ? report.text : 'no bytes in the requested range');
             return 0;
         } finally {
-            service.close(opened.handle);
+            ida.close();
         }
     });
 
@@ -222,13 +223,13 @@ cli.command('rva', 'cli.cmd.rva').actionCtx(async (options, _args, ctx) => {
         ctx.fail('open-ida.cli.rva', { message: 'the RVA must be a non-negative integer, decimal or 0x-prefixed' });
         return 2;
     }
-    const opened = service.open(file);
+    const ida = new OpenIDA({ path: file });
     try {
-        const report = service.rva(opened.handle, address);
+        const report = ida.rva(address);
         ctx.emitResult(report, `RVA ${hex(report.rva)} -> file offset ${hex(report.offset)}`);
         return 0;
     } finally {
-        service.close(opened.handle);
+        ida.close();
     }
 });
 
@@ -255,16 +256,16 @@ cli
             return 2;
         }
         const out = text(options, 'out');
-        const opened = service.open(file);
+        const ida = new OpenIDA({ path: file });
         try {
-            const report = service.patch(opened.handle, offset, bytes, out);
+            const report = ida.patch(offset, bytes, out);
             ctx.emitResult(
                 report,
                 `patched ${report.path} at ${hex(report.offset)} (${report.length} byte(s))\n  before: ${report.beforeHash}\n  after:  ${report.afterHash}`,
             );
             return 0;
         } finally {
-            service.close(opened.handle);
+            ida.close();
         }
     });
 
