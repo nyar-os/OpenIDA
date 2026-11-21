@@ -9,7 +9,7 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use open_ida_core::{BinaryView, IdaError};
+use open_ida_core::{BinaryView, IdaError, OpenIda, OpenIdaOptions};
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -328,6 +328,60 @@ fn patch_to_a_copy_leaves_the_source_untouched() {
     assert_eq!(fs::read(source.path()).unwrap(), vec![1, 2, 3, 4]);
     assert_eq!(fs::read(target.path()).unwrap(), vec![0xff, 2, 3, 4]);
     assert_eq!(report.path, target.path().display().to_string());
+}
+
+#[test]
+fn engine_options_carry_the_defaults_used_by_operations() {
+    let file = TempFile::new("engine");
+    file.write(b"\x00alpha\x00beta\x00gamma\x00");
+    let engine = OpenIda::new(OpenIdaOptions { strings_limit: Some(2), min_string_len: 3, ..OpenIdaOptions::new(file.path()) })
+        .expect("open engine");
+
+    assert_eq!(engine.options().strings_limit, Some(2));
+    assert_eq!(engine.info().expect("engine info").format, "unknown");
+
+    let report = engine.strings(None, None);
+    assert_eq!(report.total, 3);
+    assert_eq!(report.hits.len(), 2);
+    assert!(report.truncated);
+    assert_eq!(report.hits[0].value, "alpha");
+
+    let override_report = engine.strings(Some(5), Some(1));
+    assert_eq!(override_report.total, 2);
+    assert_eq!(override_report.hits.len(), 1);
+    assert_eq!(override_report.hits[0].value, "alpha");
+
+    let unlimited = OpenIda::new(OpenIdaOptions { strings_limit: None, ..OpenIdaOptions::new(file.path()) })
+        .expect("open unlimited engine");
+    assert_eq!(unlimited.strings(None, None).hits.len(), 3);
+}
+
+#[test]
+fn engine_hexdump_uses_its_configured_length() {
+    let file = TempFile::new("engine-hexdump");
+    file.write(b"abcdefgh");
+    let engine = OpenIda::new(OpenIdaOptions { hexdump_length: 4, ..OpenIdaOptions::new(file.path()) }).expect("open engine");
+
+    let dump = engine.hexdump(None, None).expect("default dump");
+    assert!(dump.contains("61 62 63 64"));
+    assert!(!dump.contains("65 66"));
+    assert_eq!(engine.read(0, 2).unwrap(), b"ab");
+    assert_eq!(engine.read(6, 4).unwrap_err().code(), "binary/range");
+}
+
+#[test]
+fn engine_options_round_trip_through_json() {
+    let file = TempFile::new("engine-json");
+    file.write(b"\x00engine\x00");
+    let raw = serde_json::json!({ "path": file.path(), "minStringLen": 2 }).to_string();
+    let engine = OpenIda::from_options_json(&raw).expect("engine from json");
+    assert_eq!(engine.options().min_string_len, 2);
+    assert_eq!(engine.options().strings_limit, Some(100));
+    assert_eq!(engine.options().hexdump_length, 256);
+    assert_eq!(engine.strings(None, None).hits[0].value, "engine");
+
+    let error = OpenIda::from_options_json("{}").unwrap_err();
+    assert_eq!(error.code(), "binary/parse");
 }
 
 #[test]
