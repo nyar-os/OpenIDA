@@ -229,12 +229,12 @@ fn elf32_header_detection() {
 }
 
 #[test]
-fn big_endian_elf_is_unsupported() {
+fn malformed_big_endian_elf_is_rejected() {
     let mut bytes = elf64_bytes();
     bytes[5] = 2;
     let view = BinaryView::from_bytes("big-endian.elf", bytes);
     let error = view.info().unwrap_err();
-    assert_eq!(error.code(), "binary/unsupported");
+    assert_eq!(error.code(), "binary/parse");
 }
 
 #[test]
@@ -253,7 +253,7 @@ fn macho_header_basics_only() {
     assert_eq!(info.cpu_type, Some(0x0100_000c));
     assert_eq!(info.file_type, Some(2));
     assert_eq!(info.command_count, Some(3));
-    assert_eq!(view.sections().unwrap_err().code(), "binary/unsupported");
+    assert_eq!(view.sections().unwrap_err().code(), "binary/parse");
 }
 
 #[test]

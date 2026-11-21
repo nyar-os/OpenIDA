@@ -10,7 +10,7 @@
 export type BinaryFormat = 'pe' | 'elf' | 'macho' | 'unknown';
 
 /** Detected architecture. */
-export type Architecture = 'x86' | 'x64' | 'arm64' | 'unknown';
+export type Architecture = 'x86' | 'x64' | 'arm' | 'arm64' | 'unknown';
 
 /** One section or segment. */
 export interface Section {
