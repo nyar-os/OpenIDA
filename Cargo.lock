@@ -34,7 +34,7 @@ dependencies = [
 [[package]]
 name = "boost-fs"
 version = "0.1.0"
-source = "git+https://github.com/oovm/boost.rs?rev=b70253758bfc18a22123cb2b724fc5752ba0fbf8#b70253758bfc18a22123cb2b724fc5752ba0fbf8"
+source = "git+https://github.com/oovm/boost.rs?rev=5aee3eae66dfd9e70e8a4b09d3f3b858075ddebe#5aee3eae66dfd9e70e8a4b09d3f3b858075ddebe"
 dependencies = [
  "boost-random",
 ]
@@ -42,12 +42,12 @@ dependencies = [
 [[package]]
 name = "boost-math"
 version = "0.1.0"
-source = "git+https://github.com/oovm/boost.rs?rev=b70253758bfc18a22123cb2b724fc5752ba0fbf8#b70253758bfc18a22123cb2b724fc5752ba0fbf8"
+source = "git+https://github.com/oovm/boost.rs?rev=5aee3eae66dfd9e70e8a4b09d3f3b858075ddebe#5aee3eae66dfd9e70e8a4b09d3f3b858075ddebe"
 
 [[package]]
 name = "boost-random"
 version = "0.1.0"
-source = "git+https://github.com/oovm/boost.rs?rev=b70253758bfc18a22123cb2b724fc5752ba0fbf8#b70253758bfc18a22123cb2b724fc5752ba0fbf8"
+source = "git+https://github.com/oovm/boost.rs?rev=5aee3eae66dfd9e70e8a4b09d3f3b858075ddebe#5aee3eae66dfd9e70e8a4b09d3f3b858075ddebe"
 dependencies = [
  "boost-math",
 ]
@@ -61,7 +61,7 @@ checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 [[package]]
 name = "data-binary-inspect"
 version = "0.1.0"
-source = "git+https://github.com/oovm/boost.rs?rev=b70253758bfc18a22123cb2b724fc5752ba0fbf8#b70253758bfc18a22123cb2b724fc5752ba0fbf8"
+source = "git+https://github.com/oovm/boost.rs?rev=5aee3eae66dfd9e70e8a4b09d3f3b858075ddebe#5aee3eae66dfd9e70e8a4b09d3f3b858075ddebe"
 dependencies = [
  "boost-fs",
  "data-binary-mach-o",
@@ -75,12 +75,12 @@ dependencies = [
 [[package]]
 name = "data-binary-mach-o"
 version = "0.1.0"
-source = "git+https://github.com/oovm/boost.rs?rev=b70253758bfc18a22123cb2b724fc5752ba0fbf8#b70253758bfc18a22123cb2b724fc5752ba0fbf8"
+source = "git+https://github.com/oovm/boost.rs?rev=5aee3eae66dfd9e70e8a4b09d3f3b858075ddebe#5aee3eae66dfd9e70e8a4b09d3f3b858075ddebe"
 
 [[package]]
 name = "data-binary-pe"
 version = "0.1.0"
-source = "git+https://github.com/oovm/boost.rs?rev=b70253758bfc18a22123cb2b724fc5752ba0fbf8#b70253758bfc18a22123cb2b724fc5752ba0fbf8"
+source = "git+https://github.com/oovm/boost.rs?rev=5aee3eae66dfd9e70e8a4b09d3f3b858075ddebe#5aee3eae66dfd9e70e8a4b09d3f3b858075ddebe"
 dependencies = [
  "serde",
 ]
@@ -88,12 +88,12 @@ dependencies = [
 [[package]]
 name = "data-checksum"
 version = "0.1.0"
-source = "git+https://github.com/oovm/boost.rs?rev=b70253758bfc18a22123cb2b724fc5752ba0fbf8#b70253758bfc18a22123cb2b724fc5752ba0fbf8"
+source = "git+https://github.com/oovm/boost.rs?rev=5aee3eae66dfd9e70e8a4b09d3f3b858075ddebe#5aee3eae66dfd9e70e8a4b09d3f3b858075ddebe"
 
 [[package]]
 name = "data-encoding"
 version = "0.1.0"
-source = "git+https://github.com/oovm/boost.rs?rev=b70253758bfc18a22123cb2b724fc5752ba0fbf8#b70253758bfc18a22123cb2b724fc5752ba0fbf8"
+source = "git+https://github.com/oovm/boost.rs?rev=5aee3eae66dfd9e70e8a4b09d3f3b858075ddebe#5aee3eae66dfd9e70e8a4b09d3f3b858075ddebe"
 
 [[package]]
 name = "dispatch2"
