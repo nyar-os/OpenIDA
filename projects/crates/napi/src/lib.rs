@@ -19,7 +19,7 @@ use std::{
     time::Instant,
 };
 
-use open_ida_core::{IdaError, OpenIda, OpenIdaOptions};
+use open_ida_core::{IdaError, OpenIda, OpenIdaOptions, SearchOptions};
 use serde::Serialize;
 use serde_json::{Value, json};
 use wae::{
@@ -164,6 +164,36 @@ fn rva_report(handle: u64, rva: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| Ok(json!({ "rva": rva, "offset": engine.rva(rva)? })))
 }
 
+fn limit_value(limit: Option<u64>) -> Option<usize> {
+    limit.map(|value| usize::try_from(value).unwrap_or(usize::MAX))
+}
+
+fn imports_report(handle: u64, limit: Option<u64>) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.imports(limit_value(limit))?))
+}
+
+fn exports_report(handle: u64, limit: Option<u64>) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.exports(limit_value(limit))?))
+}
+
+fn symbols_report(handle: u64, limit: Option<u64>) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.symbols(limit_value(limit))?))
+}
+
+fn search_report(handle: u64, options_json: &str) -> std::result::Result<Value, IdaError> {
+    let options = serde_json::from_str::<SearchOptions>(options_json)
+        .map_err(|error| IdaError::parse(format!("invalid SearchOptions: {error}")))?;
+    with_engine(handle, |engine| encoded(&engine.search(&options)?))
+}
+
+fn offset_to_va_report(handle: u64, offset: u64) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| Ok(json!({ "offset": offset, "va": engine.offset_to_va(offset)? })))
+}
+
+fn offset_to_rva_report(handle: u64, offset: u64) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| Ok(json!({ "offset": offset, "rva": engine.offset_to_rva(offset)? })))
+}
+
 fn close_engine(handle: u64) -> std::result::Result<(), IdaError> {
     let mut registry = lock()?;
     registry.engines.remove(&handle).map(|_| ()).ok_or_else(|| missing(handle))
@@ -275,6 +305,72 @@ fn binary_rva(ctx: CallContext) -> Result<JsValue> {
     }
 }
 
+/// Lists imported functions.
+#[function]
+fn binary_imports(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    let limit = optional_number(&ctx, 1)?;
+    match imports_report(handle, limit) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Lists exported symbols.
+#[function]
+fn binary_exports(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    let limit = optional_number(&ctx, 1)?;
+    match exports_report(handle, limit) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Lists debug or dynamic symbols.
+#[function]
+fn binary_symbols(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    let limit = optional_number(&ctx, 1)?;
+    match symbols_report(handle, limit) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Searches for a hex, ASCII or UTF-16LE pattern described by an options JSON.
+#[function]
+fn binary_search(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    let options = text(&ctx, 1)?;
+    match search_report(handle, &options) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Maps a file offset onto an absolute virtual address.
+#[function]
+fn binary_offset_to_va(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    let offset = number(&ctx, 1)?;
+    match offset_to_va_report(handle, offset) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Maps a file offset onto a PE image-relative address.
+#[function]
+fn binary_offset_to_rva(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    let offset = number(&ctx, 1)?;
+    match offset_to_rva_report(handle, offset) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
 /// Releases one binary handle.
 #[function]
 fn binary_close(ctx: CallContext) -> Result<JsValue> {
@@ -381,6 +477,36 @@ impl IpcHandler for IdaIpcHandler {
                 Some(handle) => {
                     let rva = value.get("rva").and_then(Value::as_u64).unwrap_or(0);
                     outcome(id, "rvaResult", rva_report(handle, rva))
+                }
+                None => failure_reply(id, "handle/invalid: `handle` is required".to_string()),
+            },
+            "binary.imports" => match handle_field(&value) {
+                Some(handle) => outcome(id, "importsResult", imports_report(handle, value.get("limit").and_then(Value::as_u64))),
+                None => failure_reply(id, "handle/invalid: `handle` is required".to_string()),
+            },
+            "binary.exports" => match handle_field(&value) {
+                Some(handle) => outcome(id, "exportsResult", exports_report(handle, value.get("limit").and_then(Value::as_u64))),
+                None => failure_reply(id, "handle/invalid: `handle` is required".to_string()),
+            },
+            "binary.symbols" => match handle_field(&value) {
+                Some(handle) => outcome(id, "symbolsResult", symbols_report(handle, value.get("limit").and_then(Value::as_u64))),
+                None => failure_reply(id, "handle/invalid: `handle` is required".to_string()),
+            },
+            "binary.search" => match (handle_field(&value), string_field(&value, "optionsJson")) {
+                (Some(handle), Some(options)) => outcome(id, "searchResult", search_report(handle, &options)),
+                _ => failure_reply(id, "binary/parse: `handle` and `optionsJson` are required".to_string()),
+            },
+            "binary.offsetToVa" => match handle_field(&value) {
+                Some(handle) => {
+                    let offset = value.get("offset").and_then(Value::as_u64).unwrap_or(0);
+                    outcome(id, "offsetToVaResult", offset_to_va_report(handle, offset))
+                }
+                None => failure_reply(id, "handle/invalid: `handle` is required".to_string()),
+            },
+            "binary.offsetToRva" => match handle_field(&value) {
+                Some(handle) => {
+                    let offset = value.get("offset").and_then(Value::as_u64).unwrap_or(0);
+                    outcome(id, "offsetToRvaResult", offset_to_rva_report(handle, offset))
                 }
                 None => failure_reply(id, "handle/invalid: `handle` is required".to_string()),
             },
@@ -654,6 +780,12 @@ register_module![
     binary_read,
     binary_patch,
     binary_rva,
+    binary_imports,
+    binary_exports,
+    binary_symbols,
+    binary_search,
+    binary_offset_to_va,
+    binary_offset_to_rva,
     binary_close,
     open_gui,
     pump_events,

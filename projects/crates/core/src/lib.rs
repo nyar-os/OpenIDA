@@ -3,11 +3,11 @@
 //! The inspection engine lives in `boost.rs/data-binary-inspect`; this crate
 //! owns the product policy on top of it: session defaults, the `OpenIda` API,
 //! the stable error codes and the capability matrix. Container decoding,
-//! string scanning, hex dumps, RVA mapping and atomic patching are not
-//! re-implemented here.
+//! imports, exports, symbols, pattern search, string scanning, hex dumps,
+//! address mapping and atomic patching are not re-implemented here.
 //!
-//! Disassembly, decompilation, debugging and symbol resolution stay declared
-//! as unsupported instead of being approximated.
+//! Disassembly, decompilation and debugging stay declared as unsupported
+//! instead of being approximated.
 
 #![deny(missing_docs)]
 
@@ -19,7 +19,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 pub use data_binary_inspect::{
-    Architecture, BinaryFormat, BinaryInfo, BinarySession, InspectOptions, PatchReport, SectionInfo as Section, StringHit, StringsReport,
+    Architecture, BinaryFormat, BinaryInfo, BinarySession, ExportEntry, ExportsReport, ImportEntry, ImportsReport, InspectOptions,
+    PatchReport, SearchHit, SearchMode, SearchOptions, SearchReport, SectionInfo as Section, StringHit, StringsReport, SymbolEntry,
+    SymbolsReport,
 };
 pub use error::{IdaError, Result};
 
@@ -90,6 +92,26 @@ impl BinaryView {
         self.session.strings(Some(min_len), None).hits
     }
 
+    /// Lists imported functions.
+    pub fn imports(&self, limit: Option<usize>) -> Result<ImportsReport> {
+        self.session.imports(limit).map_err(IdaError::from)
+    }
+
+    /// Lists exported symbols.
+    pub fn exports(&self, limit: Option<usize>) -> Result<ExportsReport> {
+        self.session.exports(limit).map_err(IdaError::from)
+    }
+
+    /// Lists debug or dynamic symbols.
+    pub fn symbols(&self, limit: Option<usize>) -> Result<SymbolsReport> {
+        self.session.symbols(limit).map_err(IdaError::from)
+    }
+
+    /// Searches for a hex, ASCII or UTF-16LE pattern.
+    pub fn search(&self, options: &SearchOptions) -> Result<SearchReport> {
+        self.session.search(options).map_err(IdaError::from)
+    }
+
     /// Renders a canonical hex dump.
     pub fn hexdump(&self, offset: u64, length: u64) -> Result<String> {
         self.session.hexdump(Some(offset), Some(length)).map_err(IdaError::from)
@@ -113,6 +135,16 @@ impl BinaryView {
     /// Maps an RVA or virtual address onto a file offset.
     pub fn rva_to_offset(&self, address: u64) -> Result<u64> {
         self.session.rva_to_offset(address).map_err(IdaError::from)
+    }
+
+    /// Maps a file offset onto an absolute virtual address.
+    pub fn offset_to_va(&self, offset: u64) -> Result<u64> {
+        self.session.offset_to_va(offset).map_err(IdaError::from)
+    }
+
+    /// Maps a file offset onto a PE image-relative address.
+    pub fn offset_to_rva(&self, offset: u64) -> Result<u64> {
+        self.session.offset_to_rva(offset).map_err(IdaError::from)
     }
 }
 
@@ -219,6 +251,26 @@ impl OpenIda {
         self.session.strings(min_len, limit)
     }
 
+    /// Lists imported functions.
+    pub fn imports(&self, limit: Option<usize>) -> Result<ImportsReport> {
+        self.session.imports(limit).map_err(IdaError::from)
+    }
+
+    /// Lists exported symbols.
+    pub fn exports(&self, limit: Option<usize>) -> Result<ExportsReport> {
+        self.session.exports(limit).map_err(IdaError::from)
+    }
+
+    /// Lists debug or dynamic symbols.
+    pub fn symbols(&self, limit: Option<usize>) -> Result<SymbolsReport> {
+        self.session.symbols(limit).map_err(IdaError::from)
+    }
+
+    /// Searches for a hex, ASCII or UTF-16LE pattern.
+    pub fn search(&self, options: &SearchOptions) -> Result<SearchReport> {
+        self.session.search(options).map_err(IdaError::from)
+    }
+
     /// Renders a hex dump, falling back to the session defaults.
     pub fn hexdump(&self, offset: Option<u64>, length: Option<u64>) -> Result<String> {
         self.session.hexdump(offset, length).map_err(IdaError::from)
@@ -237,6 +289,16 @@ impl OpenIda {
     /// Maps an RVA or virtual address onto a file offset.
     pub fn rva(&self, address: u64) -> Result<u64> {
         self.session.rva_to_offset(address).map_err(IdaError::from)
+    }
+
+    /// Maps a file offset onto an absolute virtual address.
+    pub fn offset_to_va(&self, offset: u64) -> Result<u64> {
+        self.session.offset_to_va(offset).map_err(IdaError::from)
+    }
+
+    /// Maps a file offset onto a PE image-relative address.
+    pub fn offset_to_rva(&self, offset: u64) -> Result<u64> {
+        self.session.offset_to_rva(offset).map_err(IdaError::from)
     }
 
     /// Borrows the underlying session for callers that need the raw engine.
@@ -269,13 +331,18 @@ pub fn capabilities() -> serde_json::Value {
             "read": "supported",
             "patch": "supported",
             "rva": "supported",
+            "imports": "supported",
+            "exports": "supported",
+            "symbols": "supported",
+            "search": "supported",
+            "offset-to-va": "supported",
+            "offset-to-rva": "supported",
         },
         "unsupported": {
             "disassembly": "not-implemented",
             "decompilation": "not-implemented",
             "debugger": "not-implemented",
-            "symbols": "not-implemented",
-            "macho-rva": "not-implemented",
+            "macho-import-bindings": "not-implemented",
         },
         "architectures": {
             "x86": "supported",

@@ -9,7 +9,7 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use open_ida_core::{BinaryView, IdaError, OpenIda, OpenIdaOptions};
+use open_ida_core::{BinaryView, IdaError, OpenIda, OpenIdaOptions, SearchMode, SearchOptions};
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -389,9 +389,11 @@ fn capabilities_declare_what_is_not_implemented() {
     let matrix = open_ida_core::capabilities();
     assert_eq!(matrix["formats"]["pe"], "supported");
     assert_eq!(matrix["formats"]["macho"], "partial");
+    assert_eq!(matrix["features"]["imports"], "supported");
+    assert_eq!(matrix["features"]["symbols"], "supported");
+    assert_eq!(matrix["features"]["search"], "supported");
     assert_eq!(matrix["unsupported"]["disassembly"], "not-implemented");
     assert_eq!(matrix["unsupported"]["debugger"], "not-implemented");
-    assert_eq!(matrix["unsupported"]["symbols"], "not-implemented");
 }
 
 #[test]
@@ -401,4 +403,123 @@ fn hex_parser_accepts_common_separators() {
     assert_eq!(open_ida_core::parse_hex("9090").unwrap(), vec![0x90, 0x90]);
     let error: IdaError = open_ida_core::parse_hex("9").unwrap_err();
     assert_eq!(error.code(), "binary/parse");
+}
+
+/// 单节 `PE32+`：`.rdata` 覆盖文件 0x200..0x800，内含导入、导出与一个 `COFF` 符号。
+fn pe_analysis_bytes() -> Vec<u8> {
+    let mut bytes = vec![0u8; 0x800];
+    bytes[0..2].copy_from_slice(b"MZ");
+    put_u32(&mut bytes, 0x3c, 0x80);
+    bytes[0x80..0x84].copy_from_slice(b"PE\0\0");
+    put_u16(&mut bytes, 0x84, 0x8664);
+    put_u16(&mut bytes, 0x86, 1);
+    put_u32(&mut bytes, 0x8c, 0x600);
+    put_u32(&mut bytes, 0x90, 1);
+    put_u16(&mut bytes, 0x94, 0xf0);
+    put_u16(&mut bytes, 0x98, 0x20b);
+    put_u64(&mut bytes, 0x98 + 24, 0x1_4000_0000);
+    put_u32(&mut bytes, 0x98 + 56, 0x2000);
+    put_u32(&mut bytes, 0x98 + 60, 0x200);
+    put_u32(&mut bytes, 0x98 + 112, 0x1100);
+    put_u32(&mut bytes, 0x98 + 116, 0x28);
+    put_u32(&mut bytes, 0x98 + 120, 0x1000);
+    put_u32(&mut bytes, 0x98 + 124, 0x28);
+
+    let section = 0x188;
+    bytes[section..section + 6].copy_from_slice(b".rdata");
+    put_u32(&mut bytes, section + 8, 0x600);
+    put_u32(&mut bytes, section + 12, 0x1000);
+    put_u32(&mut bytes, section + 16, 0x600);
+    put_u32(&mut bytes, section + 20, 0x200);
+    put_u32(&mut bytes, section + 36, 0x4000_0040);
+
+    put_u32(&mut bytes, 0x200, 0x1040);
+    put_u32(&mut bytes, 0x20c, 0x1030);
+    put_u32(&mut bytes, 0x210, 0x1060);
+    bytes[0x230..0x23d].copy_from_slice(b"KERNEL32.dll\0");
+    put_u64(&mut bytes, 0x240, 0x1080);
+    put_u64(&mut bytes, 0x248, 0x8000_0000_0000_0001);
+    put_u64(&mut bytes, 0x260, 0x1080);
+    put_u64(&mut bytes, 0x268, 0x8000_0000_0000_0001);
+    bytes[0x282..0x28e].copy_from_slice(b"ExitProcess\0");
+
+    put_u32(&mut bytes, 0x300 + 12, 0x1130);
+    put_u32(&mut bytes, 0x300 + 16, 1);
+    put_u32(&mut bytes, 0x300 + 20, 2);
+    put_u32(&mut bytes, 0x300 + 24, 1);
+    put_u32(&mut bytes, 0x300 + 28, 0x1140);
+    put_u32(&mut bytes, 0x300 + 32, 0x1148);
+    put_u32(&mut bytes, 0x300 + 36, 0x114c);
+    bytes[0x330..0x33b].copy_from_slice(b"sample.dll\0");
+    put_u32(&mut bytes, 0x340, 0x1000);
+    put_u32(&mut bytes, 0x348, 0x1150);
+    put_u16(&mut bytes, 0x34c, 0);
+    bytes[0x350..0x356].copy_from_slice(b"Start\0");
+
+    bytes[0x600..0x606].copy_from_slice(b"native");
+    put_u32(&mut bytes, 0x608, 0x1000);
+    put_u16(&mut bytes, 0x60c, 1);
+    put_u16(&mut bytes, 0x60e, 0x20);
+    bytes[0x610] = 2;
+    put_u32(&mut bytes, 0x612, 4);
+    bytes
+}
+
+#[test]
+fn pe_imports_exports_and_symbols_flow_through_the_engine() {
+    let file = TempFile::new("pe-analysis");
+    file.write(&pe_analysis_bytes());
+    let view = BinaryView::open(file.path()).expect("open PE");
+
+    let imports = view.imports(None).expect("imports");
+    assert_eq!(imports.total, 2);
+    assert_eq!(imports.entries[0].module, "KERNEL32.dll");
+    assert_eq!(imports.entries[0].name.as_deref(), Some("ExitProcess"));
+    assert_eq!(imports.entries[0].address, Some(0x1_4000_1060));
+    assert_eq!(imports.entries[1].ordinal, Some(1));
+    assert_eq!(imports.entries[1].address, Some(0x1_4000_1068));
+    assert!(!imports.truncated);
+
+    let limited = view.imports(Some(1)).expect("bounded imports");
+    assert_eq!(limited.entries.len(), 1);
+    assert_eq!(limited.total, 2);
+    assert!(limited.truncated);
+
+    let exports = view.exports(None).expect("exports");
+    assert_eq!(exports.entries.len(), 1);
+    assert_eq!(exports.entries[0].name.as_deref(), Some("Start"));
+    assert_eq!(exports.entries[0].ordinal, Some(1));
+    assert_eq!(exports.entries[0].address, Some(0x1_4000_1000));
+
+    let symbols = view.symbols(None).expect("symbols");
+    assert_eq!(symbols.entries.len(), 1);
+    assert_eq!(symbols.entries[0].name, "native");
+    assert_eq!(symbols.entries[0].kind, "function");
+    assert_eq!(symbols.entries[0].binding, "global");
+    assert_eq!(symbols.entries[0].section.as_deref(), Some(".rdata"));
+    assert_eq!(symbols.entries[0].address, 0x1_4000_1000);
+}
+
+#[test]
+fn search_and_reverse_mapping_are_exposed() {
+    let file = TempFile::new("pe-search");
+    file.write(&pe_analysis_bytes());
+    let view = BinaryView::open(file.path()).expect("open PE");
+
+    let text = view.search(&SearchOptions::new(SearchMode::Ascii, "kernel32")).expect("ascii search");
+    assert_eq!(text.mode, "ascii");
+    assert_eq!(text.total, 1);
+    assert_eq!(text.hits[0].offset, 0x230);
+    assert_eq!(text.hits[0].preview, "KERNEL32");
+
+    let hex = view.search(&SearchOptions::new(SearchMode::Hex, "45 78 69 74")).expect("hex search");
+    assert_eq!(hex.hits[0].offset, 0x282);
+
+    let wide = view.search(&SearchOptions::new(SearchMode::Utf16Le, "Exit")).expect("utf16 search");
+    assert_eq!(wide.total, 0);
+
+    assert_eq!(view.offset_to_rva(0x230).unwrap(), 0x1030);
+    assert_eq!(view.offset_to_va(0x230).unwrap(), 0x1_4000_1030);
+    assert_eq!(view.offset_to_rva(0x10).unwrap(), 0x10);
+    assert_eq!(view.offset_to_va(0x800).unwrap_err().code(), "binary/range");
 }
