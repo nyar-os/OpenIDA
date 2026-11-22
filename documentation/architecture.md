@@ -8,8 +8,8 @@ it returns.
 
 | Layer | Crate or package | Responsibility |
 | --- | --- | --- |
-| Engine | `projects/crates/core` (`open-ida-core`) | Opens a file, keeps the session defaults, exposes `OpenIda`, and implements the parts the pinned upstream does not: PE debug/CodeView, x86/x64 disassembly, binary diff, entropy/overlay and encoded string scanning. |
-| Upstream | `data-binary-inspect`, `data-binary-pe` | Container detection, headers, sections, imports, exports, symbols, search, hex dumps, address mapping and atomic patching. |
+| Engine | `projects/crates/core` (`open-ida-core`) | Opens a file, keeps the session defaults, exposes `OpenIda`, and implements the parts the pinned upstream does not: PE debug/CodeView, x86/x64 disassembly, binary diff, entropy/overlay, encoded string scanning and Mach-O load-command identity (UUID, dylibs, build version). |
+| Upstream | `data-binary-inspect`, `data-binary-pe`, `data-binary-mach-o` | Container detection, headers, sections, imports, exports, symbols, search, hex dumps, address mapping, atomic patching, and Mach-O headers, segments and sections. |
 | Binding | `projects/crates/napi` (`open-ida-napi`) | JSON-in / JSON-out Node-API exports plus the WebView host. No inspection policy. |
 | SDK | `projects/packages/open-ida/src` | `OpenIDA` session, report types, stable error translation, addon discovery. |
 | CLI | `projects/packages/open-ida/src/cli.ts` | Argument parsing and rendering only. |
@@ -87,8 +87,9 @@ Codes are contract. Callers branch on `code`, never on message text.
 
 `capabilities()` is the only support claim. A format may be classified and still
 unsupported, and a suffix is never treated as a support claim. Mach-O is
-`partial` (header basics only), and decompilation, debugging and Mach-O import
-bindings are explicitly `not-implemented`. ARM and ARM64 disassembly returns
+`partial`: headers, load commands, segments, sections, dylibs and build versions
+are decoded, but the symbol table and dyld bindings are not; decompilation,
+debugging and Mach-O import bindings are explicitly `not-implemented`. ARM and ARM64 disassembly returns
 `binary/unsupported` instead of decoding with a guessed mode.
 
 ## Test strategy

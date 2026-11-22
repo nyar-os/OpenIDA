@@ -28,6 +28,7 @@ header-only, and unknown containers are rejected.
 | Resolve addresses | `open-ida rva <file> <address>` / `open-ida offset <file> <offset>` | Offset, RVA and VA |
 | Inspect linkage | `open-ida imports\|exports\|symbols <file>` | Module, symbol, ordinal, address |
 | Recover PDB path | `open-ida debug <file>` | CodeView signature, GUID or NB10 record, path |
+| Profile Mach-O | `open-ida macho <file>` | UUID, platform, min OS/SDK, dylibs, segments, sections, entry |
 | Decode code | `open-ida disasm <file> --offset <n> --count <n>` | Address, offset, bytes, mnemonic |
 | Triage packing | `open-ida entropy <file>` | Whole-file and section entropy, PE overlay |
 | Compare builds | `open-ida diff <left> <right>` | First difference and differing ranges |
@@ -61,8 +62,9 @@ Branch on `code`, never on message text. CLI usage failures add
 
 1. Never claim a section, offset, import or instruction without printing the
    report that contains it.
-2. Never describe Mach-O sections or symbols, ARM/ARM64 disassembly,
-   decompilation or debugging as available.
+2. Never describe the Mach-O symbol table or dyld bindings, ARM/ARM64
+   disassembly, decompilation or debugging as available. Mach-O load commands,
+   segments, sections, dylibs and build versions are available.
 3. Before patching, state the file, the offset and the exact bytes. Prefer
    `--out` so the source stays untouched.
 4. Never present a hash as a security verdict. It only proves the bytes changed.

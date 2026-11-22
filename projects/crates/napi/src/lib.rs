@@ -189,6 +189,10 @@ fn debug_report(handle: u64, limit: Option<u64>) -> std::result::Result<Value, I
     with_engine(handle, |engine| encoded(&engine.debug(limit_value(limit))?))
 }
 
+fn macho_report(handle: u64) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.macho()?))
+}
+
 fn disasm_report(handle: u64, options_json: &str) -> std::result::Result<Value, IdaError> {
     let options = serde_json::from_str::<DisassembleOptions>(options_json)
         .map_err(|error| IdaError::parse(format!("invalid DisassembleOptions: {error}")))?;
@@ -381,6 +385,16 @@ fn binary_debug(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     let limit = optional_number(&ctx, 1)?;
     match debug_report(handle, limit) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Decodes Mach-O load commands, segments, sections, dylibs and identity.
+#[function]
+fn binary_macho(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    match macho_report(handle) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
@@ -900,6 +914,7 @@ register_module![
     binary_exports,
     binary_symbols,
     binary_debug,
+    binary_macho,
     binary_disasm,
     binary_diff,
     binary_entropy,

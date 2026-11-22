@@ -56,7 +56,7 @@ pub(crate) fn analyze(session: &BinarySession) -> Result<EntropyReport> {
     let bytes = session.read(0, file_size)?;
 
     let sections = match session.format() {
-        BinaryFormat::Pe | BinaryFormat::Elf => {
+        BinaryFormat::Pe | BinaryFormat::Elf | BinaryFormat::MachO => {
             let mut sections = Vec::new();
             for section in session.sections()? {
                 let start = section.raw_pointer.min(file_size) as usize;

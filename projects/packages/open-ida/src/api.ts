@@ -22,6 +22,7 @@ import type {
     ExportsReport,
     HexdumpReport,
     ImportsReport,
+    MachOReport,
     OffsetToRvaReport,
     OffsetToVaReport,
     PatchReport,
@@ -123,6 +124,11 @@ export class OpenIDA {
     /** Lists PE debug directory entries and `CodeView` PDB records. */
     debug(limit?: number): DebugReport {
         return decode<DebugReport>(() => binding('binary.debug').binary_debug(this.id, limit));
+    }
+
+    /** Decodes Mach-O load commands, segments, sections, dylibs and identity. */
+    macho(): MachOReport {
+        return decode<MachOReport>(() => binding('binary.macho').binary_macho(this.id));
     }
 
     /** Decodes x86 / x64 instructions from one file offset. */

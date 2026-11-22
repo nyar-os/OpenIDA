@@ -11,7 +11,7 @@ support claim.
 | --- | --- | --- |
 | PE (`MZ`) | `supported` | Headers, image base, entry RVA, sections, imports, exports, COFF symbols, debug directory, `RSDS` / `NB10` CodeView records, overlay. |
 | ELF 32/64-bit little-endian | `supported` | Headers, sections, entry point, dynamic symbols and section entropy. |
-| Mach-O | `partial` | Magic, CPU type, file type and load-command count only. |
+| Mach-O | `partial` | Headers, `LC_UUID`, `LC_BUILD_VERSION` / `LC_VERSION_MIN_*`, dylib commands, segments and sections. No symbol table or dyld bindings. Fat binaries answer `binary/unsupported`. |
 | Unknown | `unsupported` | Rejected with `binary/unsupported`. |
 
 Big-endian ELF is rejected rather than decoded with a guessed byte order.
@@ -31,9 +31,10 @@ Big-endian ELF is rejected rather than decoded with a guessed byte order.
 | `exports` | `supported` | PE export table with ordinal, address and forwarder. |
 | `symbols` | `supported` | COFF symbols for PE; dynamic symbols for ELF. |
 | `debug` | `supported` | PE debug directory and CodeView records. Non-PE answers `binary/unsupported`. |
+| `macho` | `supported` | Mach-O header, file type, UUID, platform/min OS/SDK, dylibs, segments, sections and entry point. Non-Mach-O answers `binary/unsupported`. |
 | `disassembly` | `supported` | x86 and x64 only, Intel/MASM/NASM syntax. |
 | `diff` | `supported` | Byte-level comparison plus the first differing offset. |
-| `entropy` | `supported` | Whole file; per section for PE and ELF. |
+| `entropy` | `supported` | Whole file; per section for PE, ELF and Mach-O. |
 | `overlay` | `supported` | PE only: bytes after the last section payload. |
 | `search` | `supported` | Hex, ASCII and UTF-16LE patterns with optional range, case and whole-word filters. |
 | `offset-to-va` | `supported` | File offset to absolute virtual address. |
@@ -76,7 +77,8 @@ Big-endian ELF is rejected rather than decoded with a guessed byte order.
 
 | Boundary | Behaviour |
 | --- | --- |
-| Mach-O sections, symbols, load commands | Not decoded; header facts only, `formats.macho = partial`. |
+| Mach-O symbol table and dyld bindings | Not decoded; `formats.macho = partial`. Load commands, segments, sections, dylibs and build versions are decoded. |
+| Fat/universal Mach-O | `binary/unsupported`; select a slice first. |
 | Big-endian ELF | `binary/unsupported`. |
 | Unknown container | `binary/unsupported`. |
 | PE on a non-PE file | `debug` answers `binary/unsupported`. |

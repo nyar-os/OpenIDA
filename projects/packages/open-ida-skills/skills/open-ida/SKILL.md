@@ -7,10 +7,11 @@ description: Inspect compiled binaries with OpenIDA. Use when a task involves PE
 
 ## Status
 
-Working minimal kernel. `open-ida info`, `sections`, `strings`, `hexdump`, `rva`
-and `patch` are implemented for the cases listed below. Disassembly,
-decompilation, debugging and symbol resolution are **not** implemented and the
-capability matrix reports them as `unsupported` / `not-implemented`.
+`open-ida info`, `sections`, `strings`, `hexdump`, `rva`, `offset`, `imports`,
+`exports`, `symbols`, `debug`, `macho`, `disasm`, `entropy`, `diff`, `search`
+and `patch` are implemented for the cases listed below. Decompilation, debugging
+and dyld bindings are **not** implemented and the capability matrix reports them
+as `unsupported` / `not-implemented`.
 
 Do not describe an unimplemented route as available, and do not fill the gap with
 a second analysis engine. Report the stable code instead.
@@ -34,6 +35,10 @@ a second analysis engine. Report the stable code instead.
 | discover | Locate printable strings and their offsets | `strings` listing with offsets |
 | read | Show bytes around an offset | `hexdump` or `read` output |
 | resolve | Turn an RVA or virtual address into a file offset | `rva` mapping |
+| link | List imports, exports, symbols or the PDB path | `imports` / `exports` / `symbols` / `debug` report |
+| macho | Read UUID, platform, dylibs, segments and sections | `macho` report |
+| triage | Spot packing from entropy and the overlay | `entropy` report |
+| compare | Find the first difference between two builds | `diff` report |
 | patch | Change bytes and prove the change | before/after hash and patched copy |
 
 ## Hard rules
@@ -42,8 +47,8 @@ a second analysis engine. Report the stable code instead.
 - Never patch an offset outside the file; the engine rejects it, and a rejected
   range is not a successful patch.
 - Never present a hash as a security verdict. It only proves the bytes changed.
-- Mach-O support is header-only. Do not claim Mach-O sections, symbols or load
-  commands.
+- Mach-O support covers headers, load commands, segments, sections, dylibs and
+  build versions. Do not claim the Mach-O symbol table or dyld bindings.
 - Big-endian ELF is rejected; do not guess its layout.
 
 ## Safety

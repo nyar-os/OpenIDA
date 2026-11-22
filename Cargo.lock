@@ -342,6 +342,7 @@ name = "open-ida-core"
 version = "0.0.0"
 dependencies = [
  "data-binary-inspect",
+ "data-binary-mach-o",
  "data-binary-pe",
  "iced-x86",
  "serde",
