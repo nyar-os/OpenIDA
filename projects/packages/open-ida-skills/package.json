@@ -1,6 +1,6 @@
 {
     "name": "@wae/open-ida-skills",
-    "version": "0.0.0",
+    "version": "0.0.1",
     "description": "Agent skills for OpenIDA: binary inspection, section maps, strings and patch verification",
     "license": "Apache-2.0",
     "type": "module",
