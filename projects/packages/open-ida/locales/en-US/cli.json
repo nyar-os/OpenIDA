@@ -26,6 +26,7 @@
             "machoFunctionStarts": "Print the Mach-O LC_FUNCTION_STARTS function addresses",
             "machoExports": "Print the Mach-O dyld export trie symbols and flags",
             "machoEncryption": "Print the Mach-O LC_ENCRYPTION_INFO offset, size and cryptid",
+            "machoChainedFixups": "Print the Mach-O LC_DYLD_CHAINED_FIXUPS imports and starts",
             "machoSlices": "Print the architecture slices of a fat/universal Mach-O container",
             "machoExtract": "Write one fat/universal Mach-O slice to a new file",
             "disasm": "Disassemble x86 or x64 instructions from a file offset",

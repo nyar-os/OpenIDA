@@ -331,6 +331,38 @@ export interface MachOEncryptionReport {
     readonly is64: boolean;
 }
 
+/** One import entry of the `LC_DYLD_CHAINED_FIXUPS` table. */
+export interface MachOChainedImport {
+    readonly libOrdinal: number;
+    readonly weakImport: boolean;
+    readonly nameOffset: number;
+    readonly name: string;
+    readonly addend: number | null;
+}
+
+/** Decoded `dyld_chained_fixups_header`. */
+export interface MachOChainedFixupsHeader {
+    readonly fixupsVersion: number;
+    readonly startsOffset: number;
+    readonly importsOffset: number;
+    readonly symbolsOffset: number;
+    readonly importsCount: number;
+    readonly importsFormat: number;
+    readonly symbolsFormat: number;
+}
+
+/** Summary of `LC_DYLD_CHAINED_FIXUPS`. */
+export interface MachOChainedFixupsReport {
+    readonly present: boolean;
+    readonly dataOffset: number;
+    readonly dataSize: number;
+    readonly header: MachOChainedFixupsHeader | null;
+    readonly imports: readonly MachOChainedImport[];
+    readonly truncated: boolean;
+    readonly startsInImage: number | null;
+    readonly startsInSegmentCount: number;
+}
+
 /** Bounded listing of `LC_FUNCTION_STARTS` addresses. */
 export interface MachOFunctionStartsReport {
     readonly imageBase: number;

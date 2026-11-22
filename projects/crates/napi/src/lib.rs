@@ -213,6 +213,10 @@ fn macho_encryption_report(handle: u64) -> std::result::Result<Value, IdaError> 
     with_engine(handle, |engine| encoded(&engine.macho_encryption()?))
 }
 
+fn macho_chained_fixups_report(handle: u64) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.macho_chained_fixups()?))
+}
+
 fn macho_extract_report(handle: u64, index: usize, output: &Path) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.extract_slice(index, output)?))
 }
@@ -618,6 +622,16 @@ fn binary_macho_exports(ctx: CallContext) -> Result<JsValue> {
 fn binary_macho_encryption(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     match macho_encryption_report(handle) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Decodes the Mach-O `LC_DYLD_CHAINED_FIXUPS` imports.
+#[function]
+fn binary_macho_chained_fixups(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    match macho_chained_fixups_report(handle) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
@@ -1177,6 +1191,7 @@ register_module![
     binary_macho_function_starts,
     binary_macho_exports,
     binary_macho_encryption,
+    binary_macho_chained_fixups,
     binary_macho_slices,
     binary_macho_extract,
     binary_mitigations,

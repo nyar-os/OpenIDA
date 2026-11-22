@@ -47,6 +47,7 @@ containers are rejected, and unknown containers are rejected.
 | List Mach-O function starts | `open-ida macho-function-starts <file> --limit <n>` | Absolute addresses decoded from `LC_FUNCTION_STARTS` |
 | List Mach-O exports | `open-ida macho-exports <file>` | Dyld export trie names, flags, addresses and ordinals |
 | Read Mach-O encryption | `open-ida macho-encryption <file>` | `LC_ENCRYPTION_INFO` crypt offset, size and cryptid |
+| Read Mach-O chained fixups | `open-ida macho-chained-fixups <file>` | `LC_DYLD_CHAINED_FIXUPS` imports, header and starts table |
 | Decode code | `open-ida disasm <file> --offset <n> --count <n>` | Address, offset, bytes, mnemonic |
 | Triage packing | `open-ida entropy <file>` | Whole-file and section entropy, PE overlay |
 | Compare builds | `open-ida diff <left> <right>` | First difference and differing ranges |
