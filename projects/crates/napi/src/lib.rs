@@ -195,6 +195,13 @@ fn search_report(handle: u64, options_json: &str) -> std::result::Result<Value, 
     with_engine(handle, |engine| encoded(&engine.search(&options)?))
 }
 
+fn diff_report(left: u64, right: u64) -> std::result::Result<Value, IdaError> {
+    let registry = lock()?;
+    let left_engine = registry.engines.get(&left).ok_or_else(|| missing(left))?;
+    let right_engine = registry.engines.get(&right).ok_or_else(|| missing(right))?;
+    encoded(&left_engine.diff(right_engine)?)
+}
+
 fn offset_to_va_report(handle: u64, offset: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| Ok(json!({ "offset": offset, "va": engine.offset_to_va(offset)? })))
 }
@@ -380,6 +387,17 @@ fn binary_search(ctx: CallContext) -> Result<JsValue> {
     }
 }
 
+/// Compares two open binaries byte for byte.
+#[function]
+fn binary_diff(ctx: CallContext) -> Result<JsValue> {
+    let left = handle(&ctx, 0)?;
+    let right = handle(&ctx, 1)?;
+    match diff_report(left, right) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
 /// Maps a file offset onto an absolute virtual address.
 #[function]
 fn binary_offset_to_va(ctx: CallContext) -> Result<JsValue> {
@@ -541,6 +559,12 @@ impl IpcHandler for IdaIpcHandler {
                 (Some(handle), Some(options)) => outcome(id, "searchResult", search_report(handle, &options)),
                 _ => failure_reply(id, "binary/parse: `handle` and `optionsJson` are required".to_string()),
             },
+            "binary.diff" => {
+                match (value.get("leftHandle").and_then(Value::as_u64), value.get("rightHandle").and_then(Value::as_u64)) {
+                    (Some(left), Some(right)) => outcome(id, "diffResult", diff_report(left, right)),
+                    _ => failure_reply(id, "handle/invalid: `leftHandle` and `rightHandle` are required".to_string()),
+                }
+            }
             "binary.offsetToVa" => match handle_field(&value) {
                 Some(handle) => {
                     let offset = value.get("offset").and_then(Value::as_u64).unwrap_or(0);
@@ -830,6 +854,7 @@ register_module![
     binary_symbols,
     binary_debug,
     binary_disasm,
+    binary_diff,
     binary_search,
     binary_offset_to_va,
     binary_offset_to_rva,

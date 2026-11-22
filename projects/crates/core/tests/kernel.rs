@@ -655,6 +655,92 @@ fn disassembly_is_unsupported_outside_x86_and_x64() {
     assert_eq!(error.code(), "binary/unsupported");
 }
 
+fn open_engine(file: &TempFile) -> OpenIda {
+    OpenIda::new(OpenIdaOptions::new(file.path())).expect("open engine")
+}
+
+#[test]
+fn diff_reports_identical_files() {
+    let left_file = TempFile::new("diff-left");
+    left_file.write(&[1, 2, 3, 4]);
+    let right_file = TempFile::new("diff-right");
+    right_file.write(&[1, 2, 3, 4]);
+    let left = open_engine(&left_file);
+    let right = open_engine(&right_file);
+
+    let report = left.diff(&right).expect("diff");
+    assert!(report.identical);
+    assert_eq!(report.left_size, 4);
+    assert_eq!(report.right_size, 4);
+    assert_eq!(report.compared_bytes, 4);
+    assert_eq!(report.left_hash, report.right_hash);
+    assert_eq!(report.first_difference, None);
+    assert!(report.differences.is_empty());
+    assert_eq!(report.total, 0);
+    assert!(!report.truncated);
+}
+
+#[test]
+fn diff_reports_the_first_divergence_and_range() {
+    let left_file = TempFile::new("diff-prefix-left");
+    left_file.write(&[1, 2, 3, 4, 5]);
+    let right_file = TempFile::new("diff-prefix-right");
+    right_file.write(&[1, 2, 9, 4, 5]);
+    let left = open_engine(&left_file);
+    let right = open_engine(&right_file);
+
+    let report = left.diff(&right).expect("diff");
+    assert!(!report.identical);
+    assert_eq!(report.compared_bytes, 5);
+    assert_eq!(report.first_difference, Some(2));
+    assert_ne!(report.left_hash, report.right_hash);
+    assert_eq!(report.differences, vec![open_ida_core::DiffRange { offset: 2, length: 1 }]);
+    assert_eq!(report.total, 1);
+    assert!(!report.truncated);
+}
+
+#[test]
+fn diff_handles_different_lengths() {
+    let left_file = TempFile::new("diff-length-left");
+    left_file.write(&[1, 2, 3]);
+    let right_file = TempFile::new("diff-length-right");
+    right_file.write(&[1, 2, 3, 4, 5]);
+    let left = open_engine(&left_file);
+    let right = open_engine(&right_file);
+
+    let report = left.diff(&right).expect("diff");
+    assert!(!report.identical);
+    assert_eq!(report.left_size, 3);
+    assert_eq!(report.right_size, 5);
+    assert_eq!(report.compared_bytes, 3);
+    assert_eq!(report.first_difference, Some(3));
+    assert_eq!(report.differences, vec![open_ida_core::DiffRange { offset: 3, length: 2 }]);
+}
+
+#[test]
+fn diff_caps_the_number_of_ranges() {
+    let mut left_bytes = vec![0u8; 200];
+    let mut right_bytes = vec![0u8; 200];
+    for index in 0..100 {
+        left_bytes[index * 2] = 1;
+        right_bytes[index * 2] = 2;
+    }
+    let left_file = TempFile::new("diff-cap-left");
+    left_file.write(&left_bytes);
+    let right_file = TempFile::new("diff-cap-right");
+    right_file.write(&right_bytes);
+    let left = open_engine(&left_file);
+    let right = open_engine(&right_file);
+
+    let report = left.diff(&right).expect("diff");
+    assert_eq!(report.total, 100);
+    assert_eq!(report.differences.len(), 64);
+    assert!(report.truncated);
+    assert_eq!(report.first_difference, Some(0));
+    assert_eq!(report.differences[0].offset, 0);
+    assert_eq!(report.differences[63].offset, 126);
+}
+
 #[test]
 fn search_and_reverse_mapping_are_exposed() {
     let file = TempFile::new("pe-search");
