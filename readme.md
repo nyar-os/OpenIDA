@@ -16,7 +16,7 @@ service, an external SDK or a system toolchain at runtime.
 | PE headers, sections, image base, entry RVA | Available |
 | ELF 32/64-bit little-endian headers and sections | Available |
 | Mach-O header basics (magic, CPU, file type, command count) | Detected only |
-| ASCII strings extraction | Available |
+| ASCII and UTF-16LE strings extraction | Available |
 | Canonical hex dump and byte reads | Available |
 | RVA to file-offset mapping for PE and ELF | Available |
 | Atomic byte patching with before/after hashes | Available |
@@ -36,13 +36,15 @@ service, an external SDK or a system toolchain at runtime.
 ```bash
 open-ida capabilities
 open-ida info ./samples/app.exe
-open-ida strings ./samples/app.exe --min 4 --limit 100
+open-ida strings ./samples/app.exe --min 4 --limit 100 --encoding both
 ```
 
 `capabilities` prints the implementation matrix, including the explicit
 `unsupported` block. `info` reports the detected format, architecture, entry
 point, image base, section count and whole-file hash. `strings` walks printable
-ASCII runs and reports their file offsets.
+ASCII runs and, with `--encoding utf16le` or `both`, the ASCII-in-UTF-16LE runs
+that Windows binaries commonly embed; it reports their file offsets and byte
+lengths.
 
 The remaining commands follow the same shape: `sections` lists every section with
 its virtual address, raw offset, size and readable/writable/executable flags;

@@ -18,6 +18,7 @@ export interface NativeBinding {
     binary_info(handle: number): string;
     binary_sections(handle: number): string;
     binary_strings(handle: number, minLen?: number, limit?: number): string;
+    binary_strings_encoded(handle: number, optionsJson: string): string;
     binary_hexdump(handle: number, offset?: number, length?: number): string;
     binary_read(handle: number, offset: number, length: number): string;
     binary_patch(handle: number, offset: number, hexBytes: string, outputPath?: string): string;

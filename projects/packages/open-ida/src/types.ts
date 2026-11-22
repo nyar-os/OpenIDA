@@ -50,6 +50,37 @@ export interface StringHit {
     readonly value: string;
 }
 
+/** Encoding used to scan for strings. */
+export type StringEncoding = 'ascii' | 'utf16le' | 'both';
+
+/** Inputs of one `stringsEncoded()` call. */
+export interface StringsOptions {
+    /** Minimum number of characters in a run; defaults to 4. */
+    readonly minLength?: number;
+    /** Maximum number of hits; defaults to 100 and is capped at 10000. */
+    readonly limit?: number;
+    /** Encoding to scan for; defaults to `ascii`. */
+    readonly encoding?: StringEncoding;
+}
+
+/** One decoded string run. */
+export interface EncodedStringHit {
+    readonly offset: number;
+    readonly length: number;
+    readonly encoding: StringEncoding;
+    readonly value: string;
+}
+
+/** Bounded result of one encoded string scan. */
+export interface EncodedStringsReport {
+    readonly encoding: StringEncoding;
+    readonly minLength: number;
+    readonly limit: number;
+    readonly hits: readonly EncodedStringHit[];
+    readonly total: number;
+    readonly truncated: boolean;
+}
+
 /** Result of one atomic patch. */
 export interface PatchReport {
     readonly path: string;

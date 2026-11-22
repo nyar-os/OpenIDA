@@ -19,7 +19,7 @@ use std::{
     time::Instant,
 };
 
-use open_ida_core::{DisassembleOptions, IdaError, OpenIda, OpenIdaOptions, SearchOptions};
+use open_ida_core::{DisassembleOptions, IdaError, OpenIda, OpenIdaOptions, SearchOptions, StringsOptions};
 use serde::Serialize;
 use serde_json::{Value, json};
 use wae::{
@@ -132,6 +132,12 @@ fn strings_report(handle: u64, min_len: Option<u64>, limit: Option<u64>) -> std:
         let limit = limit.map(|value| usize::try_from(value).unwrap_or(usize::MAX));
         encoded(&engine.strings(min_len, limit))
     })
+}
+
+fn strings_encoded_report(handle: u64, options_json: &str) -> std::result::Result<Value, IdaError> {
+    let options = serde_json::from_str::<StringsOptions>(options_json)
+        .map_err(|error| IdaError::parse(format!("invalid StringsOptions: {error}")))?;
+    with_engine(handle, |engine| encoded(&engine.strings_encoded(&options)?))
 }
 
 fn hexdump_report(handle: u64, offset: Option<u64>, length: Option<u64>) -> std::result::Result<Value, IdaError> {
@@ -271,6 +277,17 @@ fn binary_strings(ctx: CallContext) -> Result<JsValue> {
     let min_len = optional_number(&ctx, 1)?;
     let limit = optional_number(&ctx, 2)?;
     match strings_report(handle, min_len, limit) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Extracts ASCII or ASCII-in-UTF-16LE strings described by an options JSON.
+#[function]
+fn binary_strings_encoded(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    let options = text(&ctx, 1)?;
+    match strings_encoded_report(handle, &options) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
@@ -509,6 +526,17 @@ impl IpcHandler for IdaIpcHandler {
                     let limit = value.get("limit").and_then(Value::as_u64);
                     outcome(id, "stringsResult", strings_report(handle, min_len, limit))
                 }
+                None => failure_reply(id, "handle/invalid: `handle` is required".to_string()),
+            },
+            "binary.stringsEncoded" => match handle_field(&value) {
+                Some(handle) => match serde_json::from_value::<StringsOptions>(value.clone()) {
+                    Ok(options) => outcome(
+                        id,
+                        "stringsEncodedResult",
+                        with_engine(handle, |engine| encoded(&engine.strings_encoded(&options)?)),
+                    ),
+                    Err(error) => failure_reply(id, format!("binary/parse: invalid StringsOptions: {error}")),
+                },
                 None => failure_reply(id, "handle/invalid: `handle` is required".to_string()),
             },
             "binary.hexdump" => match handle_field(&value) {
@@ -863,6 +891,7 @@ register_module![
     binary_info,
     binary_sections,
     binary_strings,
+    binary_strings_encoded,
     binary_hexdump,
     binary_read,
     binary_patch,
