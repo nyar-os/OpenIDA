@@ -23,6 +23,7 @@ import type {
     DisassemblyReport,
     ElfDynamicReport,
     ElfNotesReport,
+    ElfSegmentsReport,
     EncodedStringsReport,
     EntropyReport,
     ExportsReport,
@@ -281,6 +282,20 @@ function describeDynamic(report: ElfDynamicReport): string {
         lines.push(`runpath: ${report.runpath.join(':')}`);
     }
     lines.push(`dynamic entries: ${report.dynamicEntries}`);
+    return lines.join('\n');
+}
+
+function describeSegments(report: ElfSegmentsReport): string {
+    if (!report.present) {
+        return 'no program header table';
+    }
+    const header = entriesHeader(report.segments.length, report.total, 'segment(s)', report.truncated);
+    const lines = [`${header} · ${report.is64 ? '64-bit' : '32-bit'}`];
+    for (const segment of report.segments) {
+        lines.push(
+            `  ${String(segment.index).padStart(2)} ${segment.segmentType.padEnd(18)} ${hex(segment.offset)} vaddr ${hex(segment.virtualAddress)} filesz ${hex(segment.fileSize)} memsz ${hex(segment.memorySize)} ${segment.flagText || '---'} align ${segment.alignment}`,
+        );
+    }
     return lines.join('\n');
 }
 
@@ -824,6 +839,22 @@ cli.command('dynamic', 'cli.cmd.dynamic').actionCtx(async (options, _args, ctx) 
     try {
         const report = ida.dynamic();
         ctx.emitResult(report, describeDynamic(report));
+        return 0;
+    } finally {
+        ida.close();
+    }
+});
+
+cli.command('segments', 'cli.cmd.segments').actionCtx(async (options, _args, ctx) => {
+    const file = input(options);
+    if (file === undefined) {
+        ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+        return 2;
+    }
+    const ida = new OpenIDA({ path: file });
+    try {
+        const report = ida.segments();
+        ctx.emitResult(report, describeSegments(report));
         return 0;
     } finally {
         ida.close();

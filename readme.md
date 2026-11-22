@@ -59,6 +59,7 @@ open-ida mitigations ./samples/app.exe
 open-ida resources ./samples/app.exe
 open-ida relocations ./samples/app.exe
 open-ida dynamic ./samples/app.elf
+open-ida segments ./samples/app.elf
 open-ida notes ./samples/app.elf
 open-ida certificates ./samples/app.exe
 open-ida tls ./samples/app.exe

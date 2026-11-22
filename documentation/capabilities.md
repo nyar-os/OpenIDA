@@ -39,6 +39,7 @@ Big-endian ELF is rejected rather than decoded with a guessed byte order.
 | `pe-resources` | `supported` | PE resource tree leaves with type, name, language, data RVA, size and code page. A PE without a resource directory reports `present: false`; non-PE answers `binary/unsupported`. |
 | `pe-relocations` | `supported` | PE `IMAGE_BASE_RELOCATION` blocks with page RVA, block size, entry count and per-type fixup counts, plus whole-image totals. A PE without relocations reports `present: false`; non-PE answers `binary/unsupported`. |
 | `elf-dynamic` | `supported` | ELF `PT_INTERP` interpreter and `PT_DYNAMIC` facts: `DT_SONAME`, `DT_NEEDED`, `DT_RPATH` and `DT_RUNPATH`, mapped through `PT_LOAD`. A static image reports `present: false`; non-ELF answers `binary/unsupported`. |
+| `elf-program-headers` | `supported` | ELF program header table: type (`PT_LOAD`, `PT_DYNAMIC`, `PT_GNU_RELRO`, ...), file offset, virtual/physical address, file/memory size, `R/W/X` flags and alignment, in the ELF32 or ELF64 layout. An image without program headers reports `present: false`; non-ELF answers `binary/unsupported`. |
 | `elf-notes` | `supported` | ELF notes from `PT_NOTE` segments, falling back to `SHT_NOTE` sections: `NT_GNU_BUILD_ID` hex, `NT_GNU_ABI_TAG` OS/version, `NT_GNU_PROPERTY_TYPE_0` entries and other notes as a bounded hex preview. An image without notes reports `present: false`; non-ELF answers `binary/unsupported`. |
 | `pe-certificates` | `supported` | PE attribute certificate table entries with file offset, length, revision, certificate type, payload size and a `PKCS#7` shape flag. Headers only: no signature, chain or timestamp verification. A PE without the table reports `present: false`; non-PE answers `binary/unsupported`. |
 | `pe-tls` | `supported` | PE TLS directory fields (raw template range, index slot, zero fill, characteristics) and the callback array mapped from VAs through the image base and sections. Callbacks beyond 64 are cut. A PE without the directory reports `present: false`; non-PE answers `binary/unsupported`. |
@@ -79,6 +80,7 @@ Big-endian ELF is rejected rather than decoded with a guessed byte order.
 | `resources` | 256 leaves, 8,192 tree nodes | — | `total` and `truncated` describe the cut. |
 | `relocations` | 128 blocks listed, 4,096 decoded | — | `totalBlocks`, `totalEntries` and `truncated` describe the cut. |
 | `dynamic` | 256 needed libraries, 64 paths per list | — | `truncated` is `true` when a limit stopped the listing. |
+| `segments` | 128 program headers | — | `total` and `truncated` describe the cut. |
 | `notes` | 128 notes, 32 property entries | — | `total` and `truncated` describe the cut. |
 | `certificates` | 64 entries | — | `total` and `truncated` describe the cut. |
 | `tls` | 64 callbacks | — | `truncated` is `true` when the array was cut or not fully readable. |
