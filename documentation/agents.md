@@ -45,6 +45,7 @@ containers are rejected, and unknown containers are rejected.
 | Extract a fat slice | `open-ida macho-extract <file> --index <n> --out <file>` | Writes one slice; the source is never overwritten |
 | List Mach-O symbols | `open-ida macho-symbols <file> --limit <n>` | Name, address, kind, section and flags per `LC_SYMTAB` entry |
 | List Mach-O function starts | `open-ida macho-function-starts <file> --limit <n>` | Absolute addresses decoded from `LC_FUNCTION_STARTS` |
+| List Mach-O exports | `open-ida macho-exports <file>` | Dyld export trie names, flags, addresses and ordinals |
 | Decode code | `open-ida disasm <file> --offset <n> --count <n>` | Address, offset, bytes, mnemonic |
 | Triage packing | `open-ida entropy <file>` | Whole-file and section entropy, PE overlay |
 | Compare builds | `open-ida diff <left> <right>` | First difference and differing ranges |

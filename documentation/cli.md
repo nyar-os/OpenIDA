@@ -368,6 +368,18 @@ the `__TEXT` segment address, and prints each absolute function start address.
 A Mach-O without `LC_FUNCTION_STARTS` answers `binary/unsupported`; fat
 containers must be sliced first.
 
+### `macho-exports <file>`
+
+```bash
+open-ida macho-exports ./samples/app.macho
+```
+
+Mach-O only. Walks the dyld export trie behind `LC_DYLD_EXPORTS_TRIE` or the
+export fields of `LC_DYLD_INFO(_ONLY)` and prints each symbol with its flags
+(`WEAK`, `REEXPORT`, `STUB_AND_RESOLVER`), address or reexport ordinal. At most
+512 exports are returned and 8,192 trie nodes are visited. A Mach-O without a
+trie prints `no dyld export trie`; bind opcodes are still not decoded.
+
 ### `disasm <file>`
 
 ```bash

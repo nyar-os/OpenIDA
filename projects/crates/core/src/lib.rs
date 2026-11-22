@@ -54,8 +54,8 @@ pub use entropy::{EntropyReport, OverlayInfo, SectionEntropy};
 pub use error::{IdaError, Result};
 pub use load_config::{CodeIntegrityInfo, PeLoadConfigReport};
 pub use macho::{
-    MachODylib, MachOFunctionStartsReport, MachOReport, MachOSection, MachOSegment, MachOSlice, MachOSliceExtraction,
-    MachOSlicesReport, MachOSymbol, MachOSymbolsReport,
+    MachODylib, MachOExport, MachOExportsReport, MachOFunctionStartsReport, MachOReport, MachOSection, MachOSegment,
+    MachOSlice, MachOSliceExtraction, MachOSlicesReport, MachOSymbol, MachOSymbolsReport,
 };
 pub use mitigations::{MitigationsReport, WritableExecutableSection};
 pub use notes::{ElfAbiTag, ElfGnuProperty, ElfNote, ElfNotesReport};
@@ -177,6 +177,11 @@ impl BinaryView {
     /// Decodes the Mach-O `LC_FUNCTION_STARTS` delta table.
     pub fn macho_function_starts(&self, limit: Option<usize>) -> Result<MachOFunctionStartsReport> {
         macho::function_starts(&self.session, limit)
+    }
+
+    /// Decodes the dyld export trie of a Mach-O image.
+    pub fn macho_exports(&self) -> Result<MachOExportsReport> {
+        macho::exports(&self.session)
     }
 
     /// Lists the architecture slices of a fat/universal Mach-O container.
@@ -448,6 +453,11 @@ impl OpenIda {
         macho::function_starts(&self.session, limit)
     }
 
+    /// Decodes the dyld export trie of a Mach-O image.
+    pub fn macho_exports(&self) -> Result<MachOExportsReport> {
+        macho::exports(&self.session)
+    }
+
     /// Lists the architecture slices of a fat/universal Mach-O container.
     pub fn macho_slices(&self) -> Result<MachOSlicesReport> {
         macho::slices(&self.session)
@@ -606,6 +616,7 @@ pub fn capabilities() -> serde_json::Value {
             "macho-symbols": "supported",
             "macho-fat-slices": "supported",
             "macho-function-starts": "supported",
+            "macho-exports": "supported",
             "macho-slice-extraction": "supported",
             "macho-code-signature": "supported",
             "pe-mitigations": "supported",
