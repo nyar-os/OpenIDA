@@ -397,6 +397,39 @@ export interface RelocationsReport {
     readonly truncated: boolean;
 }
 
+/** Decoded `UNWIND_INFO` header of one x64 runtime function. */
+export interface PeUnwindInfo {
+    readonly version: number;
+    readonly flags: number;
+    readonly flagNames: readonly string[];
+    readonly prologSize: number;
+    readonly codeCount: number;
+    readonly frameRegister: number;
+    readonly frameOffset: number;
+    readonly chained: boolean;
+}
+
+/** One `RUNTIME_FUNCTION` entry of the PE exception directory. */
+export interface PeRuntimeFunction {
+    readonly beginAddress: number;
+    readonly endAddress: number;
+    readonly unwindInfo: number;
+    readonly unwindOffset: number | null;
+    readonly unwind: PeUnwindInfo | null;
+}
+
+/** Bounded PE exception directory listing. */
+export interface PeExceptionReport {
+    readonly present: boolean;
+    readonly machine: number;
+    readonly machineName: string;
+    readonly entryFormat: 'x64' | 'arm64' | 'arm' | 'unknown';
+    readonly entrySize: number | null;
+    readonly functions: readonly PeRuntimeFunction[];
+    readonly total: number;
+    readonly truncated: boolean;
+}
+
 /** Dynamic linking facts of one ELF image. */
 export interface ElfDynamicReport {
     readonly present: boolean;

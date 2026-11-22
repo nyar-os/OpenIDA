@@ -217,6 +217,10 @@ fn relocations_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.relocations()?))
 }
 
+fn exception_report(handle: u64) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.exception()?))
+}
+
 fn dynamic_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.dynamic()?))
 }
@@ -481,6 +485,16 @@ fn binary_resources(ctx: CallContext) -> Result<JsValue> {
 fn binary_mitigations(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     match mitigations_report(handle) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Decodes the PE exception directory runtime functions.
+#[function]
+fn binary_exception(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    match exception_report(handle) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
@@ -1122,6 +1136,7 @@ register_module![
     binary_mitigations,
     binary_resources,
     binary_relocations,
+    binary_exception,
     binary_dynamic,
     binary_notes,
     binary_certificates,

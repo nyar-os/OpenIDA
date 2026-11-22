@@ -33,6 +33,7 @@ containers are rejected, and unknown containers are rejected.
 | Check PE hardening | `open-ida mitigations <file>` | ASLR, DEP, CFG, GS, W+X, relocations, certificate presence |
 | List PE resources | `open-ida resources <file>` | Type, name, language, RVA and size per leaf |
 | List PE relocations | `open-ida relocations <file>` | Page RVA, entry count and fixup types per block |
+| List PE runtime functions | `open-ida exception <file>` | Begin/end RVA, unwind info and decoded x64 unwind header |
 | Read ELF dependencies | `open-ida dynamic <file>` | Interpreter, SONAME, needed libraries, rpath/runpath |
 | List ELF program headers | `open-ida segments <file>` | Segment type, offset, addresses, sizes, permissions and alignment |
 | Read ELF notes | `open-ida notes <file>` | GNU build id, ABI tag, GNU properties |

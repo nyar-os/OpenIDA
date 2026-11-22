@@ -50,6 +50,10 @@ ida.close();
 - `relocations()` decodes the PE base relocation blocks, reporting each block's
   page RVA, entry count and fixup types. It reports `present: false` when the
   image has no relocations.
+- `exception()` lists the PE exception directory runtime functions with their
+  begin/end RVAs, unwind info RVA and, on x64, the decoded unwind header. ARM and
+  ARM64 packed entries are unmasked. It reports `present: false` when the image
+  has no exception directory.
 - `dynamic()` reports the ELF interpreter, SONAME, `NEEDED` libraries and
   rpath/runpath. It reports `present: false` for a static image.
 - `segments()` lists the ELF program headers with type, offsets, addresses,

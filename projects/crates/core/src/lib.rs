@@ -12,6 +12,7 @@
 //! unsupported instead of being approximated.
 
 #![deny(missing_docs)]
+#![recursion_limit = "256"]
 
 mod certificates;
 mod code_signature;
@@ -25,6 +26,7 @@ mod load_config;
 mod macho;
 mod mitigations;
 mod notes;
+mod pe_exception;
 mod relocations;
 mod resources;
 mod segments;
@@ -57,6 +59,7 @@ pub use macho::{
 };
 pub use mitigations::{MitigationsReport, WritableExecutableSection};
 pub use notes::{ElfAbiTag, ElfGnuProperty, ElfNote, ElfNotesReport};
+pub use pe_exception::{PeExceptionReport, PeRuntimeFunction, PeUnwindInfo};
 pub use relocations::{RelocationBlock, RelocationKindCount, RelocationsReport};
 pub use resources::{PeResource, ResourcesReport};
 pub use segments::{ElfSegment, ElfSegmentsReport};
@@ -194,6 +197,11 @@ impl BinaryView {
     /// Lists the PE resource directory leaves.
     pub fn resources(&self) -> Result<ResourcesReport> {
         resources::analyze(&self.session)
+    }
+
+    /// Decodes the PE exception directory runtime functions.
+    pub fn exception(&self) -> Result<PeExceptionReport> {
+        pe_exception::analyze(&self.session)
     }
 
     /// Decodes the PE base relocation blocks.
@@ -455,6 +463,11 @@ impl OpenIda {
         resources::analyze(&self.session)
     }
 
+    /// Decodes the PE exception directory runtime functions.
+    pub fn exception(&self) -> Result<PeExceptionReport> {
+        pe_exception::analyze(&self.session)
+    }
+
     /// Decodes the PE base relocation blocks.
     pub fn relocations(&self) -> Result<RelocationsReport> {
         relocations::analyze(&self.session)
@@ -587,6 +600,7 @@ pub fn capabilities() -> serde_json::Value {
             "pe-mitigations": "supported",
             "pe-resources": "supported",
             "pe-relocations": "supported",
+            "pe-exception": "supported",
             "pe-certificates": "supported",
             "pe-tls": "supported",
             "pe-load-config": "supported",

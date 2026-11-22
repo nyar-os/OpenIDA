@@ -35,6 +35,7 @@ import type {
     OffsetToRvaReport,
     OffsetToVaReport,
     PatchReport,
+    PeExceptionReport,
     PeLoadConfigReport,
     PeTlsReport,
     ReadReport,
@@ -180,6 +181,11 @@ export class OpenIDA {
     /** Lists the PE resource directory leaves. */
     resources(): ResourcesReport {
         return decode<ResourcesReport>(() => binding('binary.resources').binary_resources(this.id));
+    }
+
+    /** Decodes the PE exception directory runtime functions. */
+    exception(): PeExceptionReport {
+        return decode<PeExceptionReport>(() => binding('binary.exception').binary_exception(this.id));
     }
 
     /** Decodes the PE base relocation blocks. */
