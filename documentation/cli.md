@@ -220,9 +220,20 @@ open-ida macho-slices ./samples/universal.macho
 Fat/universal Mach-O only. Prints the `fat_arch` or `fat_arch_64` layout and one
 line per slice: CPU type and subtype, architecture, file offset, size, alignment
 and the bitness read from the slice header. A thin Mach-O answers
-`binary/unsupported` and is inspected with `macho` directly. This build lists
-slices but does not extract them, so `macho` and `macho-symbols` still require a
-thin image.
+`binary/unsupported` and is inspected with `macho` directly. Use
+`macho-extract` to write a slice before running `macho` or `macho-symbols`.
+
+### `macho-extract <file>`
+
+```bash
+open-ida macho-extract ./samples/universal.macho --index 1 --out ./samples/app.arm64.macho
+```
+
+Fat/universal Mach-O only. Writes the slice selected by `--index` (default `0`,
+matching the `macho-slices` table) to `--out`. The report repeats the index,
+architecture, source offset and size. Writing to the source container itself is
+refused; any other destination is replaced. This is the only command that writes
+a file the user did not already open for patching.
 
 ### `macho-symbols <file>`
 

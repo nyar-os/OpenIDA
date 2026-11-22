@@ -1243,6 +1243,33 @@ fn macho_slices_require_a_fat_container() {
 }
 
 #[test]
+fn macho_slice_extraction_writes_only_the_selected_slice() {
+    let source = TempFile::new("universal");
+    source.write(&fat32_bytes());
+    let view = BinaryView::open(source.path()).expect("open fat container");
+    let output = std::env::temp_dir().join(format!("open-ida-{}-extracted-slice.bin", std::process::id()));
+
+    let report = view.extract_slice(1, &output).expect("extract slice");
+    assert_eq!(report.index, 1);
+    assert_eq!(report.architecture, "arm64");
+    assert_eq!(report.offset, 0x2000);
+    assert_eq!(report.size, 0x300);
+    assert_eq!(report.output, output.display().to_string());
+
+    let written = fs::read(&output).expect("read extracted slice");
+    assert_eq!(written.len(), 0x300);
+    assert_eq!(&written[..4], &[0xcf, 0xfa, 0xed, 0xfe]);
+    assert_eq!(fs::read(source.path()).expect("read source").len(), 0x2400);
+    fs::remove_file(&output).ok();
+
+    assert_eq!(view.extract_slice(2, &output).unwrap_err().code(), "binary/range");
+    assert_eq!(view.extract_slice(0, source.path()).unwrap_err().code(), "binary/io");
+
+    let thin = BinaryView::from_bytes("thin.macho", macho64_bytes());
+    assert_eq!(thin.extract_slice(0, &output).unwrap_err().code(), "binary/unsupported");
+}
+
+#[test]
 fn pe_resources_walk_the_directory_tree() {
     let mut bytes = pe_bytes();
     put_u32(&mut bytes, 0x98 + 112 + 2 * 8, 0x2000);

@@ -35,6 +35,7 @@ containers are rejected, and unknown containers are rejected.
 | List PE relocations | `open-ida relocations <file>` | Page RVA, entry count and fixup types per block |
 | Read ELF dependencies | `open-ida dynamic <file>` | Interpreter, SONAME, needed libraries, rpath/runpath |
 | List fat slices | `open-ida macho-slices <file>` | CPU, architecture, offset, size and alignment per slice |
+| Extract a fat slice | `open-ida macho-extract <file> --index <n> --out <file>` | Writes one slice; the source is never overwritten |
 | List Mach-O symbols | `open-ida macho-symbols <file> --limit <n>` | Name, address, kind, section and flags per `LC_SYMTAB` entry |
 | Decode code | `open-ida disasm <file> --offset <n> --count <n>` | Address, offset, bytes, mnemonic |
 | Triage packing | `open-ida entropy <file>` | Whole-file and section entropy, PE overlay |
@@ -73,8 +74,9 @@ Branch on `code`, never on message text. CLI usage failures add
    debugging as available. Mach-O load commands, segments, sections, dylibs,
    build versions, the `LC_SYMTAB` symbol table and the fat slice table are
    available.
-3. A fat Mach-O is not a thin image: `macho-slices` lists its architectures,
-   but `macho` and `macho-symbols` need a slice this build cannot extract.
+3. A fat Mach-O is not a thin image: `macho-slices` lists its architectures and
+   `macho-extract` writes one slice, which can then be opened with `macho` or
+   `macho-symbols`. Never point `--out` at the source container.
 4. Before patching, state the file, the offset and the exact bytes. Prefer
    `--out` so the source stays untouched.
 5. Never present a hash as a security verdict. It only proves the bytes changed.

@@ -25,6 +25,7 @@ import type {
     ImportsReport,
     MachOReport,
     MachOSlicesReport,
+    MachOSliceExtraction,
     MachOSymbolsReport,
     MitigationsReport,
     OffsetToRvaReport,
@@ -151,6 +152,13 @@ export class OpenIDA {
     /** Lists the architecture slices of a fat/universal Mach-O container. */
     machoSlices(): MachOSlicesReport {
         return decode<MachOSlicesReport>(() => binding('binary.macho_slices').binary_macho_slices(this.id));
+    }
+
+    /** Writes one fat/universal Mach-O slice to `output`. */
+    extractSlice(index: number, output: string): MachOSliceExtraction {
+        return decode<MachOSliceExtraction>(() =>
+            binding('binary.macho_extract').binary_macho_extract(this.id, index, output),
+        );
     }
 
     /** Summarises the PE mitigation posture. */

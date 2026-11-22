@@ -9,9 +9,9 @@ description: Inspect compiled binaries with OpenIDA. Use when a task involves PE
 
 `open-ida info`, `sections`, `strings`, `hexdump`, `rva`, `offset`, `imports`,
 `exports`, `symbols`, `debug`, `version`, `macho`, `macho-symbols`,
-`macho-slices`, `mitigations`, `resources`, `relocations`, `dynamic`, `disasm`, `entropy`, `diff`,
+`macho-slices`, `macho-extract`, `mitigations`, `resources`, `relocations`, `dynamic`, `disasm`, `entropy`, `diff`,
 `search` and `patch` are implemented for the cases listed below. Decompilation,
-debugging, dyld bindings, signature verification and fat-slice extraction are
+debugging, dyld bindings and signature verification are
 **not** implemented and the capability matrix reports them as `unsupported` /
 `not-implemented`.
 
@@ -42,6 +42,7 @@ a second analysis engine. Report the stable code instead.
 | macho | Read UUID, platform, dylibs, segments and sections | `macho` report |
 | macho-symbols | List `LC_SYMTAB` entries with kind, section and flags | `macho-symbols` report |
 | macho-slices | List the architectures of a fat/universal container | `macho-slices` report |
+| macho-extract | Write one fat/universal slice to a new file | `macho-extract` report |
 | mitigations | Read the PE hardening posture | `mitigations` report |
 | resources | List the PE resource tree | `resources` report |
 | relocations | List the PE base relocation blocks and fixup types | `relocations` report |

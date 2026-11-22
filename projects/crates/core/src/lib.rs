@@ -42,7 +42,10 @@ pub use disasm::{DisassembleOptions, DisassemblyInstruction, DisassemblyReport, 
 pub use dynamic::ElfDynamicReport;
 pub use entropy::{EntropyReport, OverlayInfo, SectionEntropy};
 pub use error::{IdaError, Result};
-pub use macho::{MachODylib, MachOReport, MachOSection, MachOSegment, MachOSlice, MachOSlicesReport, MachOSymbol, MachOSymbolsReport};
+pub use macho::{
+    MachODylib, MachOReport, MachOSection, MachOSegment, MachOSlice, MachOSliceExtraction, MachOSlicesReport,
+    MachOSymbol, MachOSymbolsReport,
+};
 pub use mitigations::{MitigationsReport, WritableExecutableSection};
 pub use relocations::{RelocationBlock, RelocationKindCount, RelocationsReport};
 pub use resources::{PeResource, ResourcesReport};
@@ -159,6 +162,11 @@ impl BinaryView {
     /// Lists the architecture slices of a fat/universal Mach-O container.
     pub fn macho_slices(&self) -> Result<MachOSlicesReport> {
         macho::slices(&self.session)
+    }
+
+    /// Writes one fat/universal Mach-O slice to a caller-chosen path.
+    pub fn extract_slice(&self, index: usize, output: &Path) -> Result<MachOSliceExtraction> {
+        macho::extract(&self.session, index, output)
     }
 
     /// Summarises the PE mitigation posture.
@@ -385,6 +393,11 @@ impl OpenIda {
         macho::slices(&self.session)
     }
 
+    /// Writes one fat/universal Mach-O slice to a caller-chosen path.
+    pub fn extract_slice(&self, index: usize, output: &Path) -> Result<MachOSliceExtraction> {
+        macho::extract(&self.session, index, output)
+    }
+
     /// Summarises the PE mitigation posture.
     pub fn mitigations(&self) -> Result<MitigationsReport> {
         mitigations::analyze(&self.session)
@@ -497,6 +510,7 @@ pub fn capabilities() -> serde_json::Value {
             "macho-build-version": "supported",
             "macho-symbols": "supported",
             "macho-fat-slices": "supported",
+            "macho-slice-extraction": "supported",
             "pe-mitigations": "supported",
             "pe-resources": "supported",
             "pe-relocations": "supported",
