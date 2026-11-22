@@ -19,6 +19,7 @@ wae = { git = "https://github.com/doki-land/wae-framework.git", rev = "f92f818fd
 # Shared binary framework. Keep the same `boost.rs` revision as the rest of the
 # OpenX applications so parsing and target models do not drift.
 data-binary-inspect = { git = "https://github.com/oovm/boost.rs", rev = "5ed79ccd125d035b7286c8073b6c9b4ee384dbfb" }
+data-binary-pe = { git = "https://github.com/oovm/boost.rs", rev = "5ed79ccd125d035b7286c8073b6c9b4ee384dbfb" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
