@@ -26,6 +26,7 @@ mod notes;
 mod relocations;
 mod resources;
 mod text;
+mod tls;
 mod version;
 
 use std::path::{Path, PathBuf};
@@ -54,6 +55,7 @@ pub use notes::{ElfAbiTag, ElfGnuProperty, ElfNote, ElfNotesReport};
 pub use relocations::{RelocationBlock, RelocationKindCount, RelocationsReport};
 pub use resources::{PeResource, ResourcesReport};
 pub use text::{EncodedStringHit, EncodedStringsReport, StringEncoding, StringsOptions};
+pub use tls::{PeTlsCallback, PeTlsReport};
 pub use version::{FixedFileInfo, VersionReport, VersionString};
 
 impl From<data_binary_inspect::InspectError> for IdaError {
@@ -201,6 +203,11 @@ impl BinaryView {
     /// Lists the PE attribute certificate table entries.
     pub fn certificates(&self) -> Result<CertificatesReport> {
         certificates::analyze(&self.session)
+    }
+
+    /// Decodes the PE TLS directory and its callback array.
+    pub fn tls(&self) -> Result<PeTlsReport> {
+        tls::analyze(&self.session)
     }
 
     /// Decodes `x86` / `x64` instructions from one file offset.
@@ -442,6 +449,11 @@ impl OpenIda {
         certificates::analyze(&self.session)
     }
 
+    /// Decodes the PE TLS directory and its callback array.
+    pub fn tls(&self) -> Result<PeTlsReport> {
+        tls::analyze(&self.session)
+    }
+
     /// Decodes `x86` / `x64` instructions from one file offset.
     pub fn disasm(&self, options: &DisassembleOptions) -> Result<DisassemblyReport> {
         disasm::analyze(&self.session, options)
@@ -539,6 +551,7 @@ pub fn capabilities() -> serde_json::Value {
             "pe-resources": "supported",
             "pe-relocations": "supported",
             "pe-certificates": "supported",
+            "pe-tls": "supported",
             "elf-dynamic": "supported",
             "elf-notes": "supported",
             "disassembly": "supported",

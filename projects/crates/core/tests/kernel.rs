@@ -1550,6 +1550,64 @@ fn pe_certificates_report_absence_and_reject_non_pe() {
 }
 
 #[test]
+fn pe_tls_decodes_callbacks_and_maps_them_through_the_image_base() {
+    let view = BinaryView::from_bytes("tls.exe", pe_tls_bytes());
+    let report = view.tls().expect("PE TLS");
+
+    assert!(report.present);
+    assert!(report.is64);
+    assert!(!report.truncated);
+    assert_eq!(report.directory_rva, 0x2000);
+    assert_eq!(report.directory_size, 40);
+    assert_eq!(report.raw_data_start, 0x1_4000_2010);
+    assert_eq!(report.raw_data_end, 0x1_4000_2020);
+    assert_eq!(report.index_address, 0x1_4000_2030);
+    assert_eq!(report.callbacks_address, 0x1_4000_2040);
+    assert_eq!(report.callbacks_rva, Some(0x2040));
+    assert_eq!(report.size_of_zero_fill, 0x10);
+    assert_eq!(report.characteristics, 0x0030_0000);
+
+    assert_eq!(report.callbacks.len(), 2);
+    assert_eq!(report.callbacks[0].address, 0x1_4000_1010);
+    assert_eq!(report.callbacks[0].rva, Some(0x1010));
+    assert_eq!(report.callbacks[0].offset, Some(0x210));
+    assert_eq!(report.callbacks[1].rva, Some(0x1020));
+    assert_eq!(report.callbacks[1].offset, Some(0x220));
+}
+
+#[test]
+fn pe_tls_reports_absence_and_rejects_non_pe() {
+    let view = BinaryView::from_bytes("plain.exe", pe_bytes());
+    let report = view.tls().expect("PE TLS");
+    assert!(!report.present);
+    assert!(report.callbacks.is_empty());
+
+    let elf = BinaryView::from_bytes("sample.elf", elf64_bytes());
+    assert_eq!(elf.tls().unwrap_err().code(), "binary/unsupported");
+}
+
+/// `pe_bytes()` plus a PE32+ TLS directory at RVA 0x2000 and two callbacks.
+fn pe_tls_bytes() -> Vec<u8> {
+    let mut bytes = pe_bytes();
+    put_u32(&mut bytes, 0x98 + 112 + 9 * 8, 0x2000);
+    put_u32(&mut bytes, 0x98 + 112 + 9 * 8 + 4, 40);
+
+    let base = 0x400;
+    let image_base = 0x1_4000_0000u64;
+    put_u64(&mut bytes, base, image_base + 0x2010);
+    put_u64(&mut bytes, base + 8, image_base + 0x2020);
+    put_u64(&mut bytes, base + 16, image_base + 0x2030);
+    put_u64(&mut bytes, base + 24, image_base + 0x2040);
+    put_u32(&mut bytes, base + 32, 0x10);
+    put_u32(&mut bytes, base + 36, 0x0030_0000);
+
+    put_u64(&mut bytes, 0x440, image_base + 0x1010);
+    put_u64(&mut bytes, 0x448, image_base + 0x1020);
+    put_u64(&mut bytes, 0x450, 0);
+    bytes
+}
+
+#[test]
 fn elf_notes_decode_build_id_abi_tag_and_properties() {
     let view = BinaryView::from_bytes("notes.elf", elf_notes_bytes());
     let report = view.notes().expect("ELF notes");

@@ -463,6 +463,30 @@ export interface CertificatesReport {
     readonly truncated: boolean;
 }
 
+/** One PE TLS callback address and its file mapping. */
+export interface PeTlsCallback {
+    readonly address: number;
+    readonly rva: number | null;
+    readonly offset: number | null;
+}
+
+/** PE TLS table summary. */
+export interface PeTlsReport {
+    readonly present: boolean;
+    readonly is64: boolean;
+    readonly directoryRva: number;
+    readonly directorySize: number;
+    readonly rawDataStart: number;
+    readonly rawDataEnd: number;
+    readonly indexAddress: number;
+    readonly callbacksAddress: number;
+    readonly callbacksRva: number | null;
+    readonly sizeOfZeroFill: number;
+    readonly characteristics: number;
+    readonly callbacks: readonly PeTlsCallback[];
+    readonly truncated: boolean;
+}
+
 /** Entropy of one section payload. */
 export interface SectionEntropy {
     readonly name: string;
