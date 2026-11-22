@@ -126,6 +126,17 @@ PE only. Prints each debug directory entry (type, timestamp, version, data size,
 raw pointer, RVA) and, for CodeView entries, the signature, GUID or `NB10`
 offset/timestamp, age and PDB path. A non-PE file answers `binary/unsupported`.
 
+### `version <file>`
+
+```bash
+open-ida version ./samples/app.exe
+```
+
+PE only. Walks the resource directory to `RT_VERSION` and prints the fixed file
+info (file and product versions, flags, OS and type) plus the `StringFileInfo`
+pairs with their language id and code page. A PE with no version resource prints
+`no RT_VERSION resource` and reports `present: false` rather than failing.
+
 ### `macho <file>`
 
 ```bash

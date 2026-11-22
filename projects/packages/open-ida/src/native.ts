@@ -27,6 +27,7 @@ export interface NativeBinding {
     binary_exports(handle: number, limit?: number): string;
     binary_symbols(handle: number, limit?: number): string;
     binary_debug(handle: number, limit?: number): string;
+    binary_version(handle: number): string;
     binary_macho(handle: number): string;
     binary_disasm(handle: number, optionsJson: string): string;
     binary_diff(leftHandle: number, rightHandle: number): string;

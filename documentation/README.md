@@ -10,7 +10,7 @@ agent-facing documentation lives in [agents.md](agents.md).
 
 | Path | What it is |
 | --- | --- |
-| `projects/crates/core` | Rust crate `open-ida-core`: session defaults, `OpenIda` API, PE debug/CodeView parsing, Mach-O load-command identity, disassembly, binary diff, entropy and encoded string scanning, stable errors and the capability matrix. Container decoding, imports, exports, symbols, search, hex dumps and patching come from the pinned `boost.rs` binary crates. |
+| `projects/crates/core` | Rust crate `open-ida-core`: session defaults, `OpenIda` API, PE debug/CodeView and version-resource parsing, Mach-O load-command identity, disassembly, binary diff, entropy and encoded string scanning, stable errors and the capability matrix. Container decoding, imports, exports, symbols, search, hex dumps and patching come from the pinned `boost.rs` binary crates. |
 | `projects/crates/napi` | Rust crate `open-ida-napi`: `cdylib` Node-API exports and the Studio WebView host. It maps JSON in and JSON out; no analysis lives here. |
 | `projects/packages/open-ida` | TypeScript package `@wae/open-ida`: `OpenIDA` session (`src/api.ts`), CLI (`src/cli.ts`, bin `open-ida`), GUI helpers, stable errors, types and `locales/en-US/cli.json`. |
 | `projects/packages/open-ida/tests` | TypeScript smoke test compiled with `tsconfig.test.json` into `dist-test`. Test files do not live under `src`. |

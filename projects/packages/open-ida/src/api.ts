@@ -34,6 +34,7 @@ import type {
     StringsOptions,
     StringsReport,
     SymbolsReport,
+    VersionReport,
 } from './types.js';
 
 /** Inputs of one engine session. Defaults mirror `open-ida-core`. */
@@ -124,6 +125,11 @@ export class OpenIDA {
     /** Lists PE debug directory entries and `CodeView` PDB records. */
     debug(limit?: number): DebugReport {
         return decode<DebugReport>(() => binding('binary.debug').binary_debug(this.id, limit));
+    }
+
+    /** Decodes the PE version resource (`RT_VERSION`). */
+    version(): VersionReport {
+        return decode<VersionReport>(() => binding('binary.version').binary_version(this.id));
     }
 
     /** Decodes Mach-O load commands, segments, sections, dylibs and identity. */
