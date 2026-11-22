@@ -356,6 +356,18 @@ the string table and prints its address, kind (`undefined`, `absolute`,
 index. `--limit` defaults to unlimited and reports `truncated` when it cuts the
 table. A Mach-O without `LC_SYMTAB` answers `binary/unsupported`.
 
+### `macho-function-starts <file>`
+
+```bash
+open-ida macho-function-starts ./samples/app.macho --limit 200
+```
+
+Mach-O only. Decodes the `LC_FUNCTION_STARTS` ULEB128 delta table, starting from
+the `__TEXT` segment address, and prints each absolute function start address.
+`--limit` defaults to unlimited and reports `truncated` when it cuts the table.
+A Mach-O without `LC_FUNCTION_STARTS` answers `binary/unsupported`; fat
+containers must be sliced first.
+
 ### `disasm <file>`
 
 ```bash

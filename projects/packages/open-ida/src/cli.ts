@@ -32,6 +32,7 @@ import type {
     MachOCodeSignatureReport,
     MachOSlicesReport,
     MachOSliceExtraction,
+    MachOFunctionStartsReport,
     MachOSymbolsReport,
     MitigationsReport,
     PeExceptionReport,
@@ -502,6 +503,15 @@ function describeMachOSymbols(report: MachOSymbolsReport): string {
         lines.push(
             `  ${hex(symbol.address).padStart(12)}  ${symbol.kind.padEnd(9)} ${flags.padEnd(7)} ${symbol.name}${section}`,
         );
+    }
+    return lines.join('\n');
+}
+
+function describeMachOFunctionStarts(report: MachOFunctionStartsReport): string {
+    const header = entriesHeader(report.addresses.length, report.total, 'function start(s)', report.truncated);
+    const lines = [header, `image base: ${hex(report.imageBase)}`];
+    for (const address of report.addresses) {
+        lines.push(`  ${hex(address)}`);
     }
     return lines.join('\n');
 }
@@ -1016,6 +1026,31 @@ cli.command('macho', 'cli.cmd.macho').actionCtx(async (options, _args, ctx) => {
         ida.close();
     }
 });
+
+cli
+    .command('macho-function-starts', 'cli.cmd.machoFunctionStarts')
+    .option('--limit <count>', 'cli.opt.limit')
+    .actionCtx(async (options, _args, ctx) => {
+        const file = input(options);
+        if (file === undefined) {
+            ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+            return 2;
+        }
+        const limitText = text(options, 'limit');
+        const limit = limitText === undefined ? undefined : parseNumber(limitText);
+        if (limitText !== undefined && (limit === undefined || limit < 1)) {
+            ctx.fail('open-ida.cli.limit', { message: '`--limit <count>` must be a positive integer' });
+            return 2;
+        }
+        const ida = new OpenIDA({ path: file });
+        try {
+            const report = ida.machoFunctionStarts(limit);
+            ctx.emitResult(report, describeMachOFunctionStarts(report));
+            return 0;
+        } finally {
+            ida.close();
+        }
+    });
 
 cli
     .command('macho-symbols', 'cli.cmd.machoSymbols')

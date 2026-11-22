@@ -304,6 +304,14 @@ export interface MachOSymbolsReport {
     readonly stringTableSize: number;
 }
 
+/** Bounded listing of `LC_FUNCTION_STARTS` addresses. */
+export interface MachOFunctionStartsReport {
+    readonly imageBase: number;
+    readonly addresses: readonly number[];
+    readonly total: number;
+    readonly truncated: boolean;
+}
+
 /** One architecture slice of a fat/universal Mach-O. */
 export interface MachOSlice {
     readonly index: number;

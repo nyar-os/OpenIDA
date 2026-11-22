@@ -29,6 +29,7 @@ import type {
     MachOReport,
     MachOSlicesReport,
     MachOSliceExtraction,
+    MachOFunctionStartsReport,
     MachOSymbolsReport,
     MachOCodeSignatureReport,
     MitigationsReport,
@@ -154,6 +155,13 @@ export class OpenIDA {
     /** Lists the Mach-O `LC_SYMTAB` symbol table. */
     machoSymbols(limit?: number): MachOSymbolsReport {
         return decode<MachOSymbolsReport>(() => binding('binary.macho_symbols').binary_macho_symbols(this.id, limit));
+    }
+
+    /** Decodes the Mach-O `LC_FUNCTION_STARTS` delta table. */
+    machoFunctionStarts(limit?: number): MachOFunctionStartsReport {
+        return decode<MachOFunctionStartsReport>(() =>
+            binding('binary.macho_function_starts').binary_macho_function_starts(this.id, limit),
+        );
     }
 
     /** Lists the architecture slices of a fat/universal Mach-O container. */
