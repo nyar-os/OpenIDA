@@ -8,9 +8,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { OpenIDA, capabilities } from './api.js';
-import { IdaError, errorCodes, isIdaError, translateNativeError } from './errors.js';
-import { nativeBinding } from './native.js';
+import { OpenIDA, capabilities } from '../src/api.js';
+import { IdaError, errorCodes, isIdaError, translateNativeError } from '../src/errors.js';
+import { nativeBinding } from '../src/native.js';
 
 test('stable error codes are present', () => {
     for (const code of ['binary/parse', 'binary/range', 'binary/unsupported', 'handle/invalid', 'capability/not-implemented']) {
