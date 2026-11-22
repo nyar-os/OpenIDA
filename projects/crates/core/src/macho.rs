@@ -4,6 +4,8 @@
 //! The pinned release does not expose `LC_UUID`, `LC_BUILD_VERSION`,
 //! `LC_VERSION_MIN_*`, the dylib commands or `LC_SYMTAB`, so those are decoded
 //! here from the same load-command stream. Dyld bindings stay out of scope.
+//! Fat/universal containers are reported as an architecture table; a thin
+//! image is inspected directly and does not have slices.
 
 use data_binary_inspect::{BinaryFormat, BinarySession};
 use data_binary_mach_o::mach_o::{MachOEndian, MachOImage, architecture, macho_magic, parse_macho};
@@ -13,6 +15,11 @@ use crate::{IdaError, Result};
 
 const LC_SYMTAB: u32 = 0x2;
 const LC_LOAD_DYLIB: u32 = 0x0c;
+const FAT_MAGIC: u32 = 0xcafe_babe;
+const FAT_MAGIC_64: u32 = 0xcafe_babf;
+/// Upper bound on the declared slice count, so a corrupt header cannot force a
+/// huge allocation.
+const MAX_FAT_SLICES: usize = 256;
 const LC_ID_DYLIB: u32 = 0x0d;
 const LC_LOAD_WEAK_DYLIB: u32 = 0x8000_0018;
 const LC_REEXPORT_DYLIB: u32 = 0x8000_001f;
@@ -173,14 +180,14 @@ pub struct MachOSymbolsReport {
 
 /// Decodes the `LC_SYMTAB` symbol table of one session.
 pub(crate) fn symbols(session: &BinarySession, limit: Option<usize>) -> Result<MachOSymbolsReport> {
+    let bytes = session.read(0, session.size())?;
+    if fat_header(bytes).is_some() {
+        return Err(IdaError::unsupported(
+            "the Mach-O is a fat/universal container; use `macho-slices` and inspect a slice",
+        ));
+    }
     if session.format() != BinaryFormat::MachO {
         return Err(IdaError::unsupported("Mach-O symbols require a Mach-O container"));
-    }
-    let bytes = session.read(0, session.size())?;
-    if macho_magic(bytes).is_none() {
-        return Err(IdaError::unsupported(
-            "the Mach-O is a fat/universal container; select a slice before inspecting its symbols",
-        ));
     }
     let image = parse_macho(bytes).map_err(|error| IdaError::parse(format!("Mach-O: {error}")))?;
     let reader = Reader { bytes, endian: image.header.endian };
@@ -280,16 +287,125 @@ fn symbol_name(strings: &[u8], index: u32) -> String {
     String::from_utf8_lossy(&rest[..end]).into_owned()
 }
 
+/// One architecture slice of a fat/universal Mach-O.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MachOSlice {
+    /// Zero-based position in the fat architecture table.
+    pub index: usize,
+    /// Raw `cputype`.
+    pub cpu_type: i32,
+    /// Raw `cpusubtype`.
+    pub cpu_subtype: i32,
+    /// Instruction-set family derived from `cputype`.
+    pub architecture: String,
+    /// File offset of the slice.
+    pub offset: u64,
+    /// Size of the slice in bytes.
+    pub size: u64,
+    /// Alignment expressed as a power of two.
+    pub alignment: u32,
+    /// Slice header bitness, when the slice starts with a Mach-O magic.
+    pub bits: Option<u32>,
+}
+
+/// Fat/universal Mach-O architecture table.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MachOSlicesReport {
+    /// Whether the fat header uses the 64-bit `fat_arch_64` layout.
+    pub is_fat64: bool,
+    /// Slices in table order.
+    pub slices: Vec<MachOSlice>,
+}
+
+/// Lists the architecture slices of a fat/universal Mach-O container.
+pub(crate) fn slices(session: &BinarySession) -> Result<MachOSlicesReport> {
+    let bytes = session.read(0, session.size())?;
+    let Some((is_fat64, count)) = fat_header(bytes) else {
+        return Err(IdaError::unsupported(
+            "the file is not a fat/universal Mach-O container; a thin image is inspected with `macho`",
+        ));
+    };
+    if count > MAX_FAT_SLICES {
+        return Err(IdaError::parse(format!(
+            "the fat header declares {count} slices, above the {MAX_FAT_SLICES}-entry limit"
+        )));
+    }
+
+    let entry_size = if is_fat64 { 32 } else { 20 };
+    let table_end = 8usize.saturating_add(count.saturating_mul(entry_size));
+    let table = bytes
+        .get(8..table_end)
+        .ok_or_else(|| IdaError::parse("the fat architecture table is truncated"))?;
+
+    let mut entries = Vec::with_capacity(count);
+    for index in 0..count {
+        let entry = &table[index * entry_size..(index + 1) * entry_size];
+        let cpu_type = be_u32(entry, 0)? as i32;
+        let cpu_subtype = be_u32(entry, 4)? as i32;
+        let (offset, size, alignment) = if is_fat64 {
+            (be_u64(entry, 8)?, be_u64(entry, 16)?, be_u32(entry, 24)?)
+        } else {
+            (u64::from(be_u32(entry, 8)?), u64::from(be_u32(entry, 12)?), be_u32(entry, 16)?)
+        };
+        let end = offset
+            .checked_add(size)
+            .filter(|end| *end <= bytes.len() as u64)
+            .ok_or_else(|| IdaError::parse(format!("slice {index} lies outside the file")))?;
+        let bits = macho_magic(&bytes[offset as usize..end as usize]).map(|(is_64, _)| if is_64 { 64 } else { 32 });
+        entries.push(MachOSlice {
+            index,
+            cpu_type,
+            cpu_subtype,
+            architecture: architecture(cpu_type).as_str().to_string(),
+            offset,
+            size,
+            alignment,
+            bits,
+        });
+    }
+
+    Ok(MachOSlicesReport { is_fat64, slices: entries })
+}
+
+fn fat_header(bytes: &[u8]) -> Option<(bool, usize)> {
+    let head = bytes.get(0..8)?;
+    let magic = u32::from_be_bytes([head[0], head[1], head[2], head[3]]);
+    let is_fat64 = match magic {
+        FAT_MAGIC => false,
+        FAT_MAGIC_64 => true,
+        _ => return None,
+    };
+    Some((is_fat64, u32::from_be_bytes([head[4], head[5], head[6], head[7]]) as usize))
+}
+
+fn be_u32(bytes: &[u8], offset: usize) -> Result<u32> {
+    let raw: [u8; 4] = bytes
+        .get(offset..offset + 4)
+        .and_then(|slice| slice.try_into().ok())
+        .ok_or_else(|| IdaError::parse("the fat architecture table is truncated"))?;
+    Ok(u32::from_be_bytes(raw))
+}
+
+fn be_u64(bytes: &[u8], offset: usize) -> Result<u64> {
+    let raw: [u8; 8] = bytes
+        .get(offset..offset + 8)
+        .and_then(|slice| slice.try_into().ok())
+        .ok_or_else(|| IdaError::parse("the fat architecture table is truncated"))?;
+    Ok(u64::from_be_bytes(raw))
+}
+
 /// Decodes the Mach-O load commands of one session.
 pub(crate) fn analyze(session: &BinarySession) -> Result<MachOReport> {
+    let bytes = session.read(0, session.size())?;
+    if fat_header(bytes).is_some() {
+        return Err(IdaError::unsupported(
+            "the Mach-O is a fat/universal container; use `macho-slices` and inspect a slice",
+        ));
+    }
     if session.format() != BinaryFormat::MachO {
         return Err(IdaError::unsupported("Mach-O inspection requires a Mach-O container"));
-    }
-    let bytes = session.read(0, session.size())?;
-    if macho_magic(bytes).is_none() {
-        return Err(IdaError::unsupported(
-            "the Mach-O is a fat/universal container; select a slice before inspecting it",
-        ));
     }
     let image = parse_macho(bytes).map_err(|error| IdaError::parse(format!("Mach-O: {error}")))?;
     let reader = Reader { bytes, endian: image.header.endian };

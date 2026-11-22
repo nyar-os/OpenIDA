@@ -23,6 +23,7 @@ import type {
     HexdumpReport,
     ImportsReport,
     MachOReport,
+    MachOSlicesReport,
     MachOSymbolsReport,
     OffsetToRvaReport,
     OffsetToVaReport,
@@ -141,6 +142,11 @@ export class OpenIDA {
     /** Lists the Mach-O `LC_SYMTAB` symbol table. */
     machoSymbols(limit?: number): MachOSymbolsReport {
         return decode<MachOSymbolsReport>(() => binding('binary.macho_symbols').binary_macho_symbols(this.id, limit));
+    }
+
+    /** Lists the architecture slices of a fat/universal Mach-O container. */
+    machoSlices(): MachOSlicesReport {
+        return decode<MachOSlicesReport>(() => binding('binary.macho_slices').binary_macho_slices(this.id));
     }
 
     /** Decodes x86 / x64 instructions from one file offset. */

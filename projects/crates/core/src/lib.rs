@@ -36,7 +36,7 @@ pub use diff::{DiffRange, DiffReport};
 pub use disasm::{DisassembleOptions, DisassemblyInstruction, DisassemblyReport, DisassemblySyntax};
 pub use entropy::{EntropyReport, OverlayInfo, SectionEntropy};
 pub use error::{IdaError, Result};
-pub use macho::{MachODylib, MachOReport, MachOSection, MachOSegment, MachOSymbol, MachOSymbolsReport};
+pub use macho::{MachODylib, MachOReport, MachOSection, MachOSegment, MachOSlice, MachOSlicesReport, MachOSymbol, MachOSymbolsReport};
 pub use text::{EncodedStringHit, EncodedStringsReport, StringEncoding, StringsOptions};
 pub use version::{FixedFileInfo, VersionReport, VersionString};
 
@@ -145,6 +145,11 @@ impl BinaryView {
     /// Lists the Mach-O `LC_SYMTAB` symbol table.
     pub fn macho_symbols(&self, limit: Option<usize>) -> Result<MachOSymbolsReport> {
         macho::symbols(&self.session, limit)
+    }
+
+    /// Lists the architecture slices of a fat/universal Mach-O container.
+    pub fn macho_slices(&self) -> Result<MachOSlicesReport> {
+        macho::slices(&self.session)
     }
 
     /// Decodes `x86` / `x64` instructions from one file offset.
@@ -346,6 +351,11 @@ impl OpenIda {
         macho::symbols(&self.session, limit)
     }
 
+    /// Lists the architecture slices of a fat/universal Mach-O container.
+    pub fn macho_slices(&self) -> Result<MachOSlicesReport> {
+        macho::slices(&self.session)
+    }
+
     /// Decodes `x86` / `x64` instructions from one file offset.
     pub fn disasm(&self, options: &DisassembleOptions) -> Result<DisassemblyReport> {
         disasm::analyze(&self.session, options)
@@ -437,6 +447,7 @@ pub fn capabilities() -> serde_json::Value {
             "macho-dylibs": "supported",
             "macho-build-version": "supported",
             "macho-symbols": "supported",
+            "macho-fat-slices": "supported",
             "disassembly": "supported",
             "diff": "supported",
             "entropy": "supported",

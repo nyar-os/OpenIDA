@@ -30,6 +30,7 @@ containers are rejected, and unknown containers are rejected.
 | Recover PDB path | `open-ida debug <file>` | CodeView signature, GUID or NB10 record, path |
 | Read product metadata | `open-ida version <file>` | File/product version and `StringFileInfo` pairs |
 | Profile Mach-O | `open-ida macho <file>` | UUID, platform, min OS/SDK, dylibs, segments, sections, entry |
+| List fat slices | `open-ida macho-slices <file>` | CPU, architecture, offset, size and alignment per slice |
 | List Mach-O symbols | `open-ida macho-symbols <file> --limit <n>` | Name, address, kind, section and flags per `LC_SYMTAB` entry |
 | Decode code | `open-ida disasm <file> --offset <n> --count <n>` | Address, offset, bytes, mnemonic |
 | Triage packing | `open-ida entropy <file>` | Whole-file and section entropy, PE overlay |
@@ -66,13 +67,16 @@ Branch on `code`, never on message text. CLI usage failures add
    report that contains it.
 2. Never describe Mach-O dyld bindings, ARM/ARM64 disassembly, decompilation or
    debugging as available. Mach-O load commands, segments, sections, dylibs,
-   build versions and the `LC_SYMTAB` symbol table are available.
-3. Before patching, state the file, the offset and the exact bytes. Prefer
+   build versions, the `LC_SYMTAB` symbol table and the fat slice table are
+   available.
+3. A fat Mach-O is not a thin image: `macho-slices` lists its architectures,
+   but `macho` and `macho-symbols` need a slice this build cannot extract.
+4. Before patching, state the file, the offset and the exact bytes. Prefer
    `--out` so the source stays untouched.
-4. Never present a hash as a security verdict. It only proves the bytes changed.
-5. Do not overwrite the only copy of a binary. An in-place patch requires the
+5. Never present a hash as a security verdict. It only proves the bytes changed.
+6. Do not overwrite the only copy of a binary. An in-place patch requires the
    user's explicit request.
-6. Report `truncated` results as truncated; do not present a partial listing as
+7. Report `truncated` results as truncated; do not present a partial listing as
    complete.
 
 ## Key files

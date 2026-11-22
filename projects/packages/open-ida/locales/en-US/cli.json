@@ -12,6 +12,7 @@
             "version": "Print the PE version resource (file/product version and string table)",
             "macho": "Print Mach-O load commands, segments, sections, dylibs and image identity",
             "machoSymbols": "Print the Mach-O LC_SYMTAB symbol table with kinds and sections",
+            "machoSlices": "Print the architecture slices of a fat/universal Mach-O container",
             "disasm": "Disassemble x86 or x64 instructions from a file offset",
             "diff": "Compare two binaries byte for byte and list differing ranges",
             "entropy": "Print whole-file and per-section entropy plus the PE overlay",
