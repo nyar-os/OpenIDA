@@ -10,7 +10,7 @@ description: Inspect compiled binaries with OpenIDA. Use when a task involves PE
 `open-ida info`, `sections`, `strings`, `hexdump`, `rva`, `offset`, `imports`,
 `exports`, `symbols`, `debug`, `version`, `macho`, `macho-symbols`,
 `macho-slices`, `macho-extract`, `mitigations`, `resources`, `relocations`, `dynamic`, `notes`, `certificates`, `tls`,
-`disasm`, `entropy`, `diff`,
+`load-config`, `disasm`, `entropy`, `diff`,
 `search` and `patch` are implemented for the cases listed below. Decompilation,
 debugging, dyld bindings and signature verification are
 **not** implemented and the capability matrix reports them as `unsupported` /
@@ -51,6 +51,7 @@ a second analysis engine. Report the stable code instead.
 | notes | Read the ELF build id, ABI tag and GNU properties | `notes` report |
 | certificates | List the PE attribute certificate table headers (not verified) | `certificates` report |
 | tls | Read the PE TLS directory and callback addresses | `tls` report |
+| load-config | Read the PE load configuration and guard flags | `load-config` report |
 | triage | Spot packing from entropy and the overlay | `entropy` report |
 | compare | Find the first difference between two builds | `diff` report |
 | patch | Change bytes and prove the change | before/after hash and patched copy |

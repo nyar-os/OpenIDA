@@ -20,6 +20,7 @@ mod disasm;
 mod dynamic;
 mod entropy;
 mod error;
+mod load_config;
 mod macho;
 mod mitigations;
 mod notes;
@@ -46,6 +47,7 @@ pub use disasm::{DisassembleOptions, DisassemblyInstruction, DisassemblyReport, 
 pub use dynamic::ElfDynamicReport;
 pub use entropy::{EntropyReport, OverlayInfo, SectionEntropy};
 pub use error::{IdaError, Result};
+pub use load_config::{CodeIntegrityInfo, PeLoadConfigReport};
 pub use macho::{
     MachODylib, MachOReport, MachOSection, MachOSegment, MachOSlice, MachOSliceExtraction, MachOSlicesReport,
     MachOSymbol, MachOSymbolsReport,
@@ -208,6 +210,11 @@ impl BinaryView {
     /// Decodes the PE TLS directory and its callback array.
     pub fn tls(&self) -> Result<PeTlsReport> {
         tls::analyze(&self.session)
+    }
+
+    /// Decodes the PE load configuration directory.
+    pub fn load_config(&self) -> Result<PeLoadConfigReport> {
+        load_config::analyze(&self.session)
     }
 
     /// Decodes `x86` / `x64` instructions from one file offset.
@@ -454,6 +461,11 @@ impl OpenIda {
         tls::analyze(&self.session)
     }
 
+    /// Decodes the PE load configuration directory.
+    pub fn load_config(&self) -> Result<PeLoadConfigReport> {
+        load_config::analyze(&self.session)
+    }
+
     /// Decodes `x86` / `x64` instructions from one file offset.
     pub fn disasm(&self, options: &DisassembleOptions) -> Result<DisassemblyReport> {
         disasm::analyze(&self.session, options)
@@ -552,6 +564,7 @@ pub fn capabilities() -> serde_json::Value {
             "pe-relocations": "supported",
             "pe-certificates": "supported",
             "pe-tls": "supported",
+            "pe-load-config": "supported",
             "elf-dynamic": "supported",
             "elf-notes": "supported",
             "disassembly": "supported",

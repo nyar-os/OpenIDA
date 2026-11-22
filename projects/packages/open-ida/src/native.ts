@@ -39,6 +39,7 @@ export interface NativeBinding {
     binary_notes(handle: number): string;
     binary_certificates(handle: number): string;
     binary_tls(handle: number): string;
+    binary_load_config(handle: number): string;
     binary_disasm(handle: number, optionsJson: string): string;
     binary_diff(leftHandle: number, rightHandle: number): string;
     binary_entropy(handle: number): string;

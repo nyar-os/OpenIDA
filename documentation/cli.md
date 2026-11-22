@@ -231,6 +231,22 @@ prints `no TLS directory`; non-PE answers `binary/unsupported`.
 
 The report describes the table; it never calls a callback or initialises TLS.
 
+### `load-config <file>`
+
+```bash
+open-ida load-config ./samples/app.exe
+```
+
+PE only. Decodes data directory 10 in the layout chosen by the optional-header
+magic and prints the `/GS` security cookie, the SEH handler table and count, the
+CFG check/dispatch/table pointers, the raw `GuardFlags` with their stable names
+(`CF_INSTRUMENTED`, `RETPOLINE_PRESENT`, ...) and the `CodeIntegrity` block. A PE
+without the directory prints `no load configuration directory`; non-PE answers
+`binary/unsupported`. `truncated` is set when `Size` is shorter than the
+documented PE32/PE32+ prefix.
+
+The report reads the table; it does not prove that the loader enforced a flag.
+
 ### `mitigations <file>`
 
 ```bash
