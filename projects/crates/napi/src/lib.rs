@@ -193,6 +193,10 @@ fn macho_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.macho()?))
 }
 
+fn macho_symbols_report(handle: u64, limit: Option<u64>) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.macho_symbols(limit_value(limit))?))
+}
+
 fn version_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.version()?))
 }
@@ -409,6 +413,17 @@ fn binary_version(ctx: CallContext) -> Result<JsValue> {
 fn binary_macho(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     match macho_report(handle) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Lists the Mach-O `LC_SYMTAB` symbol table.
+#[function]
+fn binary_macho_symbols(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    let limit = optional_number(&ctx, 1)?;
+    match macho_symbols_report(handle, limit) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
@@ -930,6 +945,7 @@ register_module![
     binary_debug,
     binary_version,
     binary_macho,
+    binary_macho_symbols,
     binary_disasm,
     binary_diff,
     binary_entropy,

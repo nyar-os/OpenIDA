@@ -45,9 +45,9 @@ ida.close();
 
 - Instances are handles. A closed handle is rejected instead of being reopened
   silently, and every constructor call must be paired with `close()`.
-- Mach-O support covers headers, load commands, segments, sections, dylibs and
-  build versions; the symbol table and dyld bindings are not decoded.
-  Big-endian ELF, fat Mach-O and unknown containers are rejected with
+- Mach-O support covers headers, load commands, segments, sections, dylibs,
+  build versions and the `LC_SYMTAB` symbol table; dyld bindings are not
+  decoded. Big-endian ELF, fat Mach-O and unknown containers are rejected with
   `binary/unsupported`, not guessed at.
 - Disassembly covers x86 and x64 only; other architectures answer
   `binary/unsupported`.

@@ -149,6 +149,18 @@ offset mapped onto a virtual address, every dylib command with its version,
 and the segment and section tables with r/w/x access. Fat/universal containers
 answer `binary/unsupported`; select a slice first.
 
+### `macho-symbols <file>`
+
+```bash
+open-ida macho-symbols ./samples/app.macho --limit 200
+```
+
+Mach-O only. Walks `LC_SYMTAB`, resolves each `nlist` / `nlist_64` name through
+the string table and prints its address, kind (`undefined`, `absolute`,
+`section`, `indirect`, `prebound`, `debug`), external/debug flags and section
+index. `--limit` defaults to unlimited and reports `truncated` when it cuts the
+table. A Mach-O without `LC_SYMTAB` answers `binary/unsupported`.
+
 ### `disasm <file>`
 
 ```bash
