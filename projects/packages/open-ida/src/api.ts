@@ -30,6 +30,7 @@ import type {
     MachOSlicesReport,
     MachOSliceExtraction,
     MachOSymbolsReport,
+    MachOCodeSignatureReport,
     MitigationsReport,
     OffsetToRvaReport,
     OffsetToVaReport,
@@ -157,6 +158,11 @@ export class OpenIDA {
     /** Lists the architecture slices of a fat/universal Mach-O container. */
     machoSlices(): MachOSlicesReport {
         return decode<MachOSlicesReport>(() => binding('binary.macho_slices').binary_macho_slices(this.id));
+    }
+
+    /** Decodes the Mach-O embedded code signature and its first `CodeDirectory`. */
+    codeSignature(): MachOCodeSignatureReport {
+        return decode<MachOCodeSignatureReport>(() => binding('binary.code_signature').binary_code_signature(this.id));
     }
 
     /** Writes one fat/universal Mach-O slice to `output`. */

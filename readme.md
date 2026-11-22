@@ -64,6 +64,7 @@ open-ida notes ./samples/app.elf
 open-ida certificates ./samples/app.exe
 open-ida tls ./samples/app.exe
 open-ida load-config ./samples/app.exe
+open-ida code-signature ./samples/app.macho
 open-ida macho-symbols ./samples/app.macho --limit 200
 open-ida disasm ./samples/app.exe --offset 0x1000 --count 20
 open-ida entropy ./samples/app.exe

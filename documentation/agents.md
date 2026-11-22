@@ -39,6 +39,7 @@ containers are rejected, and unknown containers are rejected.
 | List PE certificates | `open-ida certificates <file>` | Attribute certificate table headers, `PKCS#7` shape (not verified) |
 | Read PE TLS | `open-ida tls <file>` | Raw range, index slot, zero fill and mapped callback addresses |
 | Read PE load config | `open-ida load-config <file>` | Security cookie, SEH table, CFG metadata and decoded guard flags |
+| Read Mach-O code signature | `open-ida code-signature <file>` | Blob table and CodeDirectory fields (not verified) |
 | List fat slices | `open-ida macho-slices <file>` | CPU, architecture, offset, size and alignment per slice |
 | Extract a fat slice | `open-ida macho-extract <file> --index <n> --out <file>` | Writes one slice; the source is never overwritten |
 | List Mach-O symbols | `open-ida macho-symbols <file> --limit <n>` | Name, address, kind, section and flags per `LC_SYMTAB` entry |

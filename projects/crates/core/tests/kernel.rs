@@ -1681,6 +1681,84 @@ fn pe_load_config_bytes() -> Vec<u8> {
 }
 
 #[test]
+fn macho_code_signature_decodes_the_code_directory() {
+    let view = BinaryView::from_bytes("signed", macho_signature_bytes());
+    let report = view.code_signature().expect("Mach-O code signature");
+
+    assert!(report.present);
+    assert!(!report.truncated);
+    assert_eq!(report.data_offset, 0x200);
+    assert_eq!(report.data_size, 0x100);
+    assert_eq!(report.magic.as_deref(), Some("embedded-signature"));
+    assert_eq!(report.blob_count, Some(1));
+    assert_eq!(report.blob_types, vec!["CodeDirectory"]);
+
+    let code = report.code_directory.as_ref().expect("CodeDirectory");
+    assert_eq!(code.version, 0x20200);
+    assert_eq!(code.flags, 2);
+    assert_eq!(code.flag_text, vec!["HARD"]);
+    assert_eq!(code.hash_type, "SHA256");
+    assert_eq!(code.hash_size, 32);
+    assert_eq!(code.page_size, 4096);
+    assert_eq!(code.code_limit, 0x1000);
+    assert_eq!(code.identifier, "com.example.app");
+    assert_eq!(code.team_id.as_deref(), Some("TEAM"));
+    assert_eq!(code.code_slots, 2);
+    assert_eq!(code.special_slots, 0);
+}
+
+#[test]
+fn macho_code_signature_reports_absence_and_rejects_non_macho() {
+    let mut unsigned = macho_signature_bytes();
+    put_u32(&mut unsigned, 16, 0);
+    let view = BinaryView::from_bytes("unsigned", unsigned);
+    let report = view.code_signature().expect("Mach-O code signature");
+    assert!(!report.present);
+    assert!(report.code_directory.is_none());
+
+    let pe = BinaryView::from_bytes("app.exe", pe_bytes());
+    assert_eq!(pe.code_signature().unwrap_err().code(), "binary/unsupported");
+}
+
+/// Mach-O64 with one `LC_CODE_SIGNATURE` and an embedded SuperBlob.
+fn macho_signature_bytes() -> Vec<u8> {
+    let mut bytes = vec![0u8; 0x400];
+    bytes[0..4].copy_from_slice(&[0xcf, 0xfa, 0xed, 0xfe]);
+    put_u32(&mut bytes, 4, 0x0100_0007);
+    put_u32(&mut bytes, 8, 3);
+    put_u32(&mut bytes, 12, 2);
+    put_u32(&mut bytes, 16, 1);
+    put_u32(&mut bytes, 20, 16);
+    put_u32(&mut bytes, 32, 0x1d);
+    put_u32(&mut bytes, 36, 16);
+    put_u32(&mut bytes, 40, 0x200);
+    put_u32(&mut bytes, 44, 0x100);
+
+    put_be_u32(&mut bytes, 0x200, 0xfade_0cc0);
+    put_be_u32(&mut bytes, 0x204, 0x100);
+    put_be_u32(&mut bytes, 0x208, 1);
+    put_be_u32(&mut bytes, 0x20c, 0);
+    put_be_u32(&mut bytes, 0x210, 0x20);
+
+    let blob = 0x220;
+    put_be_u32(&mut bytes, blob, 0xfade_0c02);
+    put_be_u32(&mut bytes, blob + 4, 0x60);
+    put_be_u32(&mut bytes, blob + 8, 0x20200);
+    put_be_u32(&mut bytes, blob + 12, 2);
+    put_be_u32(&mut bytes, blob + 20, 0x40);
+    put_be_u32(&mut bytes, blob + 28, 2);
+    put_be_u32(&mut bytes, blob + 32, 0x1000);
+    bytes[blob + 36] = 32;
+    bytes[blob + 37] = 2;
+    bytes[blob + 39] = 12;
+    put_be_u32(&mut bytes, blob + 48, 0x58);
+    bytes[blob + 0x40..blob + 0x4f].copy_from_slice(b"com.example.app");
+    bytes[blob + 0x4f] = 0;
+    bytes[blob + 0x58..blob + 0x5d].copy_from_slice(b"TEAM\0");
+    bytes
+}
+
+#[test]
 fn elf_segments_decode_the_program_header_table() {
     let view = BinaryView::from_bytes("notes.elf", elf_notes_bytes());
     let report = view.segments().expect("ELF segments");

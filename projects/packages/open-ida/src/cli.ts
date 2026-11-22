@@ -29,6 +29,7 @@ import type {
     ExportsReport,
     ImportsReport,
     MachOReport,
+    MachOCodeSignatureReport,
     MachOSlicesReport,
     MachOSliceExtraction,
     MachOSymbolsReport,
@@ -336,6 +337,27 @@ function describeTls(report: PeTlsReport): string {
         const rva = callback.rva === null ? '' : ` rva ${hex(callback.rva)}`;
         const offset = callback.offset === null ? '' : ` file ${hex(callback.offset)}`;
         lines.push(`  ${hex(callback.address)}${rva}${offset}`);
+    }
+    return lines.join('\n');
+}
+
+function describeCodeSignature(report: MachOCodeSignatureReport): string {
+    if (!report.present) {
+        return 'no embedded code signature';
+    }
+    const lines = [
+        `blob ${hex(report.dataOffset)} (${report.dataSize} bytes) · ${report.magic ?? 'unknown'} · ${report.blobCount ?? 0} entr${(report.blobCount ?? 0) === 1 ? 'y' : 'ies'}${report.truncated ? ' (truncated)' : ''}`,
+        `blobs: ${report.blobTypes.length === 0 ? 'none' : report.blobTypes.join(', ')}`,
+    ];
+    const code = report.codeDirectory;
+    if (code !== null) {
+        lines.push(
+            `code directory v0x${code.version.toString(16)} · ${code.hashType} · page ${code.pageSize} · limit ${hex(code.codeLimit)}`,
+        );
+        lines.push(`identifier ${code.identifier || '(none)'} · team ${code.teamId ?? '(none)'}`);
+        lines.push(
+            `slots ${code.codeSlots} code / ${code.specialSlots} special${code.flagText.length === 0 ? '' : ` · ${code.flagText.join(' | ')}`}`,
+        );
     }
     return lines.join('\n');
 }
@@ -903,6 +925,22 @@ cli.command('tls', 'cli.cmd.tls').actionCtx(async (options, _args, ctx) => {
     try {
         const report = ida.tls();
         ctx.emitResult(report, describeTls(report));
+        return 0;
+    } finally {
+        ida.close();
+    }
+});
+
+cli.command('code-signature', 'cli.cmd.code-signature').actionCtx(async (options, _args, ctx) => {
+    const file = input(options);
+    if (file === undefined) {
+        ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+        return 2;
+    }
+    const ida = new OpenIDA({ path: file });
+    try {
+        const report = ida.codeSignature();
+        ctx.emitResult(report, describeCodeSignature(report));
         return 0;
     } finally {
         ida.close();

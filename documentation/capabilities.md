@@ -45,6 +45,7 @@ Big-endian ELF is rejected rather than decoded with a guessed byte order.
 | `pe-tls` | `supported` | PE TLS directory fields (raw template range, index slot, zero fill, characteristics) and the callback array mapped from VAs through the image base and sections. Callbacks beyond 64 are cut. A PE without the directory reports `present: false`; non-PE answers `binary/unsupported`. |
 | `pe-load-config` | `supported` | PE load configuration prefix: security cookie, SEH handler table/count, CFG check/dispatch/table pointers, decoded `GuardFlags` and the `CodeIntegrity` block, in the PE32 or PE32+ layout. A PE without the directory reports `present: false`; non-PE answers `binary/unsupported`. |
 | `macho-slice-extraction` | `supported` | Writes one fat/universal slice to a caller-chosen `--out` path. Refuses to overwrite the source container; a thin image answers `binary/unsupported`. |
+| `macho-code-signature` | `supported` | `LC_CODE_SIGNATURE` SuperBlob index (blob types) and the first `CodeDirectory`: version, decoded flags, hash type, page size, code limit, identifier, team id and slot counts. Parsed only: no hash is recomputed and no chain is validated. A thin image without the command reports `present: false`; fat containers answer `binary/unsupported` with a pointer to slice extraction. |
 | `macho-fat-slices` | `supported` | Fat/universal architecture table: index, CPU type/subtype, architecture, offset, size, alignment and slice bitness. A thin image answers `binary/unsupported`. |
 | `disassembly` | `supported` | x86 and x64 only, Intel/MASM/NASM syntax. |
 | `diff` | `supported` | Byte-level comparison plus the first differing offset. |
@@ -85,6 +86,7 @@ Big-endian ELF is rejected rather than decoded with a guessed byte order.
 | `certificates` | 64 entries | — | `total` and `truncated` describe the cut. |
 | `tls` | 64 callbacks | — | `truncated` is `true` when the array was cut or not fully readable. |
 | `load-config` | documented prefix only | — | `truncated` is `true` when `Size` is shorter than the PE32/PE32+ prefix. |
+| `code-signature` | 32 SuperBlob entries | — | `truncated` is `true` when the blob table or payload was cut. |
 | `hexdump --length` | 256 bytes | File size | A range outside the file is `binary/range`. |
 
 ## Encoding boundaries

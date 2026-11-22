@@ -20,6 +20,7 @@
             "certificates": "Print the PE attribute certificate table entries (headers only, never verified)",
             "tls": "Print the PE TLS directory and its callback array",
             "load-config": "Print the PE load configuration, guard flags and security cookie",
+            "code-signature": "Print the Mach-O embedded code signature and CodeDirectory (never verified)",
             "machoSymbols": "Print the Mach-O LC_SYMTAB symbol table with kinds and sections",
             "machoSlices": "Print the architecture slices of a fat/universal Mach-O container",
             "machoExtract": "Write one fat/universal Mach-O slice to a new file",

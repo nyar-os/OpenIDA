@@ -64,6 +64,8 @@ ida.close();
   VA back to an RVA and file offset. It never calls a callback.
 - `loadConfig()` decodes the PE load configuration: security cookie, SEH table,
   CFG pointers, decoded `GuardFlags` and the `CodeIntegrity` block.
+- `codeSignature()` decodes the Mach-O embedded signature SuperBlob and its first
+  `CodeDirectory` (identifier, team id, hash type, flags). It never verifies.
 - `mitigations()` reads PE header and load-config facts (ASLR, DEP, CFG, GS,
   W+X sections, relocations, certificate-table presence). It does not verify
   Authenticode signatures.
