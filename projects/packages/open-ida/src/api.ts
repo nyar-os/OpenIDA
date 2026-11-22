@@ -30,6 +30,7 @@ import type {
     OffsetToVaReport,
     PatchReport,
     ReadReport,
+    ResourcesReport,
     RvaReport,
     SearchOptions,
     SearchReport,
@@ -153,6 +154,11 @@ export class OpenIDA {
     /** Summarises the PE mitigation posture. */
     mitigations(): MitigationsReport {
         return decode<MitigationsReport>(() => binding('binary.mitigations').binary_mitigations(this.id));
+    }
+
+    /** Lists the PE resource directory leaves. */
+    resources(): ResourcesReport {
+        return decode<ResourcesReport>(() => binding('binary.resources').binary_resources(this.id));
     }
 
     /** Decodes x86 / x64 instructions from one file offset. */

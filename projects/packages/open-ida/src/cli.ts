@@ -28,6 +28,7 @@ import type {
     MachOSlicesReport,
     MachOSymbolsReport,
     MitigationsReport,
+    ResourcesReport,
     SearchOptions,
     SearchReport,
     Section,
@@ -218,6 +219,23 @@ function describeVersion(report: VersionReport): string {
     lines.push(`${report.strings.length} of ${report.total} string(s)${report.truncated ? ' (truncated)' : ''}`);
     for (const entry of report.strings) {
         lines.push(`  ${entry.key.padEnd(22)} ${entry.value}  (lang ${hex(entry.languageId)}, cp ${hex(entry.codepage)})`);
+    }
+    return lines.join('\n');
+}
+
+function describeResources(report: ResourcesReport): string {
+    if (!report.present) {
+        return 'no resource directory';
+    }
+    const header = entriesHeader(report.resources.length, report.total, 'resource(s)', report.truncated);
+    if (report.resources.length === 0) {
+        return `${header}\n  no resources`;
+    }
+    const lines = [header];
+    for (const entry of report.resources) {
+        lines.push(
+            `  ${entry.resourceType.padEnd(14)} ${entry.name.padEnd(16)} lang ${hex(entry.language)} rva ${hex(entry.dataRva)} size ${hex(entry.size)}`,
+        );
     }
     return lines.join('\n');
 }
@@ -621,6 +639,22 @@ cli.command('version', 'cli.cmd.version').actionCtx(async (options, _args, ctx) 
     try {
         const report = ida.version();
         ctx.emitResult(report, describeVersion(report));
+        return 0;
+    } finally {
+        ida.close();
+    }
+});
+
+cli.command('resources', 'cli.cmd.resources').actionCtx(async (options, _args, ctx) => {
+    const file = input(options);
+    if (file === undefined) {
+        ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+        return 2;
+    }
+    const ida = new OpenIDA({ path: file });
+    try {
+        const report = ida.resources();
+        ctx.emitResult(report, describeResources(report));
         return 0;
     } finally {
         ida.close();

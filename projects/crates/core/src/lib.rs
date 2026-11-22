@@ -19,6 +19,7 @@ mod entropy;
 mod error;
 mod macho;
 mod mitigations;
+mod resources;
 mod text;
 mod version;
 
@@ -39,6 +40,7 @@ pub use entropy::{EntropyReport, OverlayInfo, SectionEntropy};
 pub use error::{IdaError, Result};
 pub use macho::{MachODylib, MachOReport, MachOSection, MachOSegment, MachOSlice, MachOSlicesReport, MachOSymbol, MachOSymbolsReport};
 pub use mitigations::{MitigationsReport, WritableExecutableSection};
+pub use resources::{PeResource, ResourcesReport};
 pub use text::{EncodedStringHit, EncodedStringsReport, StringEncoding, StringsOptions};
 pub use version::{FixedFileInfo, VersionReport, VersionString};
 
@@ -157,6 +159,11 @@ impl BinaryView {
     /// Summarises the PE mitigation posture.
     pub fn mitigations(&self) -> Result<MitigationsReport> {
         mitigations::analyze(&self.session)
+    }
+
+    /// Lists the PE resource directory leaves.
+    pub fn resources(&self) -> Result<ResourcesReport> {
+        resources::analyze(&self.session)
     }
 
     /// Decodes `x86` / `x64` instructions from one file offset.
@@ -368,6 +375,11 @@ impl OpenIda {
         mitigations::analyze(&self.session)
     }
 
+    /// Lists the PE resource directory leaves.
+    pub fn resources(&self) -> Result<ResourcesReport> {
+        resources::analyze(&self.session)
+    }
+
     /// Decodes `x86` / `x64` instructions from one file offset.
     pub fn disasm(&self, options: &DisassembleOptions) -> Result<DisassemblyReport> {
         disasm::analyze(&self.session, options)
@@ -461,6 +473,7 @@ pub fn capabilities() -> serde_json::Value {
             "macho-symbols": "supported",
             "macho-fat-slices": "supported",
             "pe-mitigations": "supported",
+            "pe-resources": "supported",
             "disassembly": "supported",
             "diff": "supported",
             "entropy": "supported",
