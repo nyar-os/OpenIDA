@@ -1,0 +1,85 @@
+# OpenIDA agent reference
+
+How an agent discovers capabilities, drives the `open-ida` CLI and interprets
+the stable error surface. The CLI is the automation surface; the SDK
+(`@wae/open-ida`) exposes the same calls with typed reports.
+
+## Capability discovery
+
+Start every task with the matrix, not with a file extension:
+
+```bash
+open-ida capabilities
+```
+
+The matrix reports `formats`, `features`, `unsupported` and `architectures`.
+`partial` is not full support, and `unsupported` is a truthful answer rather than
+a failure. A classified container can still be unsupported: Mach-O is
+header-only, and unknown containers are rejected.
+
+## Routes
+
+| Route | Command | Evidence |
+| --- | --- | --- |
+| Identify | `open-ida info <file>` | Format, architecture, entry, image base, hash |
+| Map sections | `open-ida sections <file>` | Address, file range and r/w/x per section |
+| Find text | `open-ida strings <file> --encoding both` | Offset and length per run |
+| Read bytes | `open-ida hexdump <file> --offset <n> --length <n>` | Canonical hex dump |
+| Resolve addresses | `open-ida rva <file> <address>` / `open-ida offset <file> <offset>` | Offset, RVA and VA |
+| Inspect linkage | `open-ida imports\|exports\|symbols <file>` | Module, symbol, ordinal, address |
+| Recover PDB path | `open-ida debug <file>` | CodeView signature, GUID or NB10 record, path |
+| Decode code | `open-ida disasm <file> --offset <n> --count <n>` | Address, offset, bytes, mnemonic |
+| Triage packing | `open-ida entropy <file>` | Whole-file and section entropy, PE overlay |
+| Compare builds | `open-ida diff <left> <right>` | First difference and differing ranges |
+| Search patterns | `open-ida search <file> <pattern> --mode hex\|ascii\|utf16le` | Offset and preview |
+| Patch | `open-ida patch <file> --offset <n> --bytes <hex> --out <copy>` | Before/after whole-file hashes |
+
+## Limits agents must respect
+
+- `strings` defaults to 100 hits; the engine caps a request at 10,000.
+- `disasm` defaults to 64 instructions and caps at 4,096.
+- `diff` reports at most 64 differing ranges.
+- Every bounded report carries `total` and `truncated`.
+- `utf16le` means ASCII characters stored with a zero high byte, not arbitrary
+  UTF-16 text.
+
+## Stable codes
+
+| Code | What to do |
+| --- | --- |
+| `binary/parse` | The file is not a decodable container. Stop and report it. |
+| `binary/range` | The offset or length is outside the file. Re-check the value. |
+| `binary/unsupported` | The format or architecture is not implemented. Do not substitute another analysis. |
+| `binary/io` | Read/write failure or an unknown engine message. Report the original error. |
+| `handle/invalid` | The session is closed. Open a new one. |
+| `capability/not-implemented` | The addon is absent or the route is declared unsupported. Do not invent a result. |
+
+Branch on `code`, never on message text. CLI usage failures add
+`open-ida.cli.*` codes and exit `2`.
+
+## Hard rules
+
+1. Never claim a section, offset, import or instruction without printing the
+   report that contains it.
+2. Never describe Mach-O sections or symbols, ARM/ARM64 disassembly,
+   decompilation or debugging as available.
+3. Before patching, state the file, the offset and the exact bytes. Prefer
+   `--out` so the source stays untouched.
+4. Never present a hash as a security verdict. It only proves the bytes changed.
+5. Do not overwrite the only copy of a binary. An in-place patch requires the
+   user's explicit request.
+6. Report `truncated` results as truncated; do not present a partial listing as
+   complete.
+
+## Key files
+
+| Path | Contents |
+| --- | --- |
+| `projects/packages/open-ida/src/api.ts` | `OpenIDA` session and `capabilities()`. |
+| `projects/packages/open-ida/src/types.ts` | Every report shape. |
+| `projects/packages/open-ida/src/errors.ts` | Stable codes and `translateNativeError`. |
+| `projects/packages/open-ida/src/cli.ts` | Command tree and rendering. |
+| `projects/packages/open-ida/src/native.ts` | Addon discovery and `OPEN_IDA_NATIVE`. |
+| `projects/packages/open-ida-skills/skills/open-ida/SKILL.md` | The packaged skill. |
+
+The implemented surface is exactly what `open-ida capabilities` reports.
