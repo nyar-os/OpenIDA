@@ -1224,6 +1224,47 @@ fn macho_exports_report_absence_and_reject_non_macho() {
     assert_eq!(view.macho_exports().unwrap_err().code(), "binary/unsupported");
 }
 
+#[test]
+fn macho_encryption_reports_the_crypt_range() {
+    let view = BinaryView::from_bytes("encrypted.macho", macho64_encryption_bytes());
+    let report = view.macho_encryption().expect("Mach-O encryption");
+
+    assert!(report.present);
+    assert!(report.is_64);
+    assert_eq!(report.crypt_offset, 0x2000);
+    assert_eq!(report.crypt_size, 0x1000);
+    assert_eq!(report.crypt_id, 1);
+    assert!(report.encrypted);
+}
+
+#[test]
+fn macho_encryption_reports_absence_and_rejects_non_macho() {
+    let view = BinaryView::from_bytes("sample.macho", macho64_bytes());
+    let report = view.macho_encryption().expect("no encryption command");
+    assert!(!report.present);
+    assert!(!report.encrypted);
+
+    let view = BinaryView::from_bytes("plain.exe", pe_bytes());
+    assert_eq!(view.macho_encryption().unwrap_err().code(), "binary/unsupported");
+}
+
+/// `macho64_bytes()` plus `LC_ENCRYPTION_INFO_64` describing a 0x1000-byte
+/// crypt range at file offset 0x2000 with cryptid 1.
+fn macho64_encryption_bytes() -> Vec<u8> {
+    let mut bytes = macho64_bytes();
+    put_u32(&mut bytes, 16, 6);
+    put_u32(&mut bytes, 20, 304);
+
+    let command = 32 + 280;
+    put_u32(&mut bytes, command, 0x2c);
+    put_u32(&mut bytes, command + 4, 24);
+    put_u32(&mut bytes, command + 8, 0x2000);
+    put_u32(&mut bytes, command + 12, 0x1000);
+    put_u32(&mut bytes, command + 16, 1);
+    put_u32(&mut bytes, command + 20, 0);
+    bytes
+}
+
 /// `macho64_bytes()` plus `LC_DYLD_EXPORTS_TRIE` at 0x300 exporting `_foo`
 /// (address 0x1000) and the weak `_bar` (address 0x1040).
 fn macho64_exports_bytes() -> Vec<u8> {

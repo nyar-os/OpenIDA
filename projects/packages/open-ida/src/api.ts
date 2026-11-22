@@ -30,6 +30,7 @@ import type {
     MachOSlicesReport,
     MachOSliceExtraction,
     MachOExportsReport,
+    MachOEncryptionReport,
     MachOFunctionStartsReport,
     MachOSymbolsReport,
     MachOCodeSignatureReport,
@@ -161,6 +162,11 @@ export class OpenIDA {
     /** Decodes the dyld export trie of a Mach-O image. */
     machoExports(): MachOExportsReport {
         return decode<MachOExportsReport>(() => binding('binary.macho_exports').binary_macho_exports(this.id));
+    }
+
+    /** Decodes `LC_ENCRYPTION_INFO` / `LC_ENCRYPTION_INFO_64`. */
+    machoEncryption(): MachOEncryptionReport {
+        return decode<MachOEncryptionReport>(() => binding('binary.macho_encryption').binary_macho_encryption(this.id));
     }
 
     /** Decodes the Mach-O `LC_FUNCTION_STARTS` delta table. */

@@ -380,6 +380,18 @@ export fields of `LC_DYLD_INFO(_ONLY)` and prints each symbol with its flags
 512 exports are returned and 8,192 trie nodes are visited. A Mach-O without a
 trie prints `no dyld export trie`; bind opcodes are still not decoded.
 
+### `macho-encryption <file>`
+
+```bash
+open-ida macho-encryption ./samples/app.macho
+```
+
+Mach-O only. Decodes `LC_ENCRYPTION_INFO` or `LC_ENCRYPTION_INFO_64` and prints
+the crypt range file offset, its size, the encryption system id and whether the
+image is encrypted (`cryptid != 0`). A Mach-O without either command prints
+`no LC_ENCRYPTION_INFO command`; fat containers must be sliced first. The
+command is metadata only: it never decrypts bytes.
+
 ### `disasm <file>`
 
 ```bash

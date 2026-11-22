@@ -321,6 +321,16 @@ export interface MachOExportsReport {
     readonly truncated: boolean;
 }
 
+/** Encryption metadata from `LC_ENCRYPTION_INFO` or `LC_ENCRYPTION_INFO_64`. */
+export interface MachOEncryptionReport {
+    readonly present: boolean;
+    readonly cryptOffset: number;
+    readonly cryptSize: number;
+    readonly cryptId: number;
+    readonly encrypted: boolean;
+    readonly is64: boolean;
+}
+
 /** Bounded listing of `LC_FUNCTION_STARTS` addresses. */
 export interface MachOFunctionStartsReport {
     readonly imageBase: number;

@@ -33,6 +33,7 @@ import type {
     MachOSlicesReport,
     MachOSliceExtraction,
     MachOExportsReport,
+    MachOEncryptionReport,
     MachOFunctionStartsReport,
     MachOSymbolsReport,
     MitigationsReport,
@@ -520,6 +521,15 @@ function describeMachOExports(report: MachOExportsReport): string {
         lines.push(`  ${entry.name} · ${detail}${flags}`);
     }
     return lines.join('\n');
+}
+
+function describeMachOEncryption(report: MachOEncryptionReport): string {
+    if (!report.present) {
+        return 'no LC_ENCRYPTION_INFO command';
+    }
+    const kind = report.is64 ? 'LC_ENCRYPTION_INFO_64' : 'LC_ENCRYPTION_INFO';
+    const state = report.encrypted ? 'encrypted' : 'clear';
+    return `${kind} · ${state} · cryptid ${report.cryptId} · offset ${hex(report.cryptOffset)} · size ${hex(report.cryptSize)}`;
 }
 
 function describeMachOFunctionStarts(report: MachOFunctionStartsReport): string {
@@ -1052,6 +1062,22 @@ cli.command('macho-exports', 'cli.cmd.machoExports').actionCtx(async (options, _
     try {
         const report = ida.machoExports();
         ctx.emitResult(report, describeMachOExports(report));
+        return 0;
+    } finally {
+        ida.close();
+    }
+});
+
+cli.command('macho-encryption', 'cli.cmd.machoEncryption').actionCtx(async (options, _args, ctx) => {
+    const file = input(options);
+    if (file === undefined) {
+        ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+        return 2;
+    }
+    const ida = new OpenIDA({ path: file });
+    try {
+        const report = ida.machoEncryption();
+        ctx.emitResult(report, describeMachOEncryption(report));
         return 0;
     } finally {
         ida.close();
