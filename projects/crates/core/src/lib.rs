@@ -6,15 +6,17 @@
 //! imports, exports, symbols, pattern search, string scanning, hex dumps,
 //! address mapping and atomic patching are not re-implemented here.
 //!
-//! The `PE` debug directory and `CodeView` records are parsed here because the
-//! pinned upstream release does not expose them. Disassembly, decompilation and
-//! debugging stay declared as unsupported instead of being approximated.
+//! The `PE` debug directory, `CodeView` records and ELF program-header
+//! dependencies are parsed here because the pinned upstream release does not
+//! expose them. Disassembly, decompilation and debugging stay declared as
+//! unsupported instead of being approximated.
 
 #![deny(missing_docs)]
 
 mod debug;
 mod diff;
 mod disasm;
+mod dynamic;
 mod entropy;
 mod error;
 mod macho;
@@ -37,6 +39,7 @@ pub use data_binary_inspect::{
 pub use debug::{CodeViewInfo, DebugEntry, DebugReport};
 pub use diff::{DiffRange, DiffReport};
 pub use disasm::{DisassembleOptions, DisassemblyInstruction, DisassemblyReport, DisassemblySyntax};
+pub use dynamic::ElfDynamicReport;
 pub use entropy::{EntropyReport, OverlayInfo, SectionEntropy};
 pub use error::{IdaError, Result};
 pub use macho::{MachODylib, MachOReport, MachOSection, MachOSegment, MachOSlice, MachOSlicesReport, MachOSymbol, MachOSymbolsReport};
@@ -171,6 +174,11 @@ impl BinaryView {
     /// Decodes the PE base relocation blocks.
     pub fn relocations(&self) -> Result<RelocationsReport> {
         relocations::analyze(&self.session)
+    }
+
+    /// Reports ELF `PT_INTERP` and `PT_DYNAMIC` dependencies.
+    pub fn dynamic(&self) -> Result<ElfDynamicReport> {
+        dynamic::analyze(&self.session)
     }
 
     /// Decodes `x86` / `x64` instructions from one file offset.
@@ -392,6 +400,11 @@ impl OpenIda {
         relocations::analyze(&self.session)
     }
 
+    /// Reports ELF `PT_INTERP` and `PT_DYNAMIC` dependencies.
+    pub fn dynamic(&self) -> Result<ElfDynamicReport> {
+        dynamic::analyze(&self.session)
+    }
+
     /// Decodes `x86` / `x64` instructions from one file offset.
     pub fn disasm(&self, options: &DisassembleOptions) -> Result<DisassemblyReport> {
         disasm::analyze(&self.session, options)
@@ -487,6 +500,7 @@ pub fn capabilities() -> serde_json::Value {
             "pe-mitigations": "supported",
             "pe-resources": "supported",
             "pe-relocations": "supported",
+            "elf-dynamic": "supported",
             "disassembly": "supported",
             "diff": "supported",
             "entropy": "supported",

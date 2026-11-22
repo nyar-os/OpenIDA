@@ -213,6 +213,10 @@ fn relocations_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.relocations()?))
 }
 
+fn dynamic_report(handle: u64) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.dynamic()?))
+}
+
 fn version_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.version()?))
 }
@@ -459,6 +463,16 @@ fn binary_mitigations(ctx: CallContext) -> Result<JsValue> {
 fn binary_relocations(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     match relocations_report(handle) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Reports ELF `PT_INTERP` and `PT_DYNAMIC` dependencies.
+#[function]
+fn binary_dynamic(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    match dynamic_report(handle) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
@@ -1006,6 +1020,7 @@ register_module![
     binary_mitigations,
     binary_resources,
     binary_relocations,
+    binary_dynamic,
     binary_disasm,
     binary_diff,
     binary_entropy,

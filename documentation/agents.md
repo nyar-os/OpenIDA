@@ -33,6 +33,7 @@ containers are rejected, and unknown containers are rejected.
 | Check PE hardening | `open-ida mitigations <file>` | ASLR, DEP, CFG, GS, W+X, relocations, certificate presence |
 | List PE resources | `open-ida resources <file>` | Type, name, language, RVA and size per leaf |
 | List PE relocations | `open-ida relocations <file>` | Page RVA, entry count and fixup types per block |
+| Read ELF dependencies | `open-ida dynamic <file>` | Interpreter, SONAME, needed libraries, rpath/runpath |
 | List fat slices | `open-ida macho-slices <file>` | CPU, architecture, offset, size and alignment per slice |
 | List Mach-O symbols | `open-ida macho-symbols <file> --limit <n>` | Name, address, kind, section and flags per `LC_SYMTAB` entry |
 | Decode code | `open-ida disasm <file> --offset <n> --count <n>` | Address, offset, bytes, mnemonic |

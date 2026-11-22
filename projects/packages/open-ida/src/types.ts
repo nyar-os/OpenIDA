@@ -388,6 +388,18 @@ export interface RelocationsReport {
     readonly truncated: boolean;
 }
 
+/** Dynamic linking facts of one ELF image. */
+export interface ElfDynamicReport {
+    readonly present: boolean;
+    readonly interpreter: string | null;
+    readonly soname: string | null;
+    readonly needed: readonly string[];
+    readonly rpath: readonly string[];
+    readonly runpath: readonly string[];
+    readonly dynamicEntries: number;
+    readonly truncated: boolean;
+}
+
 /** Entropy of one section payload. */
 export interface SectionEntropy {
     readonly name: string;

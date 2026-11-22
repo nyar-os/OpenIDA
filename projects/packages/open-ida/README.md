@@ -50,6 +50,8 @@ ida.close();
 - `relocations()` decodes the PE base relocation blocks, reporting each block's
   page RVA, entry count and fixup types. It reports `present: false` when the
   image has no relocations.
+- `dynamic()` reports the ELF interpreter, SONAME, `NEEDED` libraries and
+  rpath/runpath. It reports `present: false` for a static image.
 - `mitigations()` reads PE header and load-config facts (ASLR, DEP, CFG, GS,
   W+X sections, relocations, certificate-table presence). It does not verify
   Authenticode signatures.

@@ -167,6 +167,22 @@ block stops the walk.
 The report describes the fixup table; it does not apply relocations or claim
 that a module was loaded at a different base.
 
+### `dynamic <file>`
+
+```bash
+open-ida dynamic ./samples/app.elf
+```
+
+ELF only. Prints the `PT_INTERP` interpreter, the `DT_SONAME`, the requested
+`DT_NEEDED` libraries, and the `DT_RPATH` / `DT_RUNPATH` search paths split on
+`:`. Virtual addresses are mapped to file offsets through the `PT_LOAD`
+segments, so the report still works on images whose section headers were
+stripped. A static image prints `no PT_DYNAMIC segment (static image)`; non-ELF
+answers `binary/unsupported`.
+
+The report reads the recorded dependency names. It does not resolve which copy
+of a library the dynamic loader would pick at run time.
+
 ### `mitigations <file>`
 
 ```bash

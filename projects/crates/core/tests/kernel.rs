@@ -1379,6 +1379,97 @@ fn pe_relocations_report_absence_and_reject_non_pe() {
     assert_eq!(elf.relocations().unwrap_err().code(), "binary/unsupported");
 }
 
+/// ELF64 with `PT_LOAD`, `PT_INTERP` and `PT_DYNAMIC` program headers.
+fn elf_dynamic_bytes() -> Vec<u8> {
+    let mut bytes = vec![0u8; 0x500];
+    bytes[0..4].copy_from_slice(b"\x7fELF");
+    bytes[4] = 2;
+    bytes[5] = 1;
+    bytes[6] = 1;
+    put_u16(&mut bytes, 16, 2);
+    put_u16(&mut bytes, 18, 62);
+    put_u32(&mut bytes, 20, 1);
+    put_u64(&mut bytes, 24, 0x401000);
+    put_u64(&mut bytes, 32, 0x40);
+    put_u16(&mut bytes, 54, 56);
+    put_u16(&mut bytes, 56, 3);
+
+    put_u32(&mut bytes, 0x40, 1);
+    put_u32(&mut bytes, 0x44, 4);
+    put_u64(&mut bytes, 0x48, 0);
+    put_u64(&mut bytes, 0x50, 0x400000);
+    put_u64(&mut bytes, 0x60, 0x500);
+    put_u64(&mut bytes, 0x68, 0x500);
+    put_u64(&mut bytes, 0x70, 0x1000);
+
+    put_u32(&mut bytes, 0x78, 3);
+    put_u32(&mut bytes, 0x7c, 4);
+    put_u64(&mut bytes, 0x80, 0x200);
+    put_u64(&mut bytes, 0x88, 0x400200);
+    put_u64(&mut bytes, 0x98, 28);
+    put_u64(&mut bytes, 0xa0, 28);
+    put_u64(&mut bytes, 0xa8, 1);
+
+    put_u32(&mut bytes, 0xb0, 2);
+    put_u32(&mut bytes, 0xb4, 6);
+    put_u64(&mut bytes, 0xb8, 0x300);
+    put_u64(&mut bytes, 0xc0, 0x400300);
+    put_u64(&mut bytes, 0xd0, 128);
+    put_u64(&mut bytes, 0xd8, 128);
+    put_u64(&mut bytes, 0xe0, 8);
+
+    let interpreter = b"/lib64/ld-linux-x86-64.so.2\0";
+    bytes[0x200..0x200 + interpreter.len()].copy_from_slice(interpreter);
+
+    let dynstr = b"\0libc.so.6\0libm.so.6\0libsample.so\0/opt/lib:/usr/lib\0/usr/local/lib\0";
+    bytes[0x240..0x240 + dynstr.len()].copy_from_slice(dynstr);
+
+    let entries = [
+        (1u64, 1u64),
+        (1, 11),
+        (14, 21),
+        (15, 34),
+        (29, 52),
+        (5, 0x400240),
+        (10, dynstr.len() as u64),
+        (0, 0),
+    ];
+    for (index, (tag, value)) in entries.iter().enumerate() {
+        let base = 0x300 + index * 16;
+        put_u64(&mut bytes, base, *tag);
+        put_u64(&mut bytes, base + 8, *value);
+    }
+    bytes
+}
+
+#[test]
+fn elf_dynamic_reports_interpreter_needed_and_search_paths() {
+    let view = BinaryView::from_bytes("app.elf", elf_dynamic_bytes());
+    let report = view.dynamic().expect("ELF dynamic report");
+
+    assert!(report.present);
+    assert!(!report.truncated);
+    assert_eq!(report.interpreter.as_deref(), Some("/lib64/ld-linux-x86-64.so.2"));
+    assert_eq!(report.soname.as_deref(), Some("libsample.so"));
+    assert_eq!(report.needed, ["libc.so.6", "libm.so.6"]);
+    assert_eq!(report.rpath, ["/opt/lib", "/usr/lib"]);
+    assert_eq!(report.runpath, ["/usr/local/lib"]);
+    assert_eq!(report.dynamic_entries, 7);
+}
+
+#[test]
+fn elf_dynamic_reports_static_images_and_rejects_other_containers() {
+    let view = BinaryView::from_bytes("static.elf", elf64_bytes());
+    let report = view.dynamic().expect("ELF dynamic report");
+    assert!(!report.present);
+    assert_eq!(report.interpreter, None);
+    assert!(report.needed.is_empty());
+    assert!(report.rpath.is_empty());
+
+    let pe = BinaryView::from_bytes("app.exe", pe_bytes());
+    assert_eq!(pe.dynamic().unwrap_err().code(), "binary/unsupported");
+}
+
 #[test]
 fn pe_mitigations_read_the_optional_header() {
     let mut bytes = pe_bytes();
