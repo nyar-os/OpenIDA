@@ -54,6 +54,7 @@ open-ida strings ./samples/app.exe --encoding both
 open-ida imports ./samples/app.exe
 open-ida macho ./samples/app.macho
 open-ida macho-slices ./samples/universal.macho
+open-ida mitigations ./samples/app.exe
 open-ida macho-symbols ./samples/app.macho --limit 200
 open-ida disasm ./samples/app.exe --offset 0x1000 --count 20
 open-ida entropy ./samples/app.exe
@@ -65,6 +66,9 @@ the TypeScript session, so a script and a person read the same result.
 
 ## ✨ Highlights
 
+- **Hardening facts.** ASLR, high-entropy VA, DEP, CFG, GS cookies, W+X
+  sections, relocations and certificate-table presence, read from the PE header
+  and load config.
 - **Format-aware facts.** PE and ELF headers, sections, entry points, image
   bases and hashes; Mach-O load commands, segments, sections, dylibs, UUID,
   build versions and the `LC_SYMTAB` symbol table, plus the architecture table
@@ -102,6 +106,8 @@ drawing sample data.
 - No decompiler: no pseudo-code, control-flow graph or type recovery.
 - No debugger: it does not attach, set breakpoints or inspect a running process.
 - No non-x86 disassembly: ARM and ARM64 return a stable unsupported error.
+- No signature verification: `mitigations` reports whether the certificate
+  table is present, not whether the Authenticode signature is valid.
 - No Mach-O dyld bindings: load commands, segments, sections, dylibs, build
   versions and the `LC_SYMTAB` symbol table are decoded, but bind opcodes are
   not resolved.

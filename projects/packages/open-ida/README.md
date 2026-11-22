@@ -45,6 +45,9 @@ ida.close();
 
 - Instances are handles. A closed handle is rejected instead of being reopened
   silently, and every constructor call must be paired with `close()`.
+- `mitigations()` reads PE header and load-config facts (ASLR, DEP, CFG, GS,
+  W+X sections, relocations, certificate-table presence). It does not verify
+  Authenticode signatures.
 - Mach-O support covers headers, load commands, segments, sections, dylibs,
   build versions, the `LC_SYMTAB` symbol table and the fat architecture table;
   dyld bindings are not decoded and fat slices are not extracted.

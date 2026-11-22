@@ -322,6 +322,30 @@ export interface MachOSlicesReport {
     readonly slices: readonly MachOSlice[];
 }
 
+/** A section mapped with both write and execute permission. */
+export interface WritableExecutableSection {
+    readonly name: string;
+    readonly address: number;
+    readonly size: number;
+}
+
+/** PE mitigation posture. */
+export interface MitigationsReport {
+    readonly dllCharacteristics: number;
+    readonly aslr: boolean;
+    readonly highEntropyVa: boolean;
+    readonly dep: boolean;
+    readonly cfg: boolean;
+    readonly forceIntegrity: boolean;
+    readonly noSeh: boolean;
+    readonly terminalServerAware: boolean;
+    readonly relocationsPresent: boolean;
+    readonly signed: boolean;
+    readonly writableExecutableSections: readonly WritableExecutableSection[];
+    readonly securityCookie: boolean | null;
+    readonly guardFlags: number | null;
+}
+
 /** Entropy of one section payload. */
 export interface SectionEntropy {
     readonly name: string;

@@ -137,6 +137,22 @@ info (file and product versions, flags, OS and type) plus the `StringFileInfo`
 pairs with their language id and code page. A PE with no version resource prints
 `no RT_VERSION resource` and reports `present: false` rather than failing.
 
+### `mitigations <file>`
+
+```bash
+open-ida mitigations ./samples/app.exe
+```
+
+PE only. Prints `DllCharacteristics` and the derived posture: ASLR, high-entropy
+VA, DEP (NX compatibility), CFG (header bit or load-config `GuardFlags`), force
+integrity, no-SEH, terminal-server-aware, base relocations present or stripped,
+and whether the certificate table is present. Load-config GS cookies report
+`present`, `absent` or `no load config`. Sections mapped write+execute are
+listed by name.
+
+The certificate table entry means a signature blob exists. OpenIDA does not
+verify it, so do not describe a file as "signed by X" from this report.
+
 ### `macho <file>`
 
 ```bash
