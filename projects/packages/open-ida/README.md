@@ -47,6 +47,9 @@ ida.close();
   silently, and every constructor call must be paired with `close()`.
 - `resources()` lists the PE resource tree leaves by type, name, language and
   size. It reports `present: false` when the image has no resource directory.
+- `relocations()` decodes the PE base relocation blocks, reporting each block's
+  page RVA, entry count and fixup types. It reports `present: false` when the
+  image has no relocations.
 - `mitigations()` reads PE header and load-config facts (ASLR, DEP, CFG, GS,
   W+X sections, relocations, certificate-table presence). It does not verify
   Authenticode signatures.

@@ -1314,6 +1314,71 @@ fn pe_resources_report_absence_and_reject_non_pe() {
     assert_eq!(elf.resources().unwrap_err().code(), "binary/unsupported");
 }
 
+/// `pe_bytes()` plus two base relocation blocks behind data directory 5.
+fn pe_relocations_bytes() -> Vec<u8> {
+    let mut bytes = pe_bytes();
+    put_u32(&mut bytes, 0x98 + 112 + 5 * 8, 0x2000);
+    put_u32(&mut bytes, 0x98 + 112 + 5 * 8 + 4, 24);
+
+    let first = 0x400;
+    put_u32(&mut bytes, first, 0x1000);
+    put_u32(&mut bytes, first + 4, 16);
+    put_u16(&mut bytes, first + 8, 0x3010);
+    put_u16(&mut bytes, first + 10, 0x0000);
+    put_u16(&mut bytes, first + 12, 0xa000);
+    put_u16(&mut bytes, first + 14, 0x3018);
+
+    let second = 0x410;
+    put_u32(&mut bytes, second, 0x2000);
+    put_u32(&mut bytes, second + 4, 8);
+    bytes
+}
+
+#[test]
+fn pe_relocations_decode_blocks_and_fixup_types() {
+    let view = BinaryView::from_bytes("reloc.exe", pe_relocations_bytes());
+    let report = view.relocations().expect("PE relocations");
+
+    assert!(report.present);
+    assert!(!report.truncated);
+    assert_eq!(report.total_blocks, 2);
+    assert_eq!(report.total_entries, 4);
+    assert_eq!(report.blocks.len(), 2);
+
+    assert_eq!(report.blocks[0].page_rva, 0x1000);
+    assert_eq!(report.blocks[0].block_size, 16);
+    assert_eq!(report.blocks[0].entries, 4);
+    assert_eq!(report.blocks[0].kinds.len(), 3);
+    assert_eq!(report.blocks[0].kinds[0].kind, "ABSOLUTE");
+    assert_eq!(report.blocks[0].kinds[0].count, 1);
+    assert_eq!(report.blocks[0].kinds[1].kind, "HIGHLOW");
+    assert_eq!(report.blocks[0].kinds[1].count, 2);
+    assert_eq!(report.blocks[0].kinds[2].kind, "DIR64");
+
+    assert_eq!(report.blocks[1].page_rva, 0x2000);
+    assert_eq!(report.blocks[1].entries, 0);
+    assert!(report.blocks[1].kinds.is_empty());
+
+    assert_eq!(report.kinds.len(), 3);
+    assert_eq!(report.kinds[0].kind, "ABSOLUTE");
+    assert_eq!(report.kinds[1].count, 2);
+    assert_eq!(report.kinds[2].kind, "DIR64");
+}
+
+#[test]
+fn pe_relocations_report_absence_and_reject_non_pe() {
+    let view = BinaryView::from_bytes("plain.exe", pe_bytes());
+    let report = view.relocations().expect("PE relocations");
+    assert!(!report.present);
+    assert_eq!(report.total_blocks, 0);
+    assert_eq!(report.total_entries, 0);
+    assert!(report.blocks.is_empty());
+    assert!(report.kinds.is_empty());
+
+    let elf = BinaryView::from_bytes("sample.elf", elf64_bytes());
+    assert_eq!(elf.relocations().unwrap_err().code(), "binary/unsupported");
+}
+
 #[test]
 fn pe_mitigations_read_the_optional_header() {
     let mut bytes = pe_bytes();

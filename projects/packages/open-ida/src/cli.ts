@@ -28,6 +28,7 @@ import type {
     MachOSlicesReport,
     MachOSymbolsReport,
     MitigationsReport,
+    RelocationsReport,
     ResourcesReport,
     SearchOptions,
     SearchReport,
@@ -236,6 +237,22 @@ function describeResources(report: ResourcesReport): string {
         lines.push(
             `  ${entry.resourceType.padEnd(14)} ${entry.name.padEnd(16)} lang ${hex(entry.language)} rva ${hex(entry.dataRva)} size ${hex(entry.size)}`,
         );
+    }
+    return lines.join('\n');
+}
+
+function describeRelocations(report: RelocationsReport): string {
+    if (!report.present) {
+        return 'no base relocations';
+    }
+    const header = entriesHeader(report.blocks.length, report.totalBlocks, 'block(s)', report.truncated);
+    const lines = [
+        `${header} · ${report.totalEntries} fixup(s)${report.truncated ? ' (truncated)' : ''}`,
+        `kinds: ${report.kinds.map((entry) => `${entry.kind}=${entry.count}`).join(', ') || 'none'}`,
+    ];
+    for (const block of report.blocks) {
+        const kinds = block.kinds.map((entry) => `${entry.kind}=${entry.count}`).join(' ');
+        lines.push(`  page ${hex(block.pageRva)} · ${block.entries} entr${block.entries === 1 ? 'y' : 'ies'} · ${kinds}`);
     }
     return lines.join('\n');
 }
@@ -671,6 +688,22 @@ cli.command('mitigations', 'cli.cmd.mitigations').actionCtx(async (options, _arg
     try {
         const report = ida.mitigations();
         ctx.emitResult(report, describeMitigations(report));
+        return 0;
+    } finally {
+        ida.close();
+    }
+});
+
+cli.command('relocations', 'cli.cmd.relocations').actionCtx(async (options, _args, ctx) => {
+    const file = input(options);
+    if (file === undefined) {
+        ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+        return 2;
+    }
+    const ida = new OpenIDA({ path: file });
+    try {
+        const report = ida.relocations();
+        ctx.emitResult(report, describeRelocations(report));
         return 0;
     } finally {
         ida.close();

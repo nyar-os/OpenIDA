@@ -30,6 +30,7 @@ import type {
     OffsetToVaReport,
     PatchReport,
     ReadReport,
+    RelocationsReport,
     ResourcesReport,
     RvaReport,
     SearchOptions,
@@ -159,6 +160,11 @@ export class OpenIDA {
     /** Lists the PE resource directory leaves. */
     resources(): ResourcesReport {
         return decode<ResourcesReport>(() => binding('binary.resources').binary_resources(this.id));
+    }
+
+    /** Decodes the PE base relocation blocks. */
+    relocations(): RelocationsReport {
+        return decode<RelocationsReport>(() => binding('binary.relocations').binary_relocations(this.id));
     }
 
     /** Decodes x86 / x64 instructions from one file offset. */

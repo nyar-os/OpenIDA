@@ -56,6 +56,7 @@ open-ida macho ./samples/app.macho
 open-ida macho-slices ./samples/universal.macho
 open-ida mitigations ./samples/app.exe
 open-ida resources ./samples/app.exe
+open-ida relocations ./samples/app.exe
 open-ida macho-symbols ./samples/app.macho --limit 200
 open-ida disasm ./samples/app.exe --offset 0x1000 --count 20
 open-ida entropy ./samples/app.exe

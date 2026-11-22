@@ -364,6 +364,30 @@ export interface ResourcesReport {
     readonly truncated: boolean;
 }
 
+/** Number of fixups of one PE relocation type. */
+export interface RelocationKindCount {
+    readonly kind: string;
+    readonly count: number;
+}
+
+/** One `IMAGE_BASE_RELOCATION` block. */
+export interface RelocationBlock {
+    readonly pageRva: number;
+    readonly blockSize: number;
+    readonly entries: number;
+    readonly kinds: readonly RelocationKindCount[];
+}
+
+/** Bounded PE base relocation listing. */
+export interface RelocationsReport {
+    readonly present: boolean;
+    readonly blocks: readonly RelocationBlock[];
+    readonly totalBlocks: number;
+    readonly totalEntries: number;
+    readonly kinds: readonly RelocationKindCount[];
+    readonly truncated: boolean;
+}
+
 /** Entropy of one section payload. */
 export interface SectionEntropy {
     readonly name: string;
