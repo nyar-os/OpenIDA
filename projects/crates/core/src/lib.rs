@@ -13,6 +13,7 @@
 
 #![deny(missing_docs)]
 
+mod certificates;
 mod debug;
 mod diff;
 mod disasm;
@@ -21,6 +22,7 @@ mod entropy;
 mod error;
 mod macho;
 mod mitigations;
+mod notes;
 mod relocations;
 mod resources;
 mod text;
@@ -36,6 +38,7 @@ pub use data_binary_inspect::{
     InspectOptions, PatchReport, SearchHit, SearchMode, SearchOptions, SearchReport, SectionInfo as Section, StringHit,
     StringsReport, SymbolEntry, SymbolsReport,
 };
+pub use certificates::{CertificatesReport, PeCertificate};
 pub use debug::{CodeViewInfo, DebugEntry, DebugReport};
 pub use diff::{DiffRange, DiffReport};
 pub use disasm::{DisassembleOptions, DisassemblyInstruction, DisassemblyReport, DisassemblySyntax};
@@ -47,6 +50,7 @@ pub use macho::{
     MachOSymbol, MachOSymbolsReport,
 };
 pub use mitigations::{MitigationsReport, WritableExecutableSection};
+pub use notes::{ElfAbiTag, ElfGnuProperty, ElfNote, ElfNotesReport};
 pub use relocations::{RelocationBlock, RelocationKindCount, RelocationsReport};
 pub use resources::{PeResource, ResourcesReport};
 pub use text::{EncodedStringHit, EncodedStringsReport, StringEncoding, StringsOptions};
@@ -187,6 +191,16 @@ impl BinaryView {
     /// Reports ELF `PT_INTERP` and `PT_DYNAMIC` dependencies.
     pub fn dynamic(&self) -> Result<ElfDynamicReport> {
         dynamic::analyze(&self.session)
+    }
+
+    /// Decodes ELF notes: build id, GNU ABI tag and GNU properties.
+    pub fn notes(&self) -> Result<ElfNotesReport> {
+        notes::analyze(&self.session)
+    }
+
+    /// Lists the PE attribute certificate table entries.
+    pub fn certificates(&self) -> Result<CertificatesReport> {
+        certificates::analyze(&self.session)
     }
 
     /// Decodes `x86` / `x64` instructions from one file offset.
@@ -418,6 +432,16 @@ impl OpenIda {
         dynamic::analyze(&self.session)
     }
 
+    /// Decodes ELF notes: build id, GNU ABI tag and GNU properties.
+    pub fn notes(&self) -> Result<ElfNotesReport> {
+        notes::analyze(&self.session)
+    }
+
+    /// Lists the PE attribute certificate table entries.
+    pub fn certificates(&self) -> Result<CertificatesReport> {
+        certificates::analyze(&self.session)
+    }
+
     /// Decodes `x86` / `x64` instructions from one file offset.
     pub fn disasm(&self, options: &DisassembleOptions) -> Result<DisassemblyReport> {
         disasm::analyze(&self.session, options)
@@ -514,7 +538,9 @@ pub fn capabilities() -> serde_json::Value {
             "pe-mitigations": "supported",
             "pe-resources": "supported",
             "pe-relocations": "supported",
+            "pe-certificates": "supported",
             "elf-dynamic": "supported",
+            "elf-notes": "supported",
             "disassembly": "supported",
             "diff": "supported",
             "entropy": "supported",

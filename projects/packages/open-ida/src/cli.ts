@@ -17,10 +17,12 @@ import { runGui } from './gui.js';
 import type {
     BinaryInfo,
     Capabilities,
+    CertificatesReport,
     DebugReport,
     DiffReport,
     DisassemblyReport,
     ElfDynamicReport,
+    ElfNotesReport,
     EncodedStringsReport,
     EntropyReport,
     ExportsReport,
@@ -277,6 +279,46 @@ function describeDynamic(report: ElfDynamicReport): string {
         lines.push(`runpath: ${report.runpath.join(':')}`);
     }
     lines.push(`dynamic entries: ${report.dynamicEntries}`);
+    return lines.join('\n');
+}
+
+function describeNotes(report: ElfNotesReport): string {
+    if (!report.present) {
+        return 'no note segments or sections';
+    }
+    const header = entriesHeader(report.notes.length, report.total, 'note(s)', report.truncated);
+    const lines = [
+        `${header} · source ${report.source ?? 'unknown'}`,
+        `build id: ${report.buildId ?? 'none'}`,
+    ];
+    if (report.abiTag !== null) {
+        const tag = report.abiTag;
+        lines.push(`abi tag: ${tag.os} ${tag.major}.${tag.minor}.${tag.subminor}`);
+    }
+    for (const note of report.notes) {
+        lines.push(`  ${note.owner.padEnd(10)} ${note.noteType.padEnd(24)} ${note.descriptionSize} byte(s)  ${note.description}`);
+    }
+    for (const property of report.properties) {
+        lines.push(`  property ${property.propertyType} (${property.dataSize} bytes) ${property.data}`);
+    }
+    return lines.join('\n');
+}
+
+function describeCertificates(report: CertificatesReport): string {
+    if (!report.present) {
+        return 'no attribute certificate table';
+    }
+    const header = entriesHeader(report.certificates.length, report.total, 'certificate(s)', report.truncated);
+    const lines = [`${header} · directory ${report.directorySize} bytes`];
+    if (report.certificates.length === 0) {
+        lines.push('  no certificates');
+    }
+    for (const certificate of report.certificates) {
+        const shape = certificate.pkcs7 ? ' · pkcs7' : '';
+        lines.push(
+            `  ${hex(certificate.offset)} ${certificate.revision} ${certificate.certificateType} ${certificate.payloadSize} byte(s)${shape}`,
+        );
+    }
     return lines.join('\n');
 }
 
@@ -747,6 +789,38 @@ cli.command('dynamic', 'cli.cmd.dynamic').actionCtx(async (options, _args, ctx) 
     try {
         const report = ida.dynamic();
         ctx.emitResult(report, describeDynamic(report));
+        return 0;
+    } finally {
+        ida.close();
+    }
+});
+
+cli.command('notes', 'cli.cmd.notes').actionCtx(async (options, _args, ctx) => {
+    const file = input(options);
+    if (file === undefined) {
+        ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+        return 2;
+    }
+    const ida = new OpenIDA({ path: file });
+    try {
+        const report = ida.notes();
+        ctx.emitResult(report, describeNotes(report));
+        return 0;
+    } finally {
+        ida.close();
+    }
+});
+
+cli.command('certificates', 'cli.cmd.certificates').actionCtx(async (options, _args, ctx) => {
+    const file = input(options);
+    if (file === undefined) {
+        ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+        return 2;
+    }
+    const ida = new OpenIDA({ path: file });
+    try {
+        const report = ida.certificates();
+        ctx.emitResult(report, describeCertificates(report));
         return 0;
     } finally {
         ida.close();

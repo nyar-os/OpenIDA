@@ -39,6 +39,8 @@ Big-endian ELF is rejected rather than decoded with a guessed byte order.
 | `pe-resources` | `supported` | PE resource tree leaves with type, name, language, data RVA, size and code page. A PE without a resource directory reports `present: false`; non-PE answers `binary/unsupported`. |
 | `pe-relocations` | `supported` | PE `IMAGE_BASE_RELOCATION` blocks with page RVA, block size, entry count and per-type fixup counts, plus whole-image totals. A PE without relocations reports `present: false`; non-PE answers `binary/unsupported`. |
 | `elf-dynamic` | `supported` | ELF `PT_INTERP` interpreter and `PT_DYNAMIC` facts: `DT_SONAME`, `DT_NEEDED`, `DT_RPATH` and `DT_RUNPATH`, mapped through `PT_LOAD`. A static image reports `present: false`; non-ELF answers `binary/unsupported`. |
+| `elf-notes` | `supported` | ELF notes from `PT_NOTE` segments, falling back to `SHT_NOTE` sections: `NT_GNU_BUILD_ID` hex, `NT_GNU_ABI_TAG` OS/version, `NT_GNU_PROPERTY_TYPE_0` entries and other notes as a bounded hex preview. An image without notes reports `present: false`; non-ELF answers `binary/unsupported`. |
+| `pe-certificates` | `supported` | PE attribute certificate table entries with file offset, length, revision, certificate type, payload size and a `PKCS#7` shape flag. Headers only: no signature, chain or timestamp verification. A PE without the table reports `present: false`; non-PE answers `binary/unsupported`. |
 | `macho-slice-extraction` | `supported` | Writes one fat/universal slice to a caller-chosen `--out` path. Refuses to overwrite the source container; a thin image answers `binary/unsupported`. |
 | `macho-fat-slices` | `supported` | Fat/universal architecture table: index, CPU type/subtype, architecture, offset, size, alignment and slice bitness. A thin image answers `binary/unsupported`. |
 | `disassembly` | `supported` | x86 and x64 only, Intel/MASM/NASM syntax. |
@@ -75,6 +77,8 @@ Big-endian ELF is rejected rather than decoded with a guessed byte order.
 | `resources` | 256 leaves, 8,192 tree nodes | — | `total` and `truncated` describe the cut. |
 | `relocations` | 128 blocks listed, 4,096 decoded | — | `totalBlocks`, `totalEntries` and `truncated` describe the cut. |
 | `dynamic` | 256 needed libraries, 64 paths per list | — | `truncated` is `true` when a limit stopped the listing. |
+| `notes` | 128 notes, 32 property entries | — | `total` and `truncated` describe the cut. |
+| `certificates` | 64 entries | — | `total` and `truncated` describe the cut. |
 | `hexdump --length` | 256 bytes | File size | A range outside the file is `binary/range`. |
 
 ## Encoding boundaries
