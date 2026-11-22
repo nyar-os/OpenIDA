@@ -9,6 +9,7 @@
             "exports": "Print exported symbols with ordinals, addresses and forwarders",
             "symbols": "Print debug or dynamic symbols with kind, binding and section",
             "debug": "Print PE debug directory entries and CodeView PDB records",
+            "disasm": "Disassemble x86 or x64 instructions from a file offset",
             "search": "Search for hex bytes, ASCII text or UTF-16LE text",
             "offset": "Map a file offset onto an RVA and a virtual address",
             "strings": "Extract printable ASCII runs with their file offsets",
@@ -26,6 +27,8 @@
             "start": "First file offset to scan",
             "end": "One past the last file offset to scan",
             "offset": "File offset to inspect, decimal or 0x-prefixed",
+            "count": "Maximum number of instructions to decode (default 64, capped at 4096)",
+            "syntax": "Assembly syntax: intel, masm or nasm (default intel)",
             "length": "Number of bytes to read (default 256)",
             "bytes": "Hex bytes to write, such as 90,90 or 0x90 0x90",
             "out": "Write the patched copy here instead of the source file"
