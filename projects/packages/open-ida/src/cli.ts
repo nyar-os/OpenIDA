@@ -20,6 +20,7 @@ import type {
     DebugReport,
     DiffReport,
     DisassemblyReport,
+    EntropyReport,
     ExportsReport,
     ImportsReport,
     SearchOptions,
@@ -200,6 +201,21 @@ function describeDisassembly(report: DisassemblyReport): string {
     for (const instruction of report.instructions) {
         lines.push(
             `  ${hex(instruction.address).padStart(12)}  ${hex(instruction.offset).padStart(8)}  ${instruction.bytes.padEnd(18)}  ${instruction.text}`,
+        );
+    }
+    return lines.join('\n');
+}
+
+function describeEntropy(report: EntropyReport): string {
+    const lines = [`file ${report.fileSize} B · entropy ${report.fileEntropy.toFixed(4)} bits/byte`];
+    lines.push(
+        report.overlay === null
+            ? 'overlay: none'
+            : `overlay ${hex(report.overlay.offset)} + ${report.overlay.size} byte(s)`,
+    );
+    for (const section of report.sections) {
+        lines.push(
+            `  ${section.name.padEnd(12)} ${hex(section.offset).padStart(10)} + ${section.size} B  ${section.entropy.toFixed(4)}`,
         );
     }
     return lines.join('\n');
@@ -489,6 +505,24 @@ cli
         try {
             const report = ida.disasm({ offset, count, syntax });
             ctx.emitResult(report, describeDisassembly(report));
+            return 0;
+        } finally {
+            ida.close();
+        }
+    });
+
+cli
+    .command('entropy', 'cli.cmd.entropy')
+    .actionCtx(async (options, _args, ctx) => {
+        const file = input(options);
+        if (file === undefined) {
+            ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+            return 2;
+        }
+        const ida = new OpenIDA({ path: file });
+        try {
+            const report = ida.entropy();
+            ctx.emitResult(report, describeEntropy(report));
             return 0;
         } finally {
             ida.close();

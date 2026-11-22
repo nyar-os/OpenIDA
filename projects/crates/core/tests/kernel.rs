@@ -742,6 +742,47 @@ fn diff_caps_the_number_of_ranges() {
 }
 
 #[test]
+fn entropy_of_uniform_and_high_entropy_data() {
+    let uniform = BinaryView::from_bytes("zeros.bin", vec![0u8; 256]);
+    let report = uniform.entropy().expect("uniform entropy");
+    assert_eq!(report.file_size, 256);
+    assert_eq!(report.file_entropy, 0.0);
+    assert!(report.sections.is_empty());
+    assert_eq!(report.overlay, None);
+
+    let spread: Vec<u8> = (0..=255u8).collect();
+    let high = BinaryView::from_bytes("spread.bin", spread);
+    let report = high.entropy().expect("high entropy");
+    assert_eq!(report.file_entropy, 8.0);
+}
+
+#[test]
+fn entropy_reports_sections_and_the_pe_overlay() {
+    let mut bytes = pe_bytes();
+    for (index, byte) in bytes[0x200..0x400].iter_mut().enumerate() {
+        *byte = index as u8;
+    }
+    bytes.extend_from_slice(&[0xaa; 16]);
+    let view = BinaryView::from_bytes("overlay.exe", bytes);
+
+    let report = view.entropy().expect("entropy");
+    assert_eq!(report.file_size, 0x610);
+    assert_eq!(report.sections.len(), 2);
+
+    let text = report.sections.iter().find(|section| section.name == ".text").expect("text section");
+    assert_eq!(text.offset, 0x200);
+    assert_eq!(text.size, 0x200);
+    assert_eq!(text.entropy, 8.0);
+
+    let data = report.sections.iter().find(|section| section.name == ".data").expect("data section");
+    assert_eq!(data.entropy, 0.0);
+
+    let overlay = report.overlay.expect("overlay");
+    assert_eq!(overlay.offset, 0x600);
+    assert_eq!(overlay.size, 16);
+}
+
+#[test]
 fn search_and_reverse_mapping_are_exposed() {
     let file = TempFile::new("pe-search");
     file.write(&pe_analysis_bytes());

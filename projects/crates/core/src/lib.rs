@@ -15,6 +15,7 @@
 mod debug;
 mod diff;
 mod disasm;
+mod entropy;
 mod error;
 
 use std::path::{Path, PathBuf};
@@ -30,6 +31,7 @@ pub use data_binary_inspect::{
 pub use debug::{CodeViewInfo, DebugEntry, DebugReport};
 pub use diff::{DiffRange, DiffReport};
 pub use disasm::{DisassembleOptions, DisassemblyInstruction, DisassemblyReport, DisassemblySyntax};
+pub use entropy::{EntropyReport, OverlayInfo, SectionEntropy};
 pub use error::{IdaError, Result};
 
 impl From<data_binary_inspect::InspectError> for IdaError {
@@ -127,6 +129,11 @@ impl BinaryView {
     /// Compares this binary against another open binary.
     pub fn diff(&self, other: &Self) -> Result<DiffReport> {
         diff::compare(&self.session, &other.session)
+    }
+
+    /// Computes whole-file and per-section entropy plus the PE overlay.
+    pub fn entropy(&self) -> Result<EntropyReport> {
+        entropy::analyze(&self.session)
     }
 
     /// Searches for a hex, ASCII or UTF-16LE pattern.
@@ -303,6 +310,11 @@ impl OpenIda {
         diff::compare(&self.session, &other.session)
     }
 
+    /// Computes whole-file and per-section entropy plus the PE overlay.
+    pub fn entropy(&self) -> Result<EntropyReport> {
+        entropy::analyze(&self.session)
+    }
+
     /// Searches for a hex, ASCII or UTF-16LE pattern.
     pub fn search(&self, options: &SearchOptions) -> Result<SearchReport> {
         self.session.search(options).map_err(IdaError::from)
@@ -374,6 +386,8 @@ pub fn capabilities() -> serde_json::Value {
             "debug": "supported",
             "disassembly": "supported",
             "diff": "supported",
+            "entropy": "supported",
+            "overlay": "supported",
             "search": "supported",
             "offset-to-va": "supported",
             "offset-to-rva": "supported",
