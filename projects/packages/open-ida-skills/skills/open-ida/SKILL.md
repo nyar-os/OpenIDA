@@ -13,12 +13,14 @@ description: Inspect compiled binaries with OpenIDA. Use when a task involves PE
 `macho-exports`,
 `macho-encryption`,
 `macho-chained-fixups`,
+`macho-bindings`,
 `macho-slices`, `macho-extract`, `mitigations`, `resources`, `relocations`, `dynamic`, `segments`, `notes`,
 `certificates`, `tls`, `load-config`, `code-signature`, `disasm`, `entropy`, `diff`,
 `search` and `patch` are implemented for the cases listed below. Decompilation,
-debugging, dyld bindings and signature verification are
+debugging and signature verification are
 **not** implemented and the capability matrix reports them as `unsupported` /
-`not-implemented`.
+`not-implemented`; Mach-O import bindings are `partial`: the classic bind
+opcode streams are decoded by `macho-bindings` and nothing is bound at runtime.
 
 Do not describe an unimplemented route as available, and do not fill the gap with
 a second analysis engine. Report the stable code instead.
@@ -50,6 +52,7 @@ a second analysis engine. Report the stable code instead.
 | macho-exports | List dyld export trie symbols, flags and addresses | `macho-exports` report |
 | macho-encryption | Read `LC_ENCRYPTION_INFO` crypt offset, size and cryptid | `macho-encryption` report |
 | macho-chained-fixups | Read `LC_DYLD_CHAINED_FIXUPS` imports, header and starts table | `macho-chained-fixups` report |
+| macho-bindings | Decode classic dyld bind, weak-bind and lazy-bind opcode streams | `macho-bindings` report |
 | macho-slices | List the architectures of a fat/universal container | `macho-slices` report |
 | macho-extract | Write one fat/universal slice to a new file | `macho-extract` report |
 | mitigations | Read the PE hardening posture | `mitigations` report |
@@ -78,8 +81,9 @@ a second analysis engine. Report the stable code instead.
   range is not a successful patch.
 - Never present a hash as a security verdict. It only proves the bytes changed.
 - Mach-O support covers headers, load commands, segments, sections, dylibs,
-  build versions, the `LC_SYMTAB` symbol table and the fat architecture table.
-  Do not claim dyld bindings or slice extraction.
+  build versions, the `LC_SYMTAB` symbol table, the fat architecture table and
+  the classic dyld bind opcode streams (`macho-bindings`). Do not claim runtime
+  dyld binding, the rebase stream or in-place fat-container modification.
 - `mitigations` reports header/load-config facts, not a security verdict, and
   it does not verify Authenticode signatures.
 - Big-endian ELF is rejected; do not guess its layout.

@@ -6,15 +6,15 @@ it returns.
 
 ## Components
 
-| Layer | Crate or package | Responsibility |
-| --- | --- | --- |
-| Engine | `../projects/crates/ida-core` (`open-ida-core`) | Opens a file, keeps the session defaults, exposes `OpenIda`, and implements the parts the pinned upstream does not: PE debug/CodeView, x86/x64 disassembly, binary diff, entropy/overlay, encoded string scanning, and Mach-O load-command identity (UUID, dylibs, build version), the `LC_SYMTAB` symbol table, the fat architecture table and the embedded code signature, plus the PE mitigation posture, resource tree, relocation blocks, exception runtime functions, delay-import descriptors, bound-import descriptors, Rich header build stamp, attribute certificate table, TLS directory, load configuration, and the ELF program headers, dynamic dependencies, notes and static symbol table. |
-| Upstream | `data-binary-inspect`, `data-binary-pe`, `data-binary-mach-o` | Container detection, headers, sections, imports, exports, symbols, search, hex dumps, address mapping, atomic patching, and Mach-O headers, segments and sections. |
-| Binding | `../projects/crates/ida-napi` (`open-ida-napi`) | JSON-in / JSON-out Node-API exports plus the WebView host. No inspection policy. |
-| SDK | `projects/packages/open-ida/src` | `OpenIDA` session, report types, stable error translation, addon discovery. |
-| CLI | `projects/packages/open-ida/src/cli.ts` | Argument parsing and rendering only. |
-| Studio | `projects/packages/open-ida-ui` | VMZ static shell; empty when no host is connected. |
-| Skill | `projects/packages/open-ida-skills` | Agent instructions; no code. |
+| Layer    | Crate or package                                              | Responsibility                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+|----------|---------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Engine   | `../projects/crates/ida-core` (`open-ida-core`)               | Opens a file, keeps the session defaults, exposes `OpenIda`, and implements the parts the pinned upstream does not: PE debug/CodeView, x86/x64 disassembly, binary diff, entropy/overlay, encoded string scanning, and Mach-O load-command identity (UUID, dylibs, build version), the `LC_SYMTAB` symbol table, the fat architecture table, the embedded code signature and the classic dyld bind opcode streams, plus the PE mitigation posture, resource tree, relocation blocks, exception runtime functions, delay-import descriptors, bound-import descriptors, Rich header build stamp, attribute certificate table, TLS directory, load configuration, and the ELF program headers, dynamic dependencies, notes and static symbol table. |
+| Upstream | `data-binary-inspect`, `data-binary-pe`, `data-binary-mach-o` | Container detection, headers, sections, imports, exports, symbols, search, hex dumps, address mapping, atomic patching, and Mach-O headers, segments and sections.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Binding  | `../projects/crates/ida-napi` (`open-ida-napi`)               | JSON-in / JSON-out Node-API exports plus the WebView host. No inspection policy.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| SDK      | `projects/packages/open-ida/src`                              | `OpenIDA` session, report types, stable error translation, addon discovery.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| CLI      | `projects/packages/open-ida/src/cli.ts`                       | Argument parsing and rendering only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Studio   | `projects/packages/open-ida-ui`                               | VMZ static shell; empty when no host is connected.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Skill    | `projects/packages/open-ida-skills`                           | Agent instructions; no code.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
 ## Call path
 
@@ -72,14 +72,14 @@ its code; `translateNativeError` splits the prefix, keeps the code and drops it
 from the message. Unknown messages become `binary/io` with the original value as
 the cause.
 
-| Code | Meaning |
-| --- | --- |
-| `binary/parse` | The file is not a decodable container. |
-| `binary/range` | An offset or length is outside the file. |
-| `binary/unsupported` | The format or architecture is recognised but not implemented. |
-| `binary/io` | Reading, writing or an unexpected failure. |
-| `handle/invalid` | The session handle is closed or unknown. |
-| `capability/not-implemented` | The addon is absent or the route is declared unsupported. |
+| Code                         | Meaning                                                       |
+|------------------------------|---------------------------------------------------------------|
+| `binary/parse`               | The file is not a decodable container.                        |
+| `binary/range`               | An offset or length is outside the file.                      |
+| `binary/unsupported`         | The format or architecture is recognised but not implemented. |
+| `binary/io`                  | Reading, writing or an unexpected failure.                    |
+| `handle/invalid`             | The session handle is closed or unknown.                      |
+| `capability/not-implemented` | The addon is absent or the route is declared unsupported.     |
 
 Codes are contract. Callers branch on `code`, never on message text.
 
@@ -90,11 +90,13 @@ unsupported, and a suffix is never treated as a support claim. Mach-O is
 `partial`: headers, load commands, segments, sections, dylibs, build versions,
 the `LC_SYMTAB` symbol table, the `LC_FUNCTION_STARTS` delta table, the dyld
 export trie, the `LC_ENCRYPTION_INFO(_64)` crypt range and the
-`LC_DYLD_CHAINED_FIXUPS` imports/starts table are decoded, but dyld bind
-opcodes and chained-pointer decoding are not; fat
+`LC_DYLD_CHAINED_FIXUPS` imports/starts table and the classic dyld bind,
+weak-bind and lazy-bind opcode streams (`macho-bindings`) are decoded, but the
+rebase stream and chained-pointer decoding are not; fat
 containers expose their architecture table through `macho-slices`, and
-`macho-extract` writes one slice that the thin-image reports can reopen. Decompilation, debugging and Mach-O
-import bindings are explicitly `not-implemented`. ARM and ARM64 disassembly
+`macho-extract` writes one slice that the thin-image reports can reopen. Decompilation and debugging are
+explicitly `not-implemented`; Mach-O import bindings are `partial` because the
+bind opcode streams are decoded while nothing is bound at runtime. ARM and ARM64 disassembly
 returns `binary/unsupported` instead of decoding with a guessed mode.
 
 ## Test strategy

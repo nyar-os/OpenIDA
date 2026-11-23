@@ -7,9 +7,9 @@ failures exit non-zero. A successful command exits `0`.
 
 ## Global flags
 
-| Flag | Meaning |
-| --- | --- |
-| `--help`, `-h` | Print help derived from the command tree and `locales/en-US/cli.json`. |
+| Flag            | Meaning                                                                         |
+|-----------------|---------------------------------------------------------------------------------|
+| `--help`, `-h`  | Print help derived from the command tree and `locales/en-US/cli.json`.          |
 | `--locale <id>` | Select a locale registered by `locales/locales.json`. Only `en-US` ships today. |
 
 ## Commands
@@ -48,11 +48,11 @@ and `r` / `w` / `x` access flags.
 open-ida strings ./samples/app.exe --min 6 --limit 200 --encoding both
 ```
 
-| Flag | Default | Meaning |
-| --- | --- | --- |
-| `--min <len>` | `4` | Minimum printable run length. |
-| `--limit <count>` | `100` | Maximum hits; the engine caps the requested value at 10,000. |
-| `--encoding <encoding>` | `ascii` | `ascii`, `utf16le` or `both`. |
+| Flag                    | Default | Meaning                                                      |
+|-------------------------|---------|--------------------------------------------------------------|
+| `--min <len>`           | `4`     | Minimum printable run length.                                |
+| `--limit <count>`       | `100`   | Maximum hits; the engine caps the requested value at 10,000. |
+| `--encoding <encoding>` | `ascii` | `ascii`, `utf16le` or `both`.                                |
 
 Hits are reported with their file offset and byte length. In `both` mode every
 hit is tagged with its encoding.
@@ -63,10 +63,10 @@ hit is tagged with its encoding.
 open-ida hexdump ./samples/app.exe --offset 0x1000 --length 128
 ```
 
-| Flag | Default | Meaning |
-| --- | --- | --- |
-| `--offset <offset>` | `0` | First byte to render. |
-| `--length <length>` | `256` | Number of bytes to render. |
+| Flag                | Default | Meaning                    |
+|---------------------|---------|----------------------------|
+| `--offset <offset>` | `0`     | First byte to render.      |
+| `--length <length>` | `256`   | Number of bytes to render. |
 
 Renders the canonical `offset  bytes  |ascii|` layout. A range outside the file
 is `binary/range`.
@@ -262,8 +262,8 @@ capped at 4,096 entries. An image without `.symtab` prints
 open-ida segments ./samples/app.elf
 ```
 
-ELF only. Prints one line per program header: index, stable type name
-(`PT_LOAD`, `PT_DYNAMIC`, `PT_GNU_RELRO`, ...), file offset, virtual and physical
+ELF only. Prints one line per program header: index, stable type name (`PT_LOAD`, `PT_DYNAMIC`, `PT_GNU_RELRO`, ...),
+file offset, virtual and physical
 address, file and memory size, `R/W/X` permissions and alignment. The layout is
 chosen from `e_ident` class, so ELF32 and ELF64 both work. A file without program
 headers prints `no program header table`; non-ELF answers `binary/unsupported`.
@@ -326,8 +326,8 @@ open-ida load-config ./samples/app.exe
 
 PE only. Decodes data directory 10 in the layout chosen by the optional-header
 magic and prints the `/GS` security cookie, the SEH handler table and count, the
-CFG check/dispatch/table pointers, the raw `GuardFlags` with their stable names
-(`CF_INSTRUMENTED`, `RETPOLINE_PRESENT`, ...) and the `CodeIntegrity` block. A PE
+CFG check/dispatch/table pointers, the raw `GuardFlags` with their stable names (`CF_INSTRUMENTED`,
+`RETPOLINE_PRESENT`, ...) and the `CodeIntegrity` block. A PE
 without the directory prints `no load configuration directory`; non-PE answers
 `binary/unsupported`. `truncated` is set when `Size` is shorter than the
 documented PE32/PE32+ prefix.
@@ -433,8 +433,8 @@ open-ida macho-exports ./samples/app.macho
 ```
 
 Mach-O only. Walks the dyld export trie behind `LC_DYLD_EXPORTS_TRIE` or the
-export fields of `LC_DYLD_INFO(_ONLY)` and prints each symbol with its flags
-(`WEAK`, `REEXPORT`, `STUB_AND_RESOLVER`), address or reexport ordinal. At most
+export fields of `LC_DYLD_INFO(_ONLY)` and prints each symbol with its flags (`WEAK`, `REEXPORT`, `STUB_AND_RESOLVER`),
+address or reexport ordinal. At most
 512 exports are returned and 8,192 trie nodes are visited. A Mach-O without a
 trie prints `no dyld export trie`; bind opcodes are still not decoded.
 
@@ -463,7 +463,25 @@ flag, symbol name, addend for the `ADDEND` formats) and the segment count of
 512 imports are listed. Symbol names stay empty when the pool is zlib
 compressed (`symbolsFormat: 1`). A Mach-O without the command prints
 `no LC_DYLD_CHAINED_FIXUPS command`; fat containers must be sliced first.
-Chained-pointer and bind decoding is not performed.
+Chained-pointer chains are not walked; the classic bind opcode streams are
+decoded by `macho-bindings`.
+
+### `macho-bindings <file>`
+
+```bash
+open-ida macho-bindings ./samples/app.macho
+```
+
+Mach-O only. Decodes the classic dyld bind, weak-bind and lazy-bind opcode
+streams of `LC_DYLD_INFO` / `LC_DYLD_INFO_ONLY` and prints each binding's
+stream, address, owning segment, symbol, library, bind type, weak flag and
+addend. Positive library ordinals resolve through the linked dylib commands in
+file order; special ordinals print as `self`, `main-executable`,
+`flat-lookup`, `weak-lookup` or `special`. Bindings are capped at 512; a
+malformed or unsupported opcode (including the threaded table) truncates its
+stream. Nothing is bound at runtime: the image bytes are never written. A
+Mach-O without the command prints `no LC_DYLD_INFO bind opcodes`; fat
+containers must be sliced first.
 
 ### `disasm <file>`
 
@@ -471,11 +489,11 @@ Chained-pointer and bind decoding is not performed.
 open-ida disasm ./samples/app.exe --offset 0x1000 --count 20 --syntax intel
 ```
 
-| Flag | Default | Meaning |
-| --- | --- | --- |
-| `--offset <offset>` | `0` | File offset to start decoding. |
-| `--count <count>` | `64` | Maximum instructions; capped at 4,096. |
-| `--syntax <syntax>` | `intel` | `intel`, `masm` or `nasm`. |
+| Flag                | Default | Meaning                                |
+|---------------------|---------|----------------------------------------|
+| `--offset <offset>` | `0`     | File offset to start decoding.         |
+| `--count <count>`   | `64`    | Maximum instructions; capped at 4,096. |
+| `--syntax <syntax>` | `intel` | `intel`, `masm` or `nasm`.             |
 
 Only x86 and x64 are decoded. PE reports virtual addresses derived from the
 image base; other architectures answer `binary/unsupported`.
@@ -506,14 +524,14 @@ open-ida search ./samples/app.exe "ws2_32.dll" --mode ascii --limit 20
 open-ida search ./samples/app.exe "48 8B" --mode hex
 ```
 
-| Flag | Default | Meaning |
-| --- | --- | --- |
-| `--mode <mode>` | `ascii` | `hex`, `ascii` or `utf16le`. |
-| `--case-sensitive` | off | ASCII letters must match case. |
-| `--whole-word` | off | Matches must be surrounded by non-word characters. |
-| `--limit <count>` | `100` | Maximum hits. |
-| `--start <offset>` | `0` | First byte to scan. |
-| `--end <offset>` | end of file | One past the last byte to scan. |
+| Flag               | Default     | Meaning                                            |
+|--------------------|-------------|----------------------------------------------------|
+| `--mode <mode>`    | `ascii`     | `hex`, `ascii` or `utf16le`.                       |
+| `--case-sensitive` | off         | ASCII letters must match case.                     |
+| `--whole-word`     | off         | Matches must be surrounded by non-word characters. |
+| `--limit <count>`  | `100`       | Maximum hits.                                      |
+| `--start <offset>` | `0`         | First byte to scan.                                |
+| `--end <offset>`   | end of file | One past the last byte to scan.                    |
 
 Every hit carries the file offset and a preview.
 
@@ -523,11 +541,11 @@ Every hit carries the file offset and a preview.
 open-ida patch ./samples/app.exe --offset 0x200 --bytes 90,90 --out ./samples/app-patched.exe
 ```
 
-| Flag | Required | Meaning |
-| --- | --- | --- |
-| `--offset <offset>` | yes | First byte to replace. |
-| `--bytes <hex>` | yes | Replacement bytes, such as `90,90` or `0x90 0x90`. |
-| `--out <file>` | no | Write a patched copy here instead of overwriting the source. |
+| Flag                | Required | Meaning                                                      |
+|---------------------|----------|--------------------------------------------------------------|
+| `--offset <offset>` | yes      | First byte to replace.                                       |
+| `--bytes <hex>`     | yes      | Replacement bytes, such as `90,90` or `0x90 0x90`.           |
+| `--out <file>`      | no       | Write a patched copy here instead of overwriting the source. |
 
 The write is atomic and the report carries the whole-file hash before and after.
 A range outside the file is `binary/range` and the file is unchanged.
@@ -543,19 +561,19 @@ Opens the Studio window. If the window cannot start, the command exits `1` with
 
 ## Stable CLI error codes
 
-| Code | Cause |
-| --- | --- |
-| `open-ida.cli.file-required` | A required file argument is missing. |
-| `open-ida.cli.rva-args` | `rva` was called without a file and an address. |
-| `open-ida.cli.offset-args` | `offset` was called without a file and an offset. |
-| `open-ida.cli.search-args` | `search` was called without a file and a pattern. |
-| `open-ida.cli.min` | `--min` is not a positive integer. |
-| `open-ida.cli.limit` | `--limit` is not a positive integer. |
-| `open-ida.cli.offset` | An offset is not a non-negative integer. |
-| `open-ida.cli.length` | `--length` is not a non-negative integer. |
-| `open-ida.cli.count` | `--count` is not a positive integer. |
+| Code                                         | Cause                                             |
+|----------------------------------------------|---------------------------------------------------|
+| `open-ida.cli.file-required`                 | A required file argument is missing.              |
+| `open-ida.cli.rva-args`                      | `rva` was called without a file and an address.   |
+| `open-ida.cli.offset-args`                   | `offset` was called without a file and an offset. |
+| `open-ida.cli.search-args`                   | `search` was called without a file and a pattern. |
+| `open-ida.cli.min`                           | `--min` is not a positive integer.                |
+| `open-ida.cli.limit`                         | `--limit` is not a positive integer.              |
+| `open-ida.cli.offset`                        | An offset is not a non-negative integer.          |
+| `open-ida.cli.length`                        | `--length` is not a non-negative integer.         |
+| `open-ida.cli.count`                         | `--count` is not a positive integer.              |
 | `open-ida.cli.encoding` / `cli.err.encoding` | `--encoding` is not `ascii`, `utf16le` or `both`. |
-| `open-ida.cli.mode` | `--mode` is not `hex`, `ascii` or `utf16le`. |
-| `open-ida.cli.syntax` | `--syntax` is not `intel`, `masm` or `nasm`. |
-| `open-ida.cli.bytes` | `--bytes` is missing or empty. |
-| `open-ida.cli.gui-failed` | The Studio window failed to open. |
+| `open-ida.cli.mode`                          | `--mode` is not `hex`, `ascii` or `utf16le`.      |
+| `open-ida.cli.syntax`                        | `--syntax` is not `intel`, `masm` or `nasm`.      |
+| `open-ida.cli.bytes`                         | `--bytes` is missing or empty.                    |
+| `open-ida.cli.gui-failed`                    | The Studio window failed to open.                 |
