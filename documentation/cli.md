@@ -539,6 +539,25 @@ open-ida search ./samples/app.exe "48 8B" --mode hex
 
 Every hit carries the file offset and a preview.
 
+### `find <file>`
+
+```bash
+open-ida find ./samples/app.exe --pattern "marker[.-][a-z]" --limit 20
+open-ida find ./samples/app.exe --pattern "https?://" --ignore-case --context 120
+```
+
+| Flag              | Default | Meaning                                                  |
+|-------------------|---------|----------------------------------------------------------|
+| `--pattern <regex>` | —     | Regular expression evaluated against the raw bytes. Required. |
+| `--skip <count>`  | `0`     | Leading matches dropped before the limit, for paging.    |
+| `--limit <count>` | `100`   | Maximum matches; the engine clamps the value at 5,000.   |
+| `--context <bytes>` | `80`  | Bytes rendered into each preview; clamped at 512.        |
+| `--ignore-case`   | off     | ASCII letters match case-insensitively.                  |
+
+Every match carries its file offset, byte length and a printable preview where
+non-printable bytes render as dots. An invalid pattern exits `1` with a
+`binary/parse` error.
+
 ### `patch <file>`
 
 ```bash
@@ -577,6 +596,7 @@ Opens the Studio window. If the window cannot start, the command exits `1` with
 | `open-ida.cli.length`                        | `--length` is not a non-negative integer.         |
 | `open-ida.cli.count`                         | `--count` is not a positive integer.              |
 | `open-ida.cli.encoding` / `cli.err.encoding` | `--encoding` is not `ascii`, `utf16le` or `both`. |
+| `cli.err.pattern`                            | `find` was called without `--pattern`.            |
 | `open-ida.cli.mode`                          | `--mode` is not `hex`, `ascii` or `utf16le`.      |
 | `open-ida.cli.syntax`                        | `--syntax` is not `intel`, `masm` or `nasm`.      |
 | `open-ida.cli.bytes`                         | `--bytes` is missing or empty.                    |

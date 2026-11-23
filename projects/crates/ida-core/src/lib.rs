@@ -23,6 +23,7 @@ mod dynamic;
 mod elf_symbols;
 mod entropy;
 mod error;
+mod find;
 mod load_config;
 mod macho;
 mod mitigations;
@@ -57,6 +58,7 @@ pub use dynamic::ElfDynamicReport;
 pub use elf_symbols::{ElfStaticSymbol, ElfStaticSymbolsReport};
 pub use entropy::{EntropyReport, OverlayInfo, SectionEntropy};
 pub use error::{IdaError, Result};
+pub use find::{FindHit, FindOptions, FindReport};
 pub use load_config::{CodeIntegrityInfo, PeLoadConfigReport};
 pub use macho::{
     MachOBinding, MachOBindingsReport, MachOChainedFixupsHeader, MachOChainedFixupsReport, MachOChainedImport,
@@ -146,6 +148,11 @@ impl BinaryView {
     /// Extracts ASCII or ASCII-in-UTF-16LE runs with the requested encoding.
     pub fn strings_encoded(&self, options: &StringsOptions) -> Result<EncodedStringsReport> {
         text::scan(&self.session, options)
+    }
+
+    /// Searches the whole file with a byte regex described by `options`.
+    pub fn find(&self, options: &FindOptions) -> Result<FindReport> {
+        find::find(&self.session, options)
     }
 
     /// Lists imported functions.
@@ -457,6 +464,11 @@ impl OpenIda {
         text::scan(&self.session, options)
     }
 
+    /// Searches the whole file with a byte regex described by `options`.
+    pub fn find(&self, options: &FindOptions) -> Result<FindReport> {
+        find::find(&self.session, options)
+    }
+
     /// Lists imported functions.
     pub fn imports(&self, limit: Option<usize>) -> Result<ImportsReport> {
         self.session.imports(limit).map_err(IdaError::from)
@@ -720,6 +732,7 @@ pub fn capabilities() -> serde_json::Value {
             "entropy": "supported",
             "overlay": "supported",
             "search": "supported",
+            "find": "supported",
             "offset-to-va": "supported",
             "offset-to-rva": "supported",
         },

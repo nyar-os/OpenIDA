@@ -911,6 +911,39 @@ export interface SearchReport {
     readonly truncated: boolean;
 }
 
+/** Inputs of one `find()` call. */
+export interface FindOptions {
+    /** Regular expression evaluated against the raw file bytes. */
+    readonly pattern: string;
+    /** Whether ASCII letters match case-insensitively; defaults to false. */
+    readonly caseInsensitive?: boolean;
+    /** Number of leading matches to drop before the limit; defaults to 0. */
+    readonly skip?: number;
+    /** Maximum number of hits; defaults to 100 and is capped at 5000. `null` requests the cap. */
+    readonly limit?: number | null;
+    /** Bytes rendered into each hit preview; defaults to 80 and is capped at 512. */
+    readonly context?: number;
+}
+
+/** One regex match with its position and a printable preview. */
+export interface FindHit {
+    readonly offset: number;
+    readonly length: number;
+    readonly preview: string;
+}
+
+/** Bounded result of one byte-regex search. */
+export interface FindReport {
+    readonly pattern: string;
+    readonly caseInsensitive: boolean;
+    readonly skip: number;
+    readonly limit: number;
+    readonly context: number;
+    readonly hits: readonly FindHit[];
+    readonly total: number;
+    readonly truncated: boolean;
+}
+
 /** File offset mapped onto an absolute virtual address. */
 export interface OffsetToVaReport {
     readonly offset: number;

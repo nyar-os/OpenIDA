@@ -10,8 +10,8 @@ use std::{
 };
 
 use open_ida_core::{
-    BinaryView, DisassembleOptions, DisassemblySyntax, IdaError, OpenIda, OpenIdaOptions, SearchMode, SearchOptions,
-    StringEncoding, StringsOptions,
+    BinaryView, DisassembleOptions, DisassemblySyntax, FindOptions, IdaError, OpenIda, OpenIdaOptions, SearchMode,
+    SearchOptions, StringEncoding, StringsOptions,
 };
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
@@ -3034,4 +3034,93 @@ fn search_and_reverse_mapping_are_exposed() {
     assert_eq!(view.offset_to_va(0x230).unwrap(), 0x1_4000_1030);
     assert_eq!(view.offset_to_rva(0x10).unwrap(), 0x10);
     assert_eq!(view.offset_to_va(0x800).unwrap_err().code(), "binary/range");
+}
+
+#[test]
+fn find_reports_regex_hits_with_previews() {
+    let view = BinaryView::from_bytes("find.bin", b"junk\x00marker-1\x00tail marker-2\x00".to_vec());
+    let report = view
+        .find(&FindOptions { pattern: "marker-[0-9]".into(), ..FindOptions::default() })
+        .expect("regex hits");
+
+    assert_eq!(report.pattern, "marker-[0-9]");
+    assert!(!report.case_insensitive);
+    assert_eq!(report.total, 2);
+    assert_eq!(report.hits.len(), 2);
+    assert!(!report.truncated);
+    assert_eq!(report.hits[0].offset, 5);
+    assert_eq!(report.hits[0].length, 11);
+    assert!(report.hits[0].preview.starts_with("marker-1."));
+    assert_eq!(report.hits[1].offset, 22);
+    assert_eq!(report.context, 80);
+    assert_eq!(report.limit, 100);
+}
+
+#[test]
+fn find_honours_case_insensitive() {
+    let view = BinaryView::from_bytes("find-case.bin", b"Marker here marker there".to_vec());
+    let sensitive =
+        view.find(&FindOptions { pattern: "marker".into(), ..FindOptions::default() }).expect("sensitive");
+    assert_eq!(sensitive.total, 1);
+    assert_eq!(sensitive.hits[0].offset, 15);
+
+    let insensitive = view
+        .find(&FindOptions { pattern: "marker".into(), case_insensitive: true, ..FindOptions::default() })
+        .expect("insensitive");
+    assert_eq!(insensitive.total, 2);
+    assert!(insensitive.case_insensitive);
+    assert_eq!(insensitive.hits[0].offset, 0);
+}
+
+#[test]
+fn find_pages_with_skip_and_clamps_limit_and_context() {
+    let view = BinaryView::from_bytes("find-page.bin", b"a1 b2 c3 d4 e5".to_vec());
+    let paged = view
+        .find(&FindOptions { pattern: "[a-z][0-9]".into(), skip: 2, limit: Some(2), ..FindOptions::default() })
+        .expect("paged matches");
+    assert_eq!(paged.total, 5);
+    assert_eq!(paged.skip, 2);
+    assert_eq!(paged.hits.len(), 2);
+    assert!(paged.truncated);
+    assert_eq!(paged.hits[0].offset, 6);
+    assert_eq!(paged.hits[0].preview, "c3 d4 e5");
+
+    let clamped = view
+        .find(&FindOptions { pattern: "[a-z][0-9]".into(), limit: Some(9_999), context: 4_096, ..FindOptions::default() })
+        .expect("clamped options");
+    assert_eq!(clamped.limit, 5_000);
+    assert_eq!(clamped.context, 512);
+}
+
+#[test]
+fn find_rejects_invalid_patterns_and_reports_empty_results() {
+    let view = BinaryView::from_bytes("find-bad.bin", b"abc".to_vec());
+    let error: IdaError = view.find(&FindOptions { pattern: "(unclosed".into(), ..FindOptions::default() }).unwrap_err();
+    assert_eq!(error.code(), "binary/parse");
+
+    let empty = view.find(&FindOptions { pattern: "zzz".into(), ..FindOptions::default() }).expect("no match");
+    assert!(empty.hits.is_empty());
+    assert_eq!(empty.total, 0);
+    assert!(!empty.truncated);
+}
+
+#[test]
+fn find_options_use_camel_case_defaults() {
+    let defaults: FindOptions = serde_json::from_str(r#"{ "pattern": "ab" }"#).expect("minimal wire options");
+    assert!(!defaults.case_insensitive);
+    assert_eq!(defaults.skip, 0);
+    assert_eq!(defaults.limit, Some(100));
+    assert_eq!(defaults.context, 80);
+
+    let wire = serde_json::to_value(FindOptions::default()).expect("serialize options");
+    assert!(wire.get("caseInsensitive").is_some());
+    assert!(serde_json::from_str::<FindOptions>("{}").is_err(), "the pattern is required");
+
+    let view = BinaryView::from_bytes("find-wire.bin", b"ab\x00cd".to_vec());
+    let report = view.find(&defaults).expect("wire find");
+    let value = serde_json::to_value(&report).expect("serialize report");
+    assert_eq!(value["caseInsensitive"], false);
+    assert_eq!(value["hits"][0]["offset"], 0);
+    assert_eq!(value["hits"][0]["length"], 2);
+    assert_eq!(value["hits"][0]["preview"], "ab.cd");
 }
