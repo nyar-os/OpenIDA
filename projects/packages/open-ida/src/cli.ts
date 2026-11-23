@@ -771,6 +771,8 @@ cli
     .command('strings', 'cli.cmd.strings')
     .option('--min <len>', 'cli.opt.min')
     .option('--limit <count>', 'cli.opt.limit')
+    .option('--skip <count>', 'cli.opt.skip')
+    .option('--all', 'cli.opt.all')
     .option('--encoding <encoding>', 'cli.opt.encoding')
     .actionCtx(async (options, _args, ctx) => {
         const file = input(options);
@@ -784,10 +786,17 @@ cli
             ctx.fail('open-ida.cli.min', { message: '`--min <len>` must be a positive integer' });
             return 2;
         }
+        const all = options['all'] === true;
         const limitText = text(options, 'limit');
         const limit = limitText === undefined ? 100 : parseNumber(limitText);
-        if (limit === undefined || limit < 1) {
+        if (!all && (limit === undefined || limit < 1)) {
             ctx.fail('open-ida.cli.limit', { message: '`--limit <count>` must be a positive integer' });
+            return 2;
+        }
+        const skipText = text(options, 'skip');
+        const skip = skipText === undefined ? 0 : parseNumber(skipText);
+        if (skip === undefined) {
+            ctx.fail('open-ida.cli.skip', { message: '`--skip <count>` must be a non-negative integer' });
             return 2;
         }
         const encodings = ['ascii', 'utf16le', 'both'] as const;
@@ -798,7 +807,13 @@ cli
         }
         const ida = new OpenIDA({ path: file });
         try {
-            const report = ida.stringsEncoded({ minLength: min, limit, encoding: encodingText as StringEncoding });
+            const report = ida.stringsEncoded({
+                minLength: min,
+                ...(all ? {} : { limit }),
+                skip,
+                all,
+                encoding: encodingText as StringEncoding,
+            });
             ctx.emitResult(report, describeStrings(report));
             return 0;
         } finally {

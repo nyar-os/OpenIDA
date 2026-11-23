@@ -48,6 +48,8 @@
         "opt": {
             "min": "Minimum printable run length (default 4)",
             "limit": "Maximum number of results to return (default 100 for strings and search)",
+            "skip": "Number of leading hits to drop before the limit (default 0)",
+            "all": "Return every hit up to the engine hard cap of 2,000,000 (ignores --limit)",
             "encoding": "String encoding: ascii, utf16le or both (default ascii)",
             "mode": "Pattern kind: hex, ascii or utf16le (default ascii)",
             "case": "Require ASCII letters to match case",

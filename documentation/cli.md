@@ -46,13 +46,17 @@ and `r` / `w` / `x` access flags.
 
 ```bash
 open-ida strings ./samples/app.exe --min 6 --limit 200 --encoding both
+open-ida strings ./samples/app.exe --min 6 --limit 200 --skip 200
+open-ida strings ./samples/app.exe --min 6 --all
 ```
 
-| Flag                    | Default | Meaning                                                      |
-|-------------------------|---------|--------------------------------------------------------------|
-| `--min <len>`           | `4`     | Minimum printable run length.                                |
-| `--limit <count>`       | `100`   | Maximum hits; the engine caps the requested value at 10,000. |
-| `--encoding <encoding>` | `ascii` | `ascii`, `utf16le` or `both`.                                |
+| Flag                    | Default | Meaning                                                        |
+|-------------------------|---------|----------------------------------------------------------------|
+| `--min <len>`           | `4`     | Minimum printable run length.                                  |
+| `--limit <count>`       | `100`   | Maximum hits; the engine caps the requested value at 10,000.   |
+| `--skip <count>`        | `0`     | Leading hits dropped before the limit, for paging.             |
+| `--all`                 | off     | Ignore `--limit` and return up to the 2,000,000 hard cap.      |
+| `--encoding <encoding>` | `ascii` | `ascii`, `utf16le` or `both`.                                  |
 
 Hits are reported with their file offset and byte length. In `both` mode every
 hit is tagged with its encoding.

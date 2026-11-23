@@ -17,6 +17,8 @@ const DEFAULT_MIN_LENGTH: usize = 4;
 const DEFAULT_LIMIT: usize = 100;
 /// Hard cap on the number of hits that can be returned.
 const MAX_LIMIT: usize = 10_000;
+/// Hard cap on the number of hits returned by an uncapped (`all`) scan.
+const MAX_ALL_LIMIT: usize = 2_000_000;
 
 /// Byte encoding used to decode string runs.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -60,9 +62,15 @@ pub struct StringsOptions {
     /// Minimum number of characters in a run; values below one are treated as one.
     #[serde(default = "default_min_length")]
     pub min_length: usize,
-    /// Maximum number of hits to return; capped at 10 000.
+    /// Maximum number of hits to return; capped at 10 000 unless `all` is set.
     #[serde(default = "default_limit")]
     pub limit: usize,
+    /// Number of leading hits to drop before the limit is applied.
+    #[serde(default)]
+    pub skip: usize,
+    /// Bypass the 10 000 cap and return up to 2 000 000 hits.
+    #[serde(default)]
+    pub all: bool,
     /// Encoding scanned for.
     #[serde(default)]
     pub encoding: StringEncoding,
@@ -70,7 +78,13 @@ pub struct StringsOptions {
 
 impl Default for StringsOptions {
     fn default() -> Self {
-        Self { min_length: DEFAULT_MIN_LENGTH, limit: DEFAULT_LIMIT, encoding: StringEncoding::Ascii }
+        Self {
+            min_length: DEFAULT_MIN_LENGTH,
+            limit: DEFAULT_LIMIT,
+            skip: 0,
+            all: false,
+            encoding: StringEncoding::Ascii,
+        }
     }
 }
 
@@ -98,11 +112,15 @@ pub struct EncodedStringsReport {
     pub min_length: usize,
     /// Hit limit that was applied.
     pub limit: usize,
-    /// Hits that survived the limit.
+    /// Number of leading hits that were dropped before the limit.
+    pub skip: usize,
+    /// Whether the scan ran uncapped up to the `all` hard limit.
+    pub all: bool,
+    /// Hits that survived the skip and the limit.
     pub hits: Vec<EncodedStringHit>,
-    /// Number of hits before the limit was applied.
+    /// Number of hits before the skip and the limit were applied.
     pub total: usize,
-    /// Whether the limit removed hits.
+    /// Whether the skip or the limit removed hits.
     pub truncated: bool,
 }
 
@@ -110,7 +128,7 @@ pub struct EncodedStringsReport {
 pub(crate) fn scan(session: &BinarySession, options: &StringsOptions) -> Result<EncodedStringsReport> {
     let bytes = session.read(0, session.size())?;
     let min_length = options.min_length.max(1);
-    let limit = options.limit.min(MAX_LIMIT);
+    let limit = if options.all { MAX_ALL_LIMIT } else { options.limit.min(MAX_LIMIT) };
 
     let mut hits = match options.encoding {
         StringEncoding::Ascii => ascii_hits(bytes, min_length),
@@ -124,10 +142,12 @@ pub(crate) fn scan(session: &BinarySession, options: &StringsOptions) -> Result<
     };
 
     let total = hits.len();
-    let truncated = total > limit;
+    let skip = options.skip.min(total);
+    let mut hits = hits.split_off(skip);
+    let truncated = skip > 0 || hits.len() > limit;
     hits.truncate(limit);
 
-    Ok(EncodedStringsReport { encoding: options.encoding, min_length, limit, hits, total, truncated })
+    Ok(EncodedStringsReport { encoding: options.encoding, min_length, limit, skip, all: options.all, hits, total, truncated })
 }
 
 fn printable(byte: u8) -> bool {

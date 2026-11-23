@@ -61,7 +61,8 @@ containers are rejected, and unknown containers are rejected.
 
 ## Limits agents must respect
 
-- `strings` defaults to 100 hits; the engine caps a request at 10,000.
+- `strings` defaults to 100 hits; the engine caps a request at 10,000, or at
+  2,000,000 with `--all`. `--skip <n>` drops leading hits before the limit.
 - `disasm` defaults to 64 instructions and caps at 4,096.
 - `diff` reports at most 64 differing ranges.
 - Every bounded report carries `total` and `truncated`.
