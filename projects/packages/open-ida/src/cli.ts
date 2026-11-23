@@ -59,6 +59,8 @@ import type {
     Section,
     StringEncoding,
     SymbolsReport,
+    TauriAssetsOptions,
+    TauriAssetsReport,
     VersionReport,
 } from './types.js';
 
@@ -760,6 +762,23 @@ function describeCarve(report: CarveReport): string {
     }
     if (report.outputDir !== null) {
         lines.push(`  wrote ${report.regions.length} region file(s) to ${report.outputDir}`);
+    }
+    return lines.join('\n');
+}
+
+function describeTauriAssets(report: TauriAssetsReport): string {
+    const header = `${report.assets.length} asset(s) of ${report.total}${report.truncated ? ' (truncated)' : ''}`;
+    if (report.assets.length === 0) {
+        return `${header}\n  no interleaved Tauri asset table found`;
+    }
+    const lines = [header];
+    for (const asset of report.assets) {
+        lines.push(
+            `  ${hex(asset.blobOffset).padStart(10)} comp=${String(asset.compressedLen).padStart(8)} raw=${String(asset.decompressedLen).padStart(8)}  ${asset.key}`,
+        );
+    }
+    if (report.outputDir !== null) {
+        lines.push(`  wrote ${report.assets.length} asset file(s) to ${report.outputDir}`);
     }
     return lines.join('\n');
 }
@@ -1724,6 +1743,37 @@ cli
         try {
             const report = ida.carve(carveOptions);
             ctx.emitResult(report, describeCarve(report));
+            return 0;
+        } finally {
+            ida.close();
+        }
+    });
+
+cli
+    .command('tauri-assets', 'cli.cmd.tauriAssets')
+    .option('--out <dir>', 'cli.opt.tauriOut')
+    .option('--limit <count>', 'cli.opt.tauriLimit')
+    .actionCtx(async (options, _args, ctx) => {
+        const file = input(options);
+        if (file === undefined) {
+            ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+            return 2;
+        }
+        const limitText = text(options, 'limit');
+        const limit = limitText === undefined ? undefined : parseNumber(limitText);
+        if (limitText !== undefined && limit === undefined) {
+            ctx.fail('open-ida.cli.limit', { message: '`--limit <count>` must be a non-negative integer' });
+            return 2;
+        }
+        const out = text(options, 'out');
+        const tauriOptions: TauriAssetsOptions = {
+            ...(limit === undefined ? {} : { limit }),
+            ...(out === undefined ? {} : { outputDir: out }),
+        };
+        const ida = new OpenIDA({ path: file });
+        try {
+            const report = ida.tauriAssets(tauriOptions);
+            ctx.emitResult(report, describeTauriAssets(report));
             return 0;
         } finally {
             ida.close();

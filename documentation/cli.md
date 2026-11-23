@@ -598,6 +598,27 @@ start offset, each carries a 120-character preview where non-printable bytes
 render as dots, and `truncated` marks a scan the limit stopped early. An
 invalid marker exits `1` with a `binary/parse` error.
 
+### `tauri-assets <file>`
+
+```bash
+open-ida tauri-assets ./samples/tauri-app.exe
+open-ida tauri-assets ./samples/tauri-app.exe --out ./assets --limit 50
+```
+
+| Flag              | Default | Meaning                                                          |
+|-------------------|---------|------------------------------------------------------------------|
+| `--out <dir>`     | —       | Write each decoded asset under `<dir>`, mirroring its key path.  |
+| `--limit <count>` | `200`   | Maximum assets returned; the engine clamps at 1000.              |
+
+Tauri v2 compiles its frontend into the executable as a `phf` map whose values
+are standalone brotli streams. The command walks the interleaved
+`[key_ptr, key_len, blob_ptr, blob_len, ...]` record array, keeps the longest
+run of complete `(key, blob)` pairs and decodes every entry, so binary assets
+such as `icon.png` survive next to text ones. A PE without such a table answers
+an empty report; a non-PE input exits `1` with `binary/parse`. Keys that would
+escape the output directory (`..` or a backslash) are refused with
+`binary/parse`.
+
 ### `patch <file>`
 
 ```bash

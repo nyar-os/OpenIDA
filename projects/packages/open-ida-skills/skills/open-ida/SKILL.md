@@ -16,7 +16,7 @@ description: Inspect compiled binaries with OpenIDA. Use when a task involves PE
 `macho-bindings`,
 `macho-slices`, `macho-extract`, `mitigations`, `resources`, `relocations`, `dynamic`, `segments`, `notes`,
 `certificates`, `tls`, `load-config`, `code-signature`, `disasm`, `entropy`, `diff`,
-`search`, `find`, `dump`, `carve`,
+`search`, `find`, `dump`, `carve`, `tauri-assets`,
 `patch` are implemented for the cases listed below. Decompilation,
 debugging and signature verification are
 **not** implemented and the capability matrix reports them as `unsupported` /
@@ -46,6 +46,7 @@ a second analysis engine. Report the stable code instead.
 | find | Locate regex matches with printable previews | `find` report with offset, length and preview |
 | dump | Export a raw byte range to a new file        | `dump` report with written count              |
 | carve | Extract printable regions around a marker   | `carve` report with region files              |
+| tauri-assets | Recover the embedded assets of a Tauri v2 PE | `tauri-assets` report with asset files       |
 | read | Show bytes around an offset | `hexdump` or `read` output |
 | resolve | Turn an RVA or virtual address into a file offset | `rva` mapping |
 | link | List imports, exports, symbols or the PDB path | `imports` / `exports` / `symbols` / `debug` report |

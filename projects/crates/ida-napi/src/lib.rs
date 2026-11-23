@@ -19,7 +19,10 @@ use std::{
     time::Instant,
 };
 
-use open_ida_core::{CarveOptions, DisassembleOptions, DumpOptions, FindOptions, IdaError, OpenIda, OpenIdaOptions, SearchOptions, StringsOptions};
+use open_ida_core::{
+    CarveOptions, DisassembleOptions, DumpOptions, FindOptions, IdaError, OpenIda, OpenIdaOptions, SearchOptions,
+    StringsOptions, TauriAssetsOptions,
+};
 use serde::Serialize;
 use serde_json::{Value, json};
 use wae::{
@@ -319,6 +322,12 @@ fn carve_report(handle: u64, options_json: &str) -> std::result::Result<Value, I
     with_engine(handle, |engine| encoded(&engine.carve(&options)?))
 }
 
+fn tauri_assets_report(handle: u64, options_json: &str) -> std::result::Result<Value, IdaError> {
+    let options = serde_json::from_str::<TauriAssetsOptions>(options_json)
+        .map_err(|error| IdaError::parse(format!("invalid TauriAssetsOptions: {error}")))?;
+    with_engine(handle, |engine| encoded(&engine.tauri_assets(&options)?))
+}
+
 fn entropy_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.entropy()?))
 }
@@ -439,6 +448,17 @@ fn binary_carve(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     let options = text(&ctx, 1)?;
     match carve_report(handle, &options) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Extracts the embedded assets of a Tauri v2 container, described by an options JSON.
+#[function]
+fn binary_tauri_assets(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    let options = text(&ctx, 1)?;
+    match tauri_assets_report(handle, &options) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
@@ -1338,6 +1358,7 @@ register_module![
     binary_find,
     binary_dump,
     binary_carve,
+    binary_tauri_assets,
     binary_offset_to_va,
     binary_offset_to_rva,
     binary_close,

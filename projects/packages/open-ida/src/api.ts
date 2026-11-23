@@ -63,6 +63,8 @@ import type {
     StringsOptions,
     StringsReport,
     SymbolsReport,
+    TauriAssetsOptions,
+    TauriAssetsReport,
     VersionReport,
 } from './types.js';
 
@@ -320,6 +322,13 @@ export class OpenIDA {
     /** Extracts the printable regions around every marker match. */
     carve(options: CarveOptions): CarveReport {
         return decode<CarveReport>(() => binding('binary.carve').binary_carve(this.id, JSON.stringify(options)));
+    }
+
+    /** Extracts the embedded assets of a Tauri v2 container. */
+    tauriAssets(options: TauriAssetsOptions = {}): TauriAssetsReport {
+        return decode<TauriAssetsReport>(() =>
+            binding('binary.tauri-assets').binary_tauri_assets(this.id, JSON.stringify(options)),
+        );
     }
 
     /** Renders a hex dump, falling back to the session defaults. */

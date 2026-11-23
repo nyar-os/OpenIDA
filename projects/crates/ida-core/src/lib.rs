@@ -37,6 +37,7 @@ mod pe_rich_header;
 mod relocations;
 mod resources;
 mod segments;
+mod tauri;
 mod text;
 mod tls;
 mod version;
@@ -78,6 +79,7 @@ pub use pe_rich_header::{PeRichEntry, PeRichHeaderReport};
 pub use relocations::{RelocationBlock, RelocationKindCount, RelocationsReport};
 pub use resources::{PeResource, ResourcesReport};
 pub use segments::{ElfSegment, ElfSegmentsReport};
+pub use tauri::{TauriAsset, TauriAssetsOptions, TauriAssetsReport, scan_assets};
 pub use text::{EncodedStringHit, EncodedStringsReport, StringEncoding, StringsOptions};
 pub use tls::{PeTlsCallback, PeTlsReport};
 pub use version::{FixedFileInfo, VersionReport, VersionString};
@@ -167,6 +169,11 @@ impl BinaryView {
     /// Extracts the printable regions around every marker match.
     pub fn carve(&self, options: &CarveOptions) -> Result<CarveReport> {
         carve::carve(&self.session, options)
+    }
+
+    /// Extracts the embedded assets of a Tauri v2 container.
+    pub fn tauri_assets(&self, options: &TauriAssetsOptions) -> Result<TauriAssetsReport> {
+        tauri::tauri_assets(&self.session, options)
     }
 
     /// Lists imported functions.
@@ -493,6 +500,11 @@ impl OpenIda {
         carve::carve(&self.session, options)
     }
 
+    /// Extracts the embedded assets of a Tauri v2 container.
+    pub fn tauri_assets(&self, options: &TauriAssetsOptions) -> Result<TauriAssetsReport> {
+        tauri::tauri_assets(&self.session, options)
+    }
+
     /// Lists imported functions.
     pub fn imports(&self, limit: Option<usize>) -> Result<ImportsReport> {
         self.session.imports(limit).map_err(IdaError::from)
@@ -759,6 +771,7 @@ pub fn capabilities() -> serde_json::Value {
             "find": "supported",
             "dump": "supported",
             "carve": "supported",
+            "tauri-assets": "supported",
             "offset-to-va": "supported",
             "offset-to-rva": "supported",
         },

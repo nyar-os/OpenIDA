@@ -11,7 +11,7 @@ use std::{
 
 use open_ida_core::{
     BinaryView, CarveOptions, DisassembleOptions, DisassemblySyntax, DumpOptions, FindOptions, IdaError, OpenIda,
-    OpenIdaOptions, SearchMode, SearchOptions, StringEncoding, StringsOptions,
+    OpenIdaOptions, SearchMode, SearchOptions, StringEncoding, StringsOptions, TauriAssetsOptions, scan_assets,
 };
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
@@ -3262,4 +3262,134 @@ fn carve_options_use_camel_case_defaults() {
     assert_eq!(value["minRegion"], 200);
     assert_eq!(value["expandLeft"], 4_096);
     assert_eq!(value["outputDir"], serde_json::Value::Null);
+}
+
+/// Compresses one payload into the standalone brotli stream Tauri embeds.
+fn brotli_stream(bytes: &[u8]) -> Vec<u8> {
+    let mut input = bytes;
+    let mut out = Vec::new();
+    brotli::BrotliCompress(&mut input, &mut out, &brotli::enc::BrotliEncoderParams::default()).expect("brotli compress");
+    assert!(input.is_empty());
+    out
+}
+
+/// Builds a 1:1 virtual-address container holding one interleaved
+/// `[key_ptr, key_len, blob_ptr, blob_len, ...]` table in noise.
+fn tauri_container(payloads: &[(&str, Vec<u8>)]) -> Vec<u8> {
+    let mut data = vec![0_u8; 512];
+    let mut records: Vec<(u64, u64, u64, u64)> = Vec::new();
+    for (key, content) in payloads {
+        let key_offset = data.len() as u64;
+        data.extend_from_slice(key.as_bytes());
+        while data.len() % 8 != 0 {
+            data.push(0);
+        }
+        let blob = brotli_stream(content);
+        let blob_offset = data.len() as u64;
+        data.extend_from_slice(&blob);
+        records.push((key_offset, key.len() as u64, blob_offset, blob.len() as u64));
+    }
+    while data.len() % 32 != 0 {
+        data.push(0);
+    }
+    for (key_pointer, key_length, blob_pointer, blob_length) in records {
+        data.extend_from_slice(&key_pointer.to_le_bytes());
+        data.extend_from_slice(&key_length.to_le_bytes());
+        data.extend_from_slice(&blob_pointer.to_le_bytes());
+        data.extend_from_slice(&blob_length.to_le_bytes());
+    }
+    data.extend_from_slice(&[0x41_u8; 64]);
+    data
+}
+
+fn tauri_payloads() -> Vec<(&'static str, Vec<u8>)> {
+    vec![
+        ("/index.html", b"<!doctype html><html><body>hello</body></html>".to_vec()),
+        ("/assets/app.js", b"console.log(\"tauri\");".to_vec()),
+        ("/icon.png", vec![0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05]),
+    ]
+}
+
+/// Identity virtual-address map: the recorded address is the file offset.
+fn identity_resolver(data: &[u8]) -> impl Fn(u64) -> Option<usize> + '_ {
+    move |address| usize::try_from(address).ok().filter(|offset| *offset < data.len())
+}
+
+#[test]
+fn tauri_assets_recovers_the_interleaved_table() {
+    let payloads = tauri_payloads();
+    let data = tauri_container(&payloads);
+    let resolve = identity_resolver(&data);
+    let report = scan_assets(&data, &resolve, &TauriAssetsOptions::default()).expect("scan");
+
+    assert_eq!(report.total, payloads.len());
+    assert!(!report.truncated);
+    assert!(report.output_dir.is_none());
+    let keys: Vec<&str> = report.assets.iter().map(|asset| asset.key.as_str()).collect();
+    assert_eq!(keys, vec!["/index.html", "/assets/app.js", "/icon.png"]);
+    for (asset, (_, content)) in report.assets.iter().zip(&payloads) {
+        assert_eq!(asset.decompressed_len, content.len());
+    }
+    assert!(report.assets[0].preview.contains("<html>"));
+    assert!(report.assets[2].preview.is_empty(), "binary payloads keep an empty preview");
+}
+
+#[test]
+fn tauri_assets_writes_files_and_cuts_at_the_limit() {
+    let payloads = tauri_payloads();
+    let data = tauri_container(&payloads);
+    let resolve = identity_resolver(&data);
+    let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
+    let dir = std::env::temp_dir().join(format!("open-ida-{}-{id}-tauri", std::process::id()));
+    let report = scan_assets(
+        &data,
+        &resolve,
+        &TauriAssetsOptions { output_dir: Some(dir.display().to_string()), ..TauriAssetsOptions::default() },
+    )
+    .expect("scan with output");
+
+    let written = report.assets[1].file.as_ref().expect("asset file").replace('\\', "/");
+    assert!(written.ends_with("/assets/app.js"), "the key path is mirrored: {written}");
+    assert_eq!(fs::read(&written).expect("read asset file"), payloads[1].1);
+    fs::remove_dir_all(&dir).expect("cleanup");
+
+    let cut = scan_assets(&data, &resolve, &TauriAssetsOptions { limit: Some(1), ..TauriAssetsOptions::default() })
+        .expect("cut scan");
+    assert_eq!(cut.assets.len(), 1);
+    assert_eq!(cut.total, 3);
+    assert!(cut.truncated);
+
+    let clamped =
+        scan_assets(&data, &resolve, &TauriAssetsOptions { limit: Some(9_999), ..TauriAssetsOptions::default() })
+            .expect("clamped scan");
+    assert_eq!(clamped.assets.len(), 3);
+    assert!(!clamped.truncated);
+}
+
+#[test]
+fn tauri_assets_finds_no_table_in_flat_data() {
+    let data: Vec<u8> = (0..4096_u32).map(|index| (index % 251) as u8).collect();
+    let resolve = identity_resolver(&data);
+    let report = scan_assets(&data, &resolve, &TauriAssetsOptions::default()).expect("noise scan");
+    assert!(report.assets.is_empty());
+    assert_eq!(report.total, 0);
+    assert!(!report.truncated);
+}
+
+#[test]
+fn tauri_assets_refuses_unsafe_asset_keys() {
+    let payloads: Vec<(&str, Vec<u8>)> =
+        vec![("/index.html", b"<!doctype html><p>hello</p>".to_vec()), ("/../evil.txt", b"traversal payload".to_vec())];
+    let data = tauri_container(&payloads);
+    let resolve = identity_resolver(&data);
+    let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
+    let dir = std::env::temp_dir().join(format!("open-ida-{}-{id}-tauri-bad", std::process::id()));
+    let error: IdaError = scan_assets(
+        &data,
+        &resolve,
+        &TauriAssetsOptions { output_dir: Some(dir.display().to_string()), ..TauriAssetsOptions::default() },
+    )
+    .expect_err("a traversal key must be refused");
+    assert_eq!(error.code(), "binary/parse");
+    let _ = fs::remove_dir_all(&dir);
 }
