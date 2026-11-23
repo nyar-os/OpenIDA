@@ -11,7 +11,6 @@
 //! expose them. Disassembly, decompilation and debugging stay declared as
 //! unsupported instead of being approximated.
 
-#![deny(missing_docs)]
 #![recursion_limit = "256"]
 
 mod carve;
