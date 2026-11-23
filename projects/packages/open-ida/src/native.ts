@@ -34,6 +34,7 @@ export interface NativeBinding {
     binary_macho_exports(handle: number): string;
     binary_macho_encryption(handle: number): string;
     binary_macho_chained_fixups(handle: number): string;
+    binary_macho_bindings(handle: number): string;
     binary_macho_slices(handle: number): string;
     binary_code_signature(handle: number): string;
     binary_macho_extract(handle: number, index: number, output: string): string;

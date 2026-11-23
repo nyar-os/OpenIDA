@@ -33,6 +33,7 @@ import type {
     MachOExportsReport,
     MachOEncryptionReport,
     MachOChainedFixupsReport,
+    MachOBindingsReport,
     MachOFunctionStartsReport,
     MachOSymbolsReport,
     MachOCodeSignatureReport,
@@ -179,6 +180,11 @@ export class OpenIDA {
         return decode<MachOChainedFixupsReport>(() =>
             binding('binary.macho_chained_fixups').binary_macho_chained_fixups(this.id),
         );
+    }
+
+    /** Decodes the classic dyld bind, weak-bind and lazy-bind opcode streams. */
+    machoBindings(): MachOBindingsReport {
+        return decode<MachOBindingsReport>(() => binding('binary.macho_bindings').binary_macho_bindings(this.id));
     }
 
     /** Decodes the Mach-O `LC_FUNCTION_STARTS` delta table. */

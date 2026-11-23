@@ -59,9 +59,9 @@ pub use entropy::{EntropyReport, OverlayInfo, SectionEntropy};
 pub use error::{IdaError, Result};
 pub use load_config::{CodeIntegrityInfo, PeLoadConfigReport};
 pub use macho::{
-    MachOChainedFixupsHeader, MachOChainedFixupsReport, MachOChainedImport, MachODylib, MachOEncryptionReport,
-    MachOExport, MachOExportsReport, MachOFunctionStartsReport, MachOReport, MachOSection, MachOSegment, MachOSlice,
-    MachOSliceExtraction, MachOSlicesReport, MachOSymbol, MachOSymbolsReport,
+    MachOBinding, MachOBindingsReport, MachOChainedFixupsHeader, MachOChainedFixupsReport, MachOChainedImport,
+    MachODylib, MachOEncryptionReport, MachOExport, MachOExportsReport, MachOFunctionStartsReport, MachOReport,
+    MachOSection, MachOSegment, MachOSlice, MachOSliceExtraction, MachOSlicesReport, MachOSymbol, MachOSymbolsReport,
 };
 pub use mitigations::{MitigationsReport, WritableExecutableSection};
 pub use notes::{ElfAbiTag, ElfGnuProperty, ElfNote, ElfNotesReport};
@@ -206,6 +206,11 @@ impl BinaryView {
     /// Decodes `LC_DYLD_CHAINED_FIXUPS` imports and its starts table.
     pub fn macho_chained_fixups(&self) -> Result<MachOChainedFixupsReport> {
         macho::chained_fixups(&self.session)
+    }
+
+    /// Decodes the classic dyld bind, weak-bind and lazy-bind opcode streams.
+    pub fn macho_bindings(&self) -> Result<MachOBindingsReport> {
+        macho::bindings(&self.session)
     }
 
     /// Decodes the Mach-O embedded code signature and its first `CodeDirectory`.
@@ -512,6 +517,11 @@ impl OpenIda {
         macho::chained_fixups(&self.session)
     }
 
+    /// Decodes the classic dyld bind, weak-bind and lazy-bind opcode streams.
+    pub fn macho_bindings(&self) -> Result<MachOBindingsReport> {
+        macho::bindings(&self.session)
+    }
+
     /// Decodes the Mach-O embedded code signature and its first `CodeDirectory`.
     pub fn code_signature(&self) -> Result<MachOCodeSignatureReport> {
         code_signature::analyze(&self.session)
@@ -688,6 +698,7 @@ pub fn capabilities() -> serde_json::Value {
             "macho-exports": "supported",
             "macho-encryption": "supported",
             "macho-chained-fixups": "supported",
+            "macho-bindings": "supported",
             "macho-slice-extraction": "supported",
             "macho-code-signature": "supported",
             "pe-mitigations": "supported",
@@ -715,7 +726,7 @@ pub fn capabilities() -> serde_json::Value {
         "unsupported": {
             "decompilation": "not-implemented",
             "debugger": "not-implemented",
-            "macho-import-bindings": "not-implemented",
+            "macho-import-bindings": "partial",
         },
         "architectures": {
             "x86": "supported",
