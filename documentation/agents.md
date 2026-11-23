@@ -59,6 +59,7 @@ containers are rejected, and unknown containers are rejected.
 | Search patterns             | `open-ida search <file> <pattern> --mode hex\|ascii\|utf16le`       | Offset and preview                                                           |
 | Search byte regexes         | `open-ida find <file> --pattern <regex> [--ignore-case]`            | Offset, length and printable preview per match                               |
 | Export raw bytes            | `open-ida dump <file> --offset <n> --length <n> --output <path>`    | Applied length and written byte count                                        |
+| Extract printable blobs     | `open-ida carve <file> --marker <regex> [--out <dir>]`              | Region offset, length, preview and written file per match                    |
 | Patch                       | `open-ida patch <file> --offset <n> --bytes <hex> --out <copy>`     | Before/after whole-file hashes                                               |
 
 ## Limits agents must respect
@@ -69,6 +70,10 @@ containers are rejected, and unknown containers are rejected.
   `--context` to 512 bytes. An invalid pattern is `binary/parse`.
 - `dump` exports at most 64 MiB per request; a range outside the file is
   `binary/range` and nothing is written.
+- `carve` defaults to 20 examined matches; the engine clamps `--limit` to 100.
+  Regions shorter than `--min` (200 bytes) are dropped; expansion caps are
+  `--expand-left` 4,096 and `--max` 262,144 bytes. An invalid marker is
+  `binary/parse`.
 - `disasm` defaults to 64 instructions and caps at 4,096.
 - `diff` reports at most 64 differing ranges.
 - Every bounded report carries `total` and `truncated`.

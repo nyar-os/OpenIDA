@@ -17,6 +17,8 @@ import { runGui } from './gui.js';
 import type {
     BinaryInfo,
     Capabilities,
+    CarveOptions,
+    CarveReport,
     CertificatesReport,
     DebugReport,
     DiffReport,
@@ -741,6 +743,23 @@ function describeFind(report: FindReport): string {
     const lines = [header];
     for (const hit of report.hits) {
         lines.push(`  ${hex(hit.offset).padStart(10)} len=${String(hit.length).padStart(4)}  ${hit.preview}`);
+    }
+    return lines.join('\n');
+}
+
+function describeCarve(report: CarveReport): string {
+    const header = `${report.regions.length} region(s) for marker ${report.marker} (${report.total} match(es))${report.truncated ? ' (truncated)' : ''}`;
+    if (report.regions.length === 0) {
+        return `${header}\n  no printable region reached the minimum length`;
+    }
+    const lines = [header];
+    for (const region of report.regions) {
+        lines.push(
+            `  ${hex(region.regionOffset).padStart(10)} len=${String(region.regionLength).padStart(6)} marker@${hex(region.markerOffset)}  ${region.preview}`,
+        );
+    }
+    if (report.outputDir !== null) {
+        lines.push(`  wrote ${report.regions.length} region file(s) to ${report.outputDir}`);
     }
     return lines.join('\n');
 }
@@ -1643,6 +1662,68 @@ cli
         try {
             const report: DumpReport = ida.dump({ offset, length, output } satisfies DumpOptions);
             ctx.emitResult(report, `wrote ${report.written} byte(s) from ${hex(report.offset)} to ${report.output}`);
+            return 0;
+        } finally {
+            ida.close();
+        }
+    });
+
+cli
+    .command('carve', 'cli.cmd.carve')
+    .option('--marker <regex>', 'cli.opt.marker')
+    .option('--min <size>', 'cli.opt.carveMin')
+    .option('--max <size>', 'cli.opt.carveMax')
+    .option('--expand-left <size>', 'cli.opt.expandLeft')
+    .option('--limit <count>', 'cli.opt.limit')
+    .option('--out <dir>', 'cli.opt.carveOut')
+    .actionCtx(async (options, _args, ctx) => {
+        const file = input(options);
+        if (file === undefined) {
+            ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+            return 2;
+        }
+        const marker = text(options, 'marker');
+        if (marker === undefined || marker.length === 0) {
+            ctx.fail('cli.err.markerRequired', { message: '--marker <regex> is required' });
+            return 2;
+        }
+        const minText = text(options, 'min');
+        const minRegion = minText === undefined ? undefined : parseNumber(minText);
+        if (minText !== undefined && minRegion === undefined) {
+            ctx.fail('open-ida.cli.min', { message: '`--min <size>` must be a non-negative integer' });
+            return 2;
+        }
+        const maxText = text(options, 'max');
+        const maxRegion = maxText === undefined ? undefined : parseNumber(maxText);
+        if (maxText !== undefined && maxRegion === undefined) {
+            ctx.fail('open-ida.cli.length', { message: '`--max <size>` must be a non-negative integer' });
+            return 2;
+        }
+        const expandText = text(options, 'expand-left');
+        const expandLeft = expandText === undefined ? undefined : parseNumber(expandText);
+        if (expandText !== undefined && expandLeft === undefined) {
+            ctx.fail('open-ida.cli.length', { message: '`--expand-left <size>` must be a non-negative integer' });
+            return 2;
+        }
+        const limitText = text(options, 'limit');
+        const limit = limitText === undefined ? undefined : parseNumber(limitText);
+        if (limitText !== undefined && limit === undefined) {
+            ctx.fail('open-ida.cli.limit', { message: '`--limit <count>` must be a non-negative integer' });
+            return 2;
+        }
+        const out = text(options, 'out');
+        const carveOptions: CarveOptions = {
+            marker,
+            ...(minRegion === undefined ? {} : { minRegion }),
+            ...(maxRegion === undefined ? {} : { maxRegion }),
+            ...(expandLeft === undefined ? {} : { expandLeft }),
+            ...(limit === undefined ? {} : { limit }),
+            ...(out === undefined ? {} : { outputDir: out }),
+        };
+        const ida = new OpenIDA({ path: file });
+        try {
+            const report = ida.carve(carveOptions);
+            ctx.emitResult(report, describeCarve(report));
             return 0;
         } finally {
             ida.close();

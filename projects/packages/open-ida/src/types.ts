@@ -993,3 +993,41 @@ export interface DumpReport {
     readonly written: number;
     readonly output: string;
 }
+
+/** Inputs of one `carve()` call. */
+export interface CarveOptions {
+    /** Byte regex that marks the regions of interest. */
+    readonly marker: string;
+    /** Regions shorter than this many bytes are dropped; defaults to 200. */
+    readonly minRegion?: number;
+    /** Right expansion stops after this many bytes; defaults to 262144. */
+    readonly maxRegion?: number;
+    /** Left expansion stops after this many bytes; defaults to 4096. */
+    readonly expandLeft?: number;
+    /** Maximum marker matches to examine; defaults to 20 and is capped at 100. */
+    readonly limit?: number;
+    /** Directory the carved regions are written to as `carve_<n>.bin`. */
+    readonly outputDir?: string;
+}
+
+/** One printable region anchored on a marker match. */
+export interface CarveRegion {
+    readonly markerOffset: number;
+    readonly regionOffset: number;
+    readonly regionLength: number;
+    readonly preview: string;
+    readonly file: string | null;
+}
+
+/** Bounded result of one marker carve. */
+export interface CarveReport {
+    readonly marker: string;
+    readonly minRegion: number;
+    readonly maxRegion: number;
+    readonly expandLeft: number;
+    readonly limit: number;
+    readonly outputDir: string | null;
+    readonly regions: readonly CarveRegion[];
+    readonly total: number;
+    readonly truncated: boolean;
+}
