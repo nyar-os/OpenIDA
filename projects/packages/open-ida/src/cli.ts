@@ -35,6 +35,10 @@ import type {
     FindOptions,
     FindReport,
     ImportsReport,
+    InflateFormat,
+    InflateOptions,
+    InflateReport,
+    OverlayReport,
     MachOReport,
     MachOCodeSignatureReport,
     MachOSlicesReport,
@@ -705,6 +709,39 @@ function describeEntropy(report: EntropyReport): string {
         lines.push(
             `  ${section.name.padEnd(12)} ${hex(section.offset).padStart(10)} + ${section.size} B  ${section.entropy.toFixed(4)}`,
         );
+    }
+    return lines.join('\n');
+}
+
+function describeOverlay(report: OverlayReport): string {
+    if (!report.present) {
+        return 'overlay: none';
+    }
+    const lines = [
+        `overlay ${hex(report.offset)} + ${report.size} byte(s) · ${(report.ratio * 100).toFixed(1)}% of file · entropy ${report.entropy.toFixed(4)}`,
+        `leading ${report.leadingMagic} · ${report.leadingKind}`,
+    ];
+    if (report.container !== null) {
+        lines.push(`container ${report.container}${report.detail === null ? '' : ` · ${report.detail}`}`);
+    }
+    lines.push(`  ${report.signatures.length} signature(s)${report.truncated ? ' (truncated)' : ''}`);
+    for (const signature of report.signatures) {
+        lines.push(
+            `  ${hex(signature.offset).padStart(10)}  ${signature.kind}${signature.detail === null ? '' : `  ${signature.detail}`}`,
+        );
+    }
+    return lines.join('\n');
+}
+
+function describeInflate(report: InflateReport): string {
+    const lines = [
+        `inflate ${hex(report.offset)} · ${report.format} · ${report.outputBytes} byte(s) of ${report.inputBytes} input · ${report.status}`,
+        `  limit ${report.limit}${report.truncated ? ' (truncated)' : ''}`,
+        `  magic ${report.magic}`,
+        `  ascii ${report.headAscii}`,
+    ];
+    if (report.output !== null) {
+        lines.push(`  wrote ${report.outputBytes} byte(s) to ${report.output}`);
     }
     return lines.join('\n');
 }
@@ -1512,6 +1549,68 @@ cli
         try {
             const report = ida.entropy();
             ctx.emitResult(report, describeEntropy(report));
+            return 0;
+        } finally {
+            ida.close();
+        }
+    });
+
+cli.command('overlay', 'cli.cmd.overlay').actionCtx(async (options, _args, ctx) => {
+    const file = input(options);
+    if (file === undefined) {
+        ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+        return 2;
+    }
+    const ida = new OpenIDA({ path: file });
+    try {
+        const report = ida.overlay();
+        ctx.emitResult(report, describeOverlay(report));
+        return 0;
+    } finally {
+        ida.close();
+    }
+});
+
+cli
+    .command('inflate', 'cli.cmd.inflate')
+    .option('--offset <offset>', 'cli.opt.inflateOffset')
+    .option('--format <format>', 'cli.opt.inflateFormat')
+    .option('--limit <bytes>', 'cli.opt.inflateLimit')
+    .option('--out <file>', 'cli.opt.inflateOut')
+    .actionCtx(async (options, _args, ctx) => {
+        const file = input(options);
+        if (file === undefined) {
+            ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+            return 2;
+        }
+        const offsetText = text(options, 'offset');
+        const offset = offsetText === undefined ? 0 : parseNumber(offsetText);
+        if (offset === undefined) {
+            ctx.fail('open-ida.cli.offset', { message: '`--offset <offset>` must be a non-negative integer' });
+            return 2;
+        }
+        const formatText = text(options, 'format') ?? 'auto';
+        if (!['auto', 'zlib', 'gzip', 'raw'].includes(formatText)) {
+            ctx.fail('open-ida.cli.format', { message: '`--format` must be auto, zlib, gzip or raw' });
+            return 2;
+        }
+        const limitText = text(options, 'limit');
+        const limit = limitText === undefined ? undefined : parseNumber(limitText);
+        if (limit === undefined && limitText !== undefined) {
+            ctx.fail('open-ida.cli.limit', { message: '`--limit <bytes>` must be a non-negative integer' });
+            return 2;
+        }
+        const out = text(options, 'out');
+        const inflateOptions: InflateOptions = {
+            offset,
+            format: formatText as InflateFormat,
+            ...(limit === undefined ? {} : { limit }),
+            ...(out === undefined ? {} : { output: out }),
+        };
+        const ida = new OpenIDA({ path: file });
+        try {
+            const report = ida.inflate(inflateOptions);
+            ctx.emitResult(report, describeInflate(report));
             return 0;
         } finally {
             ida.close();

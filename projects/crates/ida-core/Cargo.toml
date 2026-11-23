@@ -20,3 +20,4 @@ data-binary-pe = { workspace = true }
 iced-x86 = { workspace = true }
 regex = { workspace = true }
 brotli = { workspace = true }
+miniz_oxide = "0.8"

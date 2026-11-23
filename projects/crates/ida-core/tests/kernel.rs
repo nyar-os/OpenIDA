@@ -10,8 +10,9 @@ use std::{
 };
 
 use open_ida_core::{
-    BinaryView, CarveOptions, DisassembleOptions, DisassemblySyntax, DumpOptions, FindOptions, IdaError, OpenIda,
-    OpenIdaOptions, SearchMode, SearchOptions, StringEncoding, StringsOptions, TauriAssetsOptions, scan_assets,
+    BinaryView, CarveOptions, DisassembleOptions, DisassemblySyntax, DumpOptions, FindOptions, IdaError, InflateFormat,
+    InflateOptions, OpenIda, OpenIdaOptions, SearchMode, SearchOptions, StringEncoding, StringsOptions,
+    TauriAssetsOptions, scan_assets,
 };
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
@@ -3010,6 +3011,162 @@ fn entropy_reports_sections_and_the_pe_overlay() {
     let overlay = report.overlay.expect("overlay");
     assert_eq!(overlay.offset, 0x600);
     assert_eq!(overlay.size, 16);
+}
+
+/// An `NSIS` first header followed by two fake archive entries.
+fn nsis_overlay() -> Vec<u8> {
+    let mut overlay = vec![0u8; 0x20];
+    overlay[4..8].copy_from_slice(&[0xef, 0xbe, 0xad, 0xde]);
+    overlay[8..20].copy_from_slice(b"NullsoftInst");
+    put_u32(&mut overlay, 20, 0x31416);
+    overlay.extend_from_slice(b"PK\x03\x04");
+    overlay.extend_from_slice(&[0u8; 8]);
+    overlay
+}
+
+#[test]
+fn overlay_reports_an_nsis_installer() {
+    let overlay = nsis_overlay();
+    let mut bytes = pe_bytes();
+    bytes.extend_from_slice(&overlay);
+
+    let report = BinaryView::from_bytes("setup.exe", bytes).overlay().expect("overlay");
+    assert!(report.present);
+    assert_eq!(report.offset, 0x600);
+    assert_eq!(report.size, overlay.len() as u64);
+    assert_eq!(report.leading_kind, "nsis");
+    assert_eq!(report.container.as_deref(), Some("nsis"));
+    assert!(report.ratio > 0.0 && report.ratio < 1.0);
+    assert!(report.detail.as_deref().unwrap_or_default().contains("0x31416"));
+    assert!(report.signatures.iter().any(|entry| entry.kind == "nsis" && entry.offset == 0x608));
+    assert!(report.signatures.iter().any(|entry| entry.kind == "zip" && entry.offset == 0x620));
+}
+
+#[test]
+fn overlay_names_a_pyinstaller_package() {
+    let mut overlay = vec![0x78, 0xda, 0, 0, 0, 0, 0, 0];
+    overlay.extend_from_slice(b"PK\x03\x04");
+    overlay.extend_from_slice(b"MEI\x0c\x0b\x0a\x0b\x0e");
+    overlay.extend_from_slice(b"\0\0\0\0python311.dll\0");
+
+    let mut bytes = pe_bytes();
+    bytes.extend_from_slice(&overlay);
+
+    let report = BinaryView::from_bytes("onefile.exe", bytes).overlay().expect("overlay");
+    assert_eq!(report.leading_kind, "zlib");
+    assert_eq!(report.container.as_deref(), Some("pyinstaller"));
+    assert!(report.detail.as_deref().unwrap_or_default().contains("python311.dll"));
+    assert!(report.signatures.iter().any(|entry| entry.kind == "zip" && entry.offset == 0x608));
+    assert!(report.signatures.iter().any(|entry| entry.kind == "pyinstaller" && entry.offset == 0x60c));
+}
+
+#[test]
+fn overlay_caps_one_signature_family() {
+    let mut overlay = Vec::new();
+    for _ in 0..10 {
+        overlay.extend_from_slice(&[0x1f, 0x8b, 0x08]);
+        overlay.extend_from_slice(&[0u8; 5]);
+    }
+    overlay.extend_from_slice(b"PK\x03\x04");
+
+    let mut bytes = pe_bytes();
+    bytes.extend_from_slice(&overlay);
+
+    let report = BinaryView::from_bytes("noisy.exe", bytes).overlay().expect("overlay");
+    assert_eq!(report.signatures.iter().filter(|entry| entry.kind == "gzip").count(), 8);
+    assert!(report.signatures.iter().any(|entry| entry.kind == "zip"));
+    assert!(report.truncated);
+}
+
+#[test]
+fn overlay_is_absent_without_trailing_bytes() {
+    let report = BinaryView::from_bytes("plain.exe", pe_bytes()).overlay().expect("overlay");
+    assert!(!report.present);
+    assert_eq!(report.leading_kind, "none");
+    assert!(report.signatures.is_empty());
+    assert!(!report.truncated);
+}
+
+#[test]
+fn overlay_rejects_non_pe_input() {
+    let error = BinaryView::from_bytes("image.elf", elf64_bytes()).overlay().expect_err("unsupported");
+    assert_eq!(error.code(), "binary/unsupported");
+}
+
+#[test]
+fn inflate_decodes_a_zlib_stream() {
+    let payload = b"open-ida inflate smoke test payload";
+    let stream = miniz_oxide::deflate::compress_to_vec_zlib(payload, 6);
+
+    let mut bytes = vec![0u8; 0x10];
+    bytes.extend_from_slice(&stream);
+    let view = BinaryView::from_bytes("zlib.bin", bytes);
+
+    let report = view
+        .inflate(&InflateOptions { offset: 0x10, format: InflateFormat::Auto, limit: 1024, output: None })
+        .expect("inflate");
+    assert_eq!(report.format, "zlib");
+    assert_eq!(report.output_bytes, payload.len() as u64);
+    assert_eq!(report.status, "complete");
+    assert!(!report.truncated);
+    assert!(report.head_ascii.starts_with("open-ida inflate smoke test"));
+    assert!(report.magic.starts_with("6f 70 65 6e"));
+
+    let capped = view
+        .inflate(&InflateOptions { offset: 0x10, format: InflateFormat::Zlib, limit: 8, output: None })
+        .expect("capped inflate");
+    assert!(capped.truncated);
+    assert_eq!(capped.status, "output-limit");
+    assert!(capped.output_bytes > 0 && capped.output_bytes <= 8);
+}
+
+#[test]
+fn inflate_decodes_a_gzip_stream_and_writes_the_output() {
+    let payload = b"gzip payload";
+    let mut stream = vec![0x1f, 0x8b, 0x08, 0x00, 0, 0, 0, 0, 0, 0x03];
+    stream.extend_from_slice(&miniz_oxide::deflate::compress_to_vec(payload, 6));
+    stream.extend_from_slice(&[0u8; 8]);
+
+    let view = BinaryView::from_bytes("gzip.bin", stream);
+    let output = TempFile::new("inflate-gzip");
+    let report = view
+        .inflate(&InflateOptions {
+            offset: 0,
+            format: InflateFormat::Auto,
+            limit: 1024,
+            output: Some(output.path().to_string_lossy().into_owned()),
+        })
+        .expect("inflate");
+
+    assert_eq!(report.format, "gzip");
+    assert_eq!(report.status, "complete");
+    assert_eq!(fs::read(output.path()).expect("read output"), payload);
+    assert!(report.output.is_some());
+}
+
+#[test]
+fn inflate_rejects_a_stream_that_does_not_decode() {
+    let view = BinaryView::from_bytes("noise.bin", vec![0x78, 0x9c, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00]);
+    let output = TempFile::new("inflate-noise");
+    let error = view
+        .inflate(&InflateOptions {
+            offset: 0,
+            format: InflateFormat::Zlib,
+            limit: 1024,
+            output: Some(output.path().to_string_lossy().into_owned()),
+        })
+        .expect_err("invalid");
+    assert_eq!(error.code(), "binary/parse");
+    assert!(!output.path().exists());
+}
+
+#[test]
+fn inflate_rejects_an_empty_range() {
+    let view = BinaryView::from_bytes("tiny.bin", vec![0u8; 4]);
+    let error = view
+        .inflate(&InflateOptions { offset: 4, format: InflateFormat::Auto, limit: 64, output: None })
+        .expect_err("range");
+    assert_eq!(error.code(), "binary/range");
 }
 
 #[test]

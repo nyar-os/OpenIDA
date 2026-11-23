@@ -33,6 +33,9 @@ import type {
     FindReport,
     HexdumpReport,
     ImportsReport,
+    InflateOptions,
+    InflateReport,
+    OverlayReport,
     MachOReport,
     MachOSlicesReport,
     MachOSliceExtraction,
@@ -302,6 +305,16 @@ export class OpenIDA {
     /** Computes whole-file and per-section entropy plus the PE overlay. */
     entropy(): EntropyReport {
         return decode<EntropyReport>(() => binding('binary.entropy').binary_entropy(this.id));
+    }
+
+    /** Reports the overlay offset, size, entropy and embedded container signatures. */
+    overlay(): OverlayReport {
+        return decode<OverlayReport>(() => binding('binary.overlay').binary_overlay(this.id));
+    }
+
+    /** Decodes one embedded zlib, gzip or raw DEFLATE stream. */
+    inflate(options: InflateOptions): InflateReport {
+        return decode<InflateReport>(() => binding('binary.inflate').binary_inflate(this.id, JSON.stringify(options)));
     }
 
     /** Searches for a hex, ASCII or UTF-16LE pattern. */

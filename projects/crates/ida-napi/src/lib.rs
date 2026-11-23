@@ -86,6 +86,18 @@ fn binary_tauri_assets(ctx: CallContext) -> Result<JsValue> {
     scan::binary_tauri_assets(ctx)
 }
 
+/// Decodes one embedded zlib, gzip or raw DEFLATE stream, described by an options JSON.
+#[function]
+fn binary_inflate(ctx: CallContext) -> Result<JsValue> {
+    scan::binary_inflate(ctx)
+}
+
+/// Reports the PE overlay anatomy and its embedded container signatures.
+#[function]
+fn binary_overlay(ctx: CallContext) -> Result<JsValue> {
+    pe::binary_overlay(ctx)
+}
+
 /// Renders a canonical hex dump of one byte range.
 #[function]
 fn binary_hexdump(ctx: CallContext) -> Result<JsValue> {
@@ -399,6 +411,8 @@ register_module![
     binary_dump,
     binary_carve,
     binary_tauri_assets,
+    binary_inflate,
+    binary_overlay,
     binary_offset_to_va,
     binary_offset_to_rva,
     binary_close,

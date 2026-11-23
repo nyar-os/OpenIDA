@@ -22,6 +22,10 @@ fn mitigations_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.mitigations()?))
 }
 
+fn overlay_report(handle: u64) -> std::result::Result<Value, IdaError> {
+    with_engine(handle, |engine| encoded(&engine.overlay()?))
+}
+
 fn resources_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.resources()?))
 }
@@ -78,6 +82,14 @@ pub(crate) fn binary_version(ctx: CallContext) -> Result<JsValue> {
 pub(crate) fn binary_mitigations(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     match mitigations_report(handle) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+pub(crate) fn binary_overlay(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    match overlay_report(handle) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
