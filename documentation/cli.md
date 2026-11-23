@@ -578,7 +578,7 @@ byte count.
 ### `carve <file>`
 
 ```bash
-open-ida carve ./samples/app.exe --marker "pending-switch" --min 200 --limit 5
+open-ida carve ./samples/app.exe --marker "synthetic-blob" --min 200 --limit 5
 open-ida carve ./samples/app.exe --marker "eval\\(" --out ./carved
 ```
 

@@ -50,7 +50,7 @@ fn default_limit() -> usize {
 
 /// Inputs of one [`crate::OpenIda::carve`] call.
 ///
-/// Serialized as JSON with camelCase keys, so `{ "marker": "pending-switch",
+/// Serialized as JSON with camelCase keys, so `{ "marker": "synthetic-blob",
 /// "outputDir": "C:\\tmp\\carve" }` is the wire form the addon and the
 /// TypeScript client both use.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
