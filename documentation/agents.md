@@ -58,6 +58,7 @@ containers are rejected, and unknown containers are rejected.
 | Compare builds              | `open-ida diff <left> <right>`                                      | First difference and differing ranges                                        |
 | Search patterns             | `open-ida search <file> <pattern> --mode hex\|ascii\|utf16le`       | Offset and preview                                                           |
 | Search byte regexes         | `open-ida find <file> --pattern <regex> [--ignore-case]`            | Offset, length and printable preview per match                               |
+| Export raw bytes            | `open-ida dump <file> --offset <n> --length <n> --output <path>`    | Applied length and written byte count                                        |
 | Patch                       | `open-ida patch <file> --offset <n> --bytes <hex> --out <copy>`     | Before/after whole-file hashes                                               |
 
 ## Limits agents must respect
@@ -66,6 +67,8 @@ containers are rejected, and unknown containers are rejected.
   2,000,000 with `--all`. `--skip <n>` drops leading hits before the limit.
 - `find` defaults to 100 matches; the engine clamps `--limit` to 5,000 and
   `--context` to 512 bytes. An invalid pattern is `binary/parse`.
+- `dump` exports at most 64 MiB per request; a range outside the file is
+  `binary/range` and nothing is written.
 - `disasm` defaults to 64 instructions and caps at 4,096.
 - `diff` reports at most 64 differing ranges.
 - Every bounded report carries `total` and `truncated`.

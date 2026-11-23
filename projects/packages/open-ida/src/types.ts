@@ -975,3 +975,21 @@ export interface RvaReport {
     readonly rva: number;
     readonly offset: number;
 }
+
+/** Inputs of one `dump()` call. */
+export interface DumpOptions {
+    /** File offset of the first byte to export. */
+    readonly offset: number;
+    /** Number of bytes to export; the engine clamps the value at 64 MiB. */
+    readonly length: number;
+    /** Destination file the raw bytes are written to. */
+    readonly output: string;
+}
+
+/** Result of one raw byte-range export. */
+export interface DumpReport {
+    readonly offset: number;
+    readonly length: number;
+    readonly written: number;
+    readonly output: string;
+}

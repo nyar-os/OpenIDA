@@ -18,6 +18,8 @@ import type {
     DiffReport,
     DisassembleOptions,
     DisassemblyReport,
+    DumpOptions,
+    DumpReport,
     ElfDynamicReport,
     ElfNotesReport,
     ElfSegmentsReport,
@@ -306,6 +308,11 @@ export class OpenIDA {
     /** Searches the whole file with a byte regex. */
     find(options: FindOptions): FindReport {
         return decode<FindReport>(() => binding('binary.find').binary_find(this.id, JSON.stringify(options)));
+    }
+
+    /** Exports a raw byte range from the file into `options.output`. */
+    dump(options: DumpOptions): DumpReport {
+        return decode<DumpReport>(() => binding('binary.dump').binary_dump(this.id, JSON.stringify(options)));
     }
 
     /** Renders a hex dump, falling back to the session defaults. */

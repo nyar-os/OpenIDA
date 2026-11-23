@@ -21,6 +21,8 @@ import type {
     DebugReport,
     DiffReport,
     DisassemblyReport,
+    DumpOptions,
+    DumpReport,
     ElfDynamicReport,
     ElfNotesReport,
     ElfSegmentsReport,
@@ -1603,6 +1605,44 @@ cli
         try {
             const report = ida.find(findOptions);
             ctx.emitResult(report, describeFind(report));
+            return 0;
+        } finally {
+            ida.close();
+        }
+    });
+
+cli
+    .command('dump', 'cli.cmd.dump')
+    .option('--offset <offset>', 'cli.opt.offset')
+    .option('--length <length>', 'cli.opt.length')
+    .option('--output <path>', 'cli.opt.output')
+    .actionCtx(async (options, _args, ctx) => {
+        const file = input(options);
+        if (file === undefined) {
+            ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
+            return 2;
+        }
+        const offsetText = text(options, 'offset');
+        const offset = offsetText === undefined ? 0 : parseNumber(offsetText);
+        if (offset === undefined) {
+            ctx.fail('open-ida.cli.offset', { message: '`--offset <offset>` must be a non-negative integer' });
+            return 2;
+        }
+        const lengthText = text(options, 'length');
+        const length = lengthText === undefined ? 256 : parseNumber(lengthText);
+        if (length === undefined) {
+            ctx.fail('open-ida.cli.length', { message: '`--length <length>` must be a non-negative integer' });
+            return 2;
+        }
+        const output = text(options, 'output');
+        if (output === undefined || output.length === 0) {
+            ctx.fail('cli.err.outputRequired', { message: '--output <path> is required' });
+            return 2;
+        }
+        const ida = new OpenIDA({ path: file });
+        try {
+            const report: DumpReport = ida.dump({ offset, length, output } satisfies DumpOptions);
+            ctx.emitResult(report, `wrote ${report.written} byte(s) from ${hex(report.offset)} to ${report.output}`);
             return 0;
         } finally {
             ida.close();

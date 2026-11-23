@@ -19,7 +19,7 @@ use std::{
     time::Instant,
 };
 
-use open_ida_core::{DisassembleOptions, FindOptions, IdaError, OpenIda, OpenIdaOptions, SearchOptions, StringsOptions};
+use open_ida_core::{DisassembleOptions, DumpOptions, FindOptions, IdaError, OpenIda, OpenIdaOptions, SearchOptions, StringsOptions};
 use serde::Serialize;
 use serde_json::{Value, json};
 use wae::{
@@ -307,6 +307,12 @@ fn find_report(handle: u64, options_json: &str) -> std::result::Result<Value, Id
     with_engine(handle, |engine| encoded(&engine.find(&options)?))
 }
 
+fn dump_report(handle: u64, options_json: &str) -> std::result::Result<Value, IdaError> {
+    let options = serde_json::from_str::<DumpOptions>(options_json)
+        .map_err(|error| IdaError::parse(format!("invalid DumpOptions: {error}")))?;
+    with_engine(handle, |engine| encoded(&engine.dump(&options)?))
+}
+
 fn entropy_report(handle: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| encoded(&engine.entropy()?))
 }
@@ -405,6 +411,17 @@ fn binary_find(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     let options = text(&ctx, 1)?;
     match find_report(handle, &options) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+/// Exports a raw byte range into a caller-chosen file, described by an options JSON.
+#[function]
+fn binary_dump(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    let options = text(&ctx, 1)?;
+    match dump_report(handle, &options) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
@@ -1302,6 +1319,7 @@ register_module![
     binary_entropy,
     binary_search,
     binary_find,
+    binary_dump,
     binary_offset_to_va,
     binary_offset_to_rva,
     binary_close,

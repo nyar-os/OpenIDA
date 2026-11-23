@@ -52,6 +52,7 @@ open-ida info ./samples/app.exe
 open-ida sections ./samples/app.exe
 open-ida strings ./samples/app.exe --encoding both
 open-ida find ./samples/app.exe --pattern "https?://" --ignore-case
+open-ida dump ./samples/app.exe --offset 0x1000 --length 64 --output ./range.bin
 open-ida imports ./samples/app.exe
 open-ida macho ./samples/app.macho
 open-ida macho-slices ./samples/universal.macho
