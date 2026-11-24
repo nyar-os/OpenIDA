@@ -46,7 +46,7 @@ const MIN_PREVIEW_RATIO: f64 = 0.9;
 ///
 /// Serialized as JSON with camelCase keys, so `{ "outputDir": "C:\\tmp\\app" }`
 /// is the wire form the addon and the TypeScript client both use.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TauriAssetsOptions {
     /// Directory the decoded assets are written to, mirroring their key paths.
@@ -55,12 +55,6 @@ pub struct TauriAssetsOptions {
     /// Maximum number of assets to return; defaults to 200 and is capped at 1000.
     #[serde(default)]
     pub limit: Option<usize>,
-}
-
-impl Default for TauriAssetsOptions {
-    fn default() -> Self {
-        Self { output_dir: None, limit: None }
-    }
 }
 
 /// One embedded asset recovered from the interleaved table.
@@ -185,7 +179,7 @@ pub fn scan_assets(
 fn key_record(data: &[u8], resolve_va: &dyn Fn(u64) -> Option<usize>, at: usize) -> Option<(usize, usize)> {
     let pointer = read_u64(data, at)?;
     let length = read_u64(data, at + 8)?;
-    if length < MIN_KEY_LEN || length > MAX_KEY_LEN {
+    if !(MIN_KEY_LEN..=MAX_KEY_LEN).contains(&length) {
         return None;
     }
     let offset = resolve_va(pointer)?;
