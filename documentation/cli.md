@@ -610,6 +610,37 @@ and carry no packed bytes. A `--extract-dir` request writes each packed entry
 under the directory, mirroring its archive path; traversal-safe names only.
 Input whose first header word is not `4` exits `1` with `binary/parse`.
 
+### `pyc <file>`
+
+```bash
+open-ida pyc ./samples/app.pyc
+open-ida pyc ./samples/payload.bin --offset 0x60e45 --format marshal
+open-ida pyc ./samples/app.pyc --code main
+```
+
+| Flag                           | Default  | Meaning                                                     |
+|--------------------------------|----------|-------------------------------------------------------------|
+| `--offset <offset>`            | `0`      | Absolute offset of the stream start.                        |
+| `--format <format>`            | `auto`   | `auto`, `marshal` (raw dump) or `pyc` (16-byte header).     |
+| `--code <qualname>`            | —        | Keep code objects whose `qualname` or `name` contains it.   |
+| `--code-limit <count>`         | `1024`   | Maximum decoded code objects; capped at 16384.              |
+| `--instruction-limit <count>`  | `65536`  | Maximum emitted instructions; capped at 1048576.            |
+
+Decodes one CPython `marshal` stream statically and disassembles every code
+object it finds. `marshal` streams are read with or without the leading
+version byte `2` through `6` that `PyMarshal_Write` writes; the code-object
+field order decoded here is the one CPython 3.11 through 3.13 share. The bytecode
+is walked as word-code pairs: the opcode byte names the instruction, the
+argument byte resolves against the names, constants and locals tables (jump
+targets are rendered as absolute `co_code` offsets), and inline cache slots —
+the only place the opcode byte `0` appears in non-adaptive code — are counted
+against the preceding instruction. `auto` framing picks `marshal` when the
+first byte is a code type byte or a version byte `2` through `6`, else it skips the
+sixteen-byte `.pyc` header and names the interpreter from the magic. Strings
+interned by the stream are resolved through their reference table. Nothing is
+executed. Input that is not a decodable `marshal` stream exits `1` with
+`binary/parse`.
+
 ### `diff <left> <right>`
 
 ```bash

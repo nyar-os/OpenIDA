@@ -37,6 +37,7 @@ mod pe_bound_imports;
 mod pe_delay_imports;
 mod pe_exception;
 mod pe_rich_header;
+mod pyc;
 mod relocations;
 mod resources;
 mod segments;
@@ -83,6 +84,7 @@ pub use pe_bound_imports::{PeBoundForwarder, PeBoundImportsReport, PeBoundModule
 pub use pe_delay_imports::{PeDelayImportsReport, PeDelayModule, PeDelayThunk};
 pub use pe_exception::{PeExceptionReport, PeRuntimeFunction, PeUnwindInfo};
 pub use pe_rich_header::{PeRichEntry, PeRichHeaderReport};
+pub use pyc::{PycCodeObject, PycConst, PycFormat, PycInstruction, PycOptions, PycReport};
 pub use relocations::{RelocationBlock, RelocationKindCount, RelocationsReport};
 pub use resources::{PeResource, ResourcesReport};
 pub use segments::{ElfSegment, ElfSegmentsReport};
@@ -361,6 +363,11 @@ impl BinaryView {
     /// Decodes an Electron asar archive: header, file tree and optional extraction.
     pub fn asar(&self, options: &AsarOptions) -> Result<AsarReport> {
         asar::analyze(&self.session, options)
+    }
+
+    /// Decodes a CPython marshal stream or pyc container and disassembles it.
+    pub fn pyc(&self, options: &PycOptions) -> Result<PycReport> {
+        pyc::analyze(&self.session, options)
     }
 
     /// Searches for a hex, ASCII or UTF-16LE pattern.
@@ -712,6 +719,11 @@ impl OpenIda {
         asar::analyze(&self.session, options)
     }
 
+    /// Decodes a CPython marshal stream or pyc container and disassembles it.
+    pub fn pyc(&self, options: &PycOptions) -> Result<PycReport> {
+        pyc::analyze(&self.session, options)
+    }
+
     /// Searches for a hex, ASCII or UTF-16LE pattern.
     pub fn search(&self, options: &SearchOptions) -> Result<SearchReport> {
         self.session.search(options).map_err(IdaError::from)
@@ -817,6 +829,7 @@ pub fn capabilities() -> serde_json::Value {
             "decompression": "supported",
             "nsis-containers": "supported",
             "asar-archives": "supported",
+            "cpython-bytecode": "supported",
             "search": "supported",
             "find": "supported",
             "dump": "supported",

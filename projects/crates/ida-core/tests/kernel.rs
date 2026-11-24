@@ -11,8 +11,8 @@ use std::{
 
 use open_ida_core::{
     AsarOptions, BinaryView, CarveOptions, DisassembleOptions, DisassemblySyntax, DumpOptions, FindOptions, IdaError,
-    InflateFormat, InflateOptions, NsisOptions, OpenIda, OpenIdaOptions, SearchMode, SearchOptions, StringEncoding,
-    StringsOptions, TauriAssetsOptions, scan_assets,
+    InflateFormat, InflateOptions, NsisOptions, OpenIda, OpenIdaOptions, PycFormat, PycOptions, SearchMode,
+    SearchOptions, StringEncoding, StringsOptions, TauriAssetsOptions, scan_assets,
 };
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
@@ -3696,4 +3696,218 @@ fn asar_rejects_a_non_asar_input() {
     let view = BinaryView::open(file.path()).expect("open PE");
     let error = view.asar(&AsarOptions::default()).unwrap_err();
     assert_eq!(error.code(), "binary/parse");
+}
+
+/// Writes a `marshal` int object.
+fn marshal_int(out: &mut Vec<u8>, value: i32) {
+    out.push(b'i');
+    out.extend_from_slice(&value.to_le_bytes());
+}
+
+/// Writes one raw little-endian word of a code object header field.
+fn marshal_word(out: &mut Vec<u8>, value: i32) {
+    out.extend_from_slice(&value.to_le_bytes());
+}
+
+/// Writes a `marshal` small int object.
+fn marshal_small_int(out: &mut Vec<u8>, value: i8) {
+    out.push(b'b');
+    out.push(value as u8);
+}
+
+/// Writes a `marshal` none object.
+fn marshal_none(out: &mut Vec<u8>) {
+    out.push(b'N');
+}
+
+/// Writes an interned short ASCII string; the parser records it as a ref.
+fn marshal_string(out: &mut Vec<u8>, text: &str) {
+    out.push(b'Z');
+    out.push(text.len() as u8);
+    out.extend_from_slice(text.as_bytes());
+}
+
+/// Writes a `marshal` string reference to an earlier interned object.
+fn marshal_ref(out: &mut Vec<u8>, index: i32) {
+    out.push(b'r');
+    out.extend_from_slice(&index.to_le_bytes());
+}
+
+/// Writes a `marshal` bytes object.
+fn marshal_bytes(out: &mut Vec<u8>, bytes: &[u8]) {
+    out.push(b's');
+    out.extend_from_slice(&(bytes.len() as i32).to_le_bytes());
+    out.extend_from_slice(bytes);
+}
+
+/// Writes a `marshal` tuple of exactly `count` items.
+fn marshal_tuple(out: &mut Vec<u8>, count: usize, items: impl FnOnce(&mut Vec<u8>)) {
+    out.push(b'(');
+    out.extend_from_slice(&(count as i32).to_le_bytes());
+    items(out);
+}
+
+/// Writes the empty 3.11+ `localsplus` pair for the locals tables.
+fn marshal_localsplus(out: &mut Vec<u8>) {
+    out.push(b')');
+    out.push(0);
+    marshal_bytes(out, &[]);
+}
+
+/// Writes one 3.11 code object with the fixed field order.
+fn marshal_code(
+    out: &mut Vec<u8>,
+    stacksize: i32,
+    flags: i32,
+    code: &[u8],
+    consts_count: usize,
+    consts: impl FnOnce(&mut Vec<u8>),
+    names_count: usize,
+    names: impl FnOnce(&mut Vec<u8>),
+    filename: &str,
+    name: &str,
+    qualname: impl FnOnce(&mut Vec<u8>),
+    firstlineno: i32,
+) {
+    out.push(0xE3);
+    marshal_word(out, 0);
+    marshal_word(out, 0);
+    marshal_word(out, 0);
+    marshal_word(out, stacksize);
+    marshal_word(out, flags);
+    marshal_bytes(out, code);
+    marshal_tuple(out, consts_count, consts);
+    marshal_tuple(out, names_count, names);
+    marshal_localsplus(out);
+    marshal_string(out, filename);
+    marshal_string(out, name);
+    qualname(out);
+    marshal_word(out, firstlineno);
+    marshal_bytes(out, &[]);
+    marshal_bytes(out, &[]);
+}
+
+/// Builds a synthetic module holding one nested function, as `marshal` v4.
+fn pyc_fixture() -> Vec<u8> {
+    let mut helper = Vec::new();
+    marshal_code(
+        &mut helper,
+        1,
+        65,
+        &[0x97, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x64, 0x00, 0x53, 0x00],
+        1,
+        |o| marshal_small_int(o, 42),
+        0,
+        |_| {},
+        "fixture.py",
+        "helper",
+        |o| marshal_ref(o, 3),
+        2,
+    );
+    let mut module = Vec::new();
+    marshal_code(
+        &mut module,
+        2,
+        64,
+        &[0x97, 0x00, 0x64, 0x01, 0x84, 0x00, 0x5A, 0x00, 0x64, 0x00, 0x53, 0x00],
+        2,
+        |o| {
+            marshal_none(o);
+            o.extend_from_slice(&helper);
+        },
+        1,
+        |o| marshal_string(o, "helper"),
+        "fixture.py",
+        "<module>",
+        |o| marshal_string(o, "<module>"),
+        1,
+    );
+    let mut out = Vec::new();
+    out.extend_from_slice(&module);
+    out
+}
+
+#[test]
+fn pyc_disassembles_a_synthetic_marshal_graph() {
+    let view = BinaryView::from_bytes("pyc-graph", pyc_fixture());
+    let report = view.pyc(&PycOptions::default()).expect("decode marshal");
+
+    assert_eq!(report.source_format, "marshal");
+    assert_eq!(report.marshal_version, None);
+    assert_eq!(report.code_count, 2);
+    assert_eq!(report.instruction_count, 9);
+    assert!(!report.truncated);
+
+    let helper = &report.codes[0];
+    assert_eq!(helper.qualname, "helper", "the qualname resolves through the string ref");
+    assert_eq!(helper.flags_text, "OPTIMIZED, NOFREE");
+    assert_eq!(helper.consts[0].kind, "int");
+    assert_eq!(helper.consts[0].repr, "42");
+    assert_eq!(helper.instructions[0].name, "RESUME");
+    assert_eq!(helper.instructions[0].caches, 4, "the zero opcode slots attach to RESUME");
+    assert_eq!(helper.instructions[1].name, "LOAD_CONST");
+    assert_eq!(helper.instructions[1].resolved.as_deref(), Some("42"));
+
+    let module = &report.codes[1];
+    assert_eq!(module.qualname, "<module>");
+    assert_eq!(module.flags_text, "NOFREE");
+    assert_eq!(module.names, vec!["helper".to_string()]);
+    assert_eq!(module.consts[1].kind, "code");
+    assert_eq!(module.consts[1].code_index, Some(0));
+    assert_eq!(module.consts[1].repr, "<code helper>");
+    assert_eq!(module.instructions[1].name, "LOAD_CONST");
+    assert_eq!(module.instructions[1].resolved.as_deref(), Some("<code helper>"));
+    assert_eq!(module.instructions[3].name, "STORE_NAME");
+    assert_eq!(module.instructions[3].resolved.as_deref(), Some("helper"));
+    assert_eq!(module.instructions[5].name, "RETURN_VALUE");
+    assert_eq!(module.instructions[5].arg, None);
+}
+
+#[test]
+fn pyc_reads_a_pyc_container_and_filters_by_qualname() {
+    let mut bytes = vec![0xa7, 0x0d, 0x0d, 0x0a, 0, 0, 0, 0, 0x11, 0x22, 0x33, 0x44, 0x64, 0, 0, 0];
+    bytes.extend(pyc_fixture());
+    let view = BinaryView::from_bytes("pyc-container", bytes);
+
+    let report = view.pyc(&PycOptions::default()).expect("decode pyc");
+    assert_eq!(report.source_format, "pyc");
+    assert_eq!(report.pyc_magic, Some(0x0a0d_0da7));
+    assert_eq!(report.python.as_deref(), Some("CPython 3.11"));
+    assert_eq!(report.code_count, 2);
+
+    let filtered = view.pyc(&PycOptions { code: Some("helper".into()), ..PycOptions::default() }).expect("filter");
+    assert_eq!(filtered.codes.len(), 1);
+    assert_eq!(filtered.codes[0].qualname, "helper");
+    assert_eq!(filtered.code_count, 2, "the count stays the decoded total");
+
+    let missing: IdaError =
+        view.pyc(&PycOptions { code: Some("absent".into()), ..PycOptions::default() }).unwrap_err();
+    assert_eq!(missing.code(), "binary/parse");
+
+    let forced = view.pyc(&PycOptions { format: PycFormat::Marshal, ..PycOptions::default() });
+    assert!(forced.is_err(), "the pyc header is not a marshal stream");
+}
+
+#[test]
+fn pyc_rejects_a_non_marshal_input() {
+    let view = BinaryView::from_bytes("pyc-bad", pe_bytes());
+    let error = view.pyc(&PycOptions::default()).unwrap_err();
+    assert_eq!(error.code(), "binary/parse");
+}
+
+#[test]
+fn pyc_options_use_camel_case_defaults() {
+    let defaults: PycOptions = serde_json::from_str("{}").expect("empty wire options");
+    assert_eq!(defaults.format, PycFormat::Auto);
+    assert_eq!(defaults.code_limit, 1024);
+    assert_eq!(defaults.instruction_limit, 65_536);
+
+    let view = BinaryView::from_bytes("pyc-wire", pyc_fixture());
+    let report = view.pyc(&defaults).expect("wire decode");
+    let value = serde_json::to_value(&report).expect("serialize report");
+    assert_eq!(value["sourceFormat"], "marshal");
+    assert_eq!(value["codeCount"], 2);
+    assert_eq!(value["codes"][0]["qualname"], "helper");
+    assert_eq!(value["codes"][0]["instructions"][0]["caches"], 4);
+    assert_eq!(value["codes"][0]["consts"][0]["repr"], "42");
 }

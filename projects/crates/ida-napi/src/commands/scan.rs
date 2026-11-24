@@ -3,7 +3,7 @@
 
 use open_ida_core::{
     AsarOptions, CarveOptions, DisassembleOptions, DumpOptions, FindOptions, IdaError, InflateOptions, NsisOptions,
-    SearchOptions, TauriAssetsOptions,
+    PycOptions, SearchOptions, TauriAssetsOptions,
 };
 use serde_json::Value;
 use wae::{CallContext, JsValue, Result};
@@ -65,6 +65,12 @@ fn asar_report(handle: u64, options_json: &str) -> std::result::Result<Value, Id
     let options = serde_json::from_str::<AsarOptions>(options_json)
         .map_err(|error| IdaError::parse(format!("invalid AsarOptions: {error}")))?;
     with_engine(handle, |engine| encoded(&engine.asar(&options)?))
+}
+
+fn pyc_report(handle: u64, options_json: &str) -> std::result::Result<Value, IdaError> {
+    let options = serde_json::from_str::<PycOptions>(options_json)
+        .map_err(|error| IdaError::parse(format!("invalid PycOptions: {error}")))?;
+    with_engine(handle, |engine| encoded(&engine.pyc(&options)?))
 }
 
 pub(crate) fn binary_disasm(ctx: CallContext) -> Result<JsValue> {
@@ -143,6 +149,15 @@ pub(crate) fn binary_asar(ctx: CallContext) -> Result<JsValue> {
     let handle = handle(&ctx, 0)?;
     let options = text(&ctx, 1)?;
     match asar_report(handle, &options) {
+        Ok(value) => respond(&ctx, &value),
+        Err(error) => Err(failure(error)),
+    }
+}
+
+pub(crate) fn binary_pyc(ctx: CallContext) -> Result<JsValue> {
+    let handle = handle(&ctx, 0)?;
+    let options = text(&ctx, 1)?;
+    match pyc_report(handle, &options) {
         Ok(value) => respond(&ctx, &value),
         Err(error) => Err(failure(error)),
     }
