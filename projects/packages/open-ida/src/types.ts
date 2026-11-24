@@ -1045,6 +1045,75 @@ export interface InflateReport {
     readonly output: string | null;
 }
 
+/** Inputs of one `nsis()` call. */
+export interface NsisOptions {
+    /** Absolute offset of the first header; when omitted the file is scanned. */
+    readonly offset?: number;
+    /** Cap on rendered script commands; defaults to 4096 and is capped at 65536. */
+    readonly commandsLimit?: number;
+    /** Cap on rendered strings; defaults to 8192 and is capped at 65536. */
+    readonly stringsLimit?: number;
+    /** Directory the payload files are extracted into. */
+    readonly extractDir?: string;
+    /** Cap on one extracted file in bytes; defaults to 256 MiB and is capped at 1 GiB. */
+    readonly extractLimit?: number;
+}
+
+/** The 28-byte NSIS first header plus the container framing facts. */
+export interface NsisHeader {
+    readonly startOffset: number;
+    readonly flags: number;
+    readonly headerSize: number;
+    readonly arcSize: number;
+    readonly dataStreamOffset: number;
+    readonly compressedHeaderSize: number;
+    readonly solid: boolean;
+    readonly method: string;
+    readonly dataBase: number | null;
+}
+
+/** One of the eight blocks inside the decompressed header block. */
+export interface NsisBlock {
+    readonly name: string;
+    readonly offset: number;
+    readonly num: number;
+}
+
+/** One decoded script command. */
+export interface NsisCommand {
+    readonly index: number;
+    readonly offset: number;
+    readonly opcode: number;
+    readonly name: string;
+    readonly params: number[];
+    readonly rendered: string[];
+}
+
+/** One file the installer extracts (a `File` command). */
+export interface NsisFile {
+    readonly index: number;
+    readonly commandIndex: number;
+    readonly output: string;
+    readonly dataOffset: number | null;
+    readonly uncompressedSize: number | null;
+    readonly compressedSize: number | null;
+    readonly modified: number | null;
+    readonly extracted: string | null;
+}
+
+/** Full decode of one NSIS container. */
+export interface NsisReport {
+    readonly header: NsisHeader;
+    readonly blocks: NsisBlock[];
+    readonly unicode: boolean;
+    readonly stringChars: number;
+    readonly strings: string[];
+    readonly commandCount: number;
+    readonly commands: NsisCommand[];
+    readonly files: NsisFile[];
+    readonly truncated: boolean;
+}
+
 /** Inputs of one `carve()` call. */
 export interface CarveOptions {
     /** Byte regex that marks the regions of interest. */
