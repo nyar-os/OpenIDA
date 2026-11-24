@@ -10,9 +10,9 @@ use std::{
 };
 
 use open_ida_core::{
-    BinaryView, CarveOptions, DisassembleOptions, DisassemblySyntax, DumpOptions, FindOptions, IdaError, InflateFormat,
-    InflateOptions, NsisOptions, OpenIda, OpenIdaOptions, SearchMode, SearchOptions, StringEncoding, StringsOptions,
-    TauriAssetsOptions, scan_assets,
+    AsarOptions, BinaryView, CarveOptions, DisassembleOptions, DisassemblySyntax, DumpOptions, FindOptions, IdaError,
+    InflateFormat, InflateOptions, NsisOptions, OpenIda, OpenIdaOptions, SearchMode, SearchOptions, StringEncoding,
+    StringsOptions, TauriAssetsOptions, scan_assets,
 };
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
@@ -3616,4 +3616,84 @@ fn tauri_assets_refuses_unsafe_asset_keys() {
     .expect_err("a traversal key must be refused");
     assert_eq!(error.code(), "binary/parse");
     let _ = fs::remove_dir_all(&dir);
+}
+
+/// The JSON header of the synthetic asar fixture.
+const ASAR_JSON: &str = concat!(
+    r#"{"files":{"a.txt":{"size":"13","offset":"0"},"dir":{"files":{"b.txt":"#,
+    r#"{"size":"4","offset":"13"}}},"loose.txt":{"size":"7","offset":"0","unpacked":true}}}"#
+);
+
+/// The packed data blob referenced by [`ASAR_JSON`].
+const ASAR_DATA: &[u8] = b"alpha-payloadbeta";
+
+/// Assembles a minimal asar archive: four header words, the JSON, the data blob.
+fn asar_bytes() -> Vec<u8> {
+    let json = ASAR_JSON.as_bytes();
+    let mut bytes = Vec::new();
+    bytes.extend_from_slice(&4u32.to_le_bytes());
+    bytes.extend_from_slice(&((8 + json.len()) as u32).to_le_bytes());
+    bytes.extend_from_slice(&((json.len() + 4) as u32).to_le_bytes());
+    bytes.extend_from_slice(&(json.len() as u32).to_le_bytes());
+    bytes.extend_from_slice(json);
+    bytes.extend_from_slice(ASAR_DATA);
+    bytes
+}
+
+#[test]
+fn asar_lists_the_header_tree() {
+    let file = TempFile::new("asar");
+    file.write(&asar_bytes());
+    let view = BinaryView::open(file.path()).expect("open asar");
+    let report = view.asar(&AsarOptions::default()).expect("decode asar");
+
+    let json_len = ASAR_JSON.len() as u64;
+    assert_eq!(report.header.start_offset, 0);
+    assert_eq!(report.header.data_start, 16 + json_len);
+    assert_eq!(report.entry_count, 3);
+    assert_eq!(report.directory_count, 1);
+    assert_eq!(report.packed_bytes, 17);
+    assert!(!report.truncated);
+
+    let paths: Vec<&str> = report.entries.iter().map(|entry| entry.path.as_str()).collect();
+    assert_eq!(paths, vec!["a.txt", "dir/b.txt", "loose.txt"]);
+    assert_eq!(report.entries[0].offset, Some(16 + json_len));
+    assert_eq!(report.entries[1].offset, Some(16 + json_len + 13));
+    assert!(report.entries[2].unpacked);
+    assert_eq!(report.entries[2].offset, None, "unpacked entries carry no packed bytes");
+
+    let packed = view.read_bytes(16 + json_len, 13).expect("read packed bytes");
+    assert_eq!(packed, b"alpha-payload".as_slice());
+
+    let cut = view.asar(&AsarOptions { entries_limit: 1, ..AsarOptions::default() }).expect("cut listing");
+    assert_eq!(cut.entries.len(), 1);
+    assert!(cut.truncated);
+}
+
+#[test]
+fn asar_extracts_packed_entries() {
+    let file = TempFile::new("asar-extract");
+    file.write(&asar_bytes());
+    let view = BinaryView::open(file.path()).expect("open asar");
+    let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
+    let dir = std::env::temp_dir().join(format!("open-ida-{}-{id}-asar", std::process::id()));
+
+    let report = view
+        .asar(&AsarOptions { extract_dir: Some(dir.display().to_string()), ..AsarOptions::default() })
+        .expect("decode with extraction");
+
+    let written = report.entries[1].extracted.as_ref().expect("nested entry").replace('\\', "/");
+    assert!(written.ends_with("/dir/b.txt"), "the archive path is mirrored: {written}");
+    assert_eq!(fs::read(&written).expect("read entry"), b"beta");
+    assert!(report.entries[2].extracted.is_none(), "unpacked entries are not written");
+    fs::remove_dir_all(&dir).expect("cleanup");
+}
+
+#[test]
+fn asar_rejects_a_non_asar_input() {
+    let file = TempFile::new("asar-bad");
+    file.write(&pe_bytes());
+    let view = BinaryView::open(file.path()).expect("open PE");
+    let error = view.asar(&AsarOptions::default()).unwrap_err();
+    assert_eq!(error.code(), "binary/parse");
 }

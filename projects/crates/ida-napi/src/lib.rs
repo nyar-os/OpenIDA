@@ -98,6 +98,12 @@ fn binary_nsis(ctx: CallContext) -> Result<JsValue> {
     scan::binary_nsis(ctx)
 }
 
+/// Decodes one Electron asar archive, described by an options JSON.
+#[function]
+fn binary_asar(ctx: CallContext) -> Result<JsValue> {
+    scan::binary_asar(ctx)
+}
+
 /// Reports the PE overlay anatomy and its embedded container signatures.
 #[function]
 fn binary_overlay(ctx: CallContext) -> Result<JsValue> {
@@ -419,6 +425,7 @@ register_module![
     binary_tauri_assets,
     binary_inflate,
     binary_nsis,
+    binary_asar,
     binary_overlay,
     binary_offset_to_va,
     binary_offset_to_rva,
