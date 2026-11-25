@@ -53,7 +53,7 @@ containers are rejected, and unknown containers are rejected.
 | Read Mach-O encryption      | `open-ida macho-encryption <file>`                                  | `LC_ENCRYPTION_INFO` crypt offset, size and cryptid                          |
 | Read Mach-O chained fixups  | `open-ida macho-chained-fixups <file>`                              | `LC_DYLD_CHAINED_FIXUPS` imports, header and starts table                    |
 | Decode Mach-O bind opcodes  | `open-ida macho-bindings <file>`                                    | Classic dyld bind, weak-bind and lazy-bind opcode streams                    |
-| Decode code                 | `open-ida disasm <file> --offset <n> --count <n>`                   | Address, offset, bytes, mnemonic                                             |
+| Decode code                 | `open-ida disasm <file> [--format auto\|x86\|pyc]`                    | Address, offset, bytes, mnemonic; bytecode code objects and instructions     |
 | Triage packing              | `open-ida entropy <file>`                                           | Whole-file and section entropy, PE overlay                                   |
 | Compare builds              | `open-ida diff <left> <right>`                                      | First difference and differing ranges                                        |
 | Search patterns             | `open-ida search <file> <pattern> --mode hex\|ascii\|utf16le`       | Offset and preview                                                           |

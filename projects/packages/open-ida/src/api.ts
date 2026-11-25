@@ -60,7 +60,6 @@ import type {
     PeRichHeaderReport,
     PeLoadConfigReport,
     PeTlsReport,
-    PycOptions,
     PycReport,
     ReadReport,
     RelocationsReport,
@@ -298,9 +297,9 @@ export class OpenIDA {
         return decode<PeLoadConfigReport>(() => binding('binary.load-config').binary_load_config(this.id));
     }
 
-    /** Decodes x86 / x64 instructions from one file offset. */
-    disasm(options: DisassembleOptions = {}): DisassemblyReport {
-        return decode<DisassemblyReport>(() => binding('binary.disasm').binary_disasm(this.id, JSON.stringify(options)));
+    /** Decodes x86 / x64 instructions or CPython bytecode from one file offset. */
+    disasm(options: DisassembleOptions = {}): DisassemblyReport | PycReport {
+        return decode<DisassemblyReport | PycReport>(() => binding('binary.disasm').binary_disasm(this.id, JSON.stringify(options)));
     }
 
     /** Compares this binary against another open binary. */
@@ -331,11 +330,6 @@ export class OpenIDA {
     /** Decodes one Electron asar archive, optionally extracting its packed entries. */
     asar(options: AsarOptions = {}): AsarReport {
         return decode<AsarReport>(() => binding('binary.asar').binary_asar(this.id, JSON.stringify(options)));
-    }
-
-    /** Decodes one CPython marshal stream or pyc container and disassembles it. */
-    pyc(options: PycOptions = {}): PycReport {
-        return decode<PycReport>(() => binding('binary.pyc').binary_pyc(this.id, JSON.stringify(options)));
     }
 
     /** Searches for a hex, ASCII or UTF-16LE pattern. */

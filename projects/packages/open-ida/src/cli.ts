@@ -42,8 +42,7 @@ import type {
     NsisReport,
     AsarOptions,
     AsarReport,
-    PycFormat,
-    PycOptions,
+    DisassemblyFormat,
     PycReport,
     OverlayReport,
     MachOReport,
@@ -1562,6 +1561,10 @@ cli
     .option('--offset <offset>', 'cli.opt.offset')
     .option('--count <count>', 'cli.opt.count')
     .option('--syntax <syntax>', 'cli.opt.syntax')
+    .option('--format <format>', 'cli.opt.disasmFormat')
+    .option('--code <qualname>', 'cli.opt.disasmCode')
+    .option('--code-limit <count>', 'cli.opt.disasmCodeLimit')
+    .option('--instruction-limit <count>', 'cli.opt.disasmInstructionLimit')
     .actionCtx(async (options, _args, ctx) => {
         const file = input(options);
         if (file === undefined) {
@@ -1585,10 +1588,40 @@ cli
             ctx.fail('open-ida.cli.syntax', { message: '`--syntax` must be intel, masm or nasm' });
             return 2;
         }
+        const format = text(options, 'format') ?? 'auto';
+        if (format !== 'auto' && format !== 'x86' && format !== 'pyc') {
+            ctx.fail('open-ida.cli.format', { message: '`--format` must be auto, x86 or pyc' });
+            return 2;
+        }
+        const codeLimitText = text(options, 'code-limit');
+        const codeLimit = codeLimitText === undefined ? undefined : parseNumber(codeLimitText);
+        if (codeLimitText !== undefined && codeLimit === undefined) {
+            ctx.fail('open-ida.cli.limit', { message: '`--code-limit <count>` must be a non-negative integer' });
+            return 2;
+        }
+        const instructionLimitText = text(options, 'instruction-limit');
+        const instructionLimit = instructionLimitText === undefined ? undefined : parseNumber(instructionLimitText);
+        if (instructionLimitText !== undefined && instructionLimit === undefined) {
+            ctx.fail('open-ida.cli.limit', { message: '`--instruction-limit <count>` must be a non-negative integer' });
+            return 2;
+        }
+        const code = text(options, 'code');
         const ida = new OpenIDA({ path: file });
         try {
-            const report = ida.disasm({ offset, count, syntax });
-            ctx.emitResult(report, describeDisassembly(report));
+            const report = ida.disasm({
+                offset,
+                ...(count === undefined ? {} : { count }),
+                syntax,
+                format: format as DisassemblyFormat,
+                ...(code === undefined ? {} : { code }),
+                ...(codeLimit === undefined ? {} : { codeLimit }),
+                ...(instructionLimit === undefined ? {} : { instructionLimit }),
+            });
+            if ('codes' in report) {
+                ctx.emitResult(report, describePyc(report));
+            } else {
+                ctx.emitResult(report, describeDisassembly(report));
+            }
             return 0;
         } finally {
             ida.close();
@@ -1751,60 +1784,6 @@ cli
         try {
             const report = ida.asar(asarOptions);
             ctx.emitResult(report, describeAsar(report));
-            return 0;
-        } finally {
-            ida.close();
-        }
-    });
-
-cli
-    .command('pyc', 'cli.cmd.pyc')
-    .option('--offset <offset>', 'cli.opt.pycOffset')
-    .option('--format <format>', 'cli.opt.pycFormat')
-    .option('--code <qualname>', 'cli.opt.pycCode')
-    .option('--code-limit <count>', 'cli.opt.pycCodeLimit')
-    .option('--instruction-limit <count>', 'cli.opt.pycInstructionLimit')
-    .actionCtx(async (options, _args, ctx) => {
-        const file = input(options);
-        if (file === undefined) {
-            ctx.fail('open-ida.cli.file-required', { message: 'a binary file is required' });
-            return 2;
-        }
-        const offsetText = text(options, 'offset');
-        const offset = offsetText === undefined ? undefined : parseNumber(offsetText);
-        if (offsetText !== undefined && offset === undefined) {
-            ctx.fail('open-ida.cli.offset', { message: '`--offset <offset>` must be a non-negative integer' });
-            return 2;
-        }
-        const formatText = text(options, 'format') ?? 'auto';
-        if (!['auto', 'marshal', 'pyc'].includes(formatText)) {
-            ctx.fail('open-ida.cli.format', { message: '`--format` must be auto, marshal or pyc' });
-            return 2;
-        }
-        const codeLimitText = text(options, 'code-limit');
-        const codeLimit = codeLimitText === undefined ? undefined : parseNumber(codeLimitText);
-        if (codeLimit === undefined && codeLimitText !== undefined) {
-            ctx.fail('open-ida.cli.limit', { message: '`--code-limit <count>` must be a non-negative integer' });
-            return 2;
-        }
-        const instructionLimitText = text(options, 'instruction-limit');
-        const instructionLimit = instructionLimitText === undefined ? undefined : parseNumber(instructionLimitText);
-        if (instructionLimit === undefined && instructionLimitText !== undefined) {
-            ctx.fail('open-ida.cli.limit', { message: '`--instruction-limit <count>` must be a non-negative integer' });
-            return 2;
-        }
-        const code = text(options, 'code');
-        const pycOptions: PycOptions = {
-            format: formatText as PycFormat,
-            ...(offset === undefined ? {} : { offset }),
-            ...(code === undefined ? {} : { code }),
-            ...(codeLimit === undefined ? {} : { codeLimit }),
-            ...(instructionLimit === undefined ? {} : { instructionLimit }),
-        };
-        const ida = new OpenIDA({ path: file });
-        try {
-            const report = ida.pyc(pycOptions);
-            ctx.emitResult(report, describePyc(report));
             return 0;
         } finally {
             ida.close();

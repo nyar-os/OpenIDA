@@ -870,14 +870,25 @@ export interface DiffReport {
 /** Assembly syntax accepted by `disasm()`. */
 export type DisassemblySyntax = 'intel' | 'masm' | 'nasm';
 
+/** What `disasm()` decodes: machine code, CPython bytecode or a sniff. */
+export type DisassemblyFormat = 'auto' | 'x86' | 'pyc';
+
 /** Inputs of one `disasm()` call. */
 export interface DisassembleOptions {
     /** File offset to start decoding from. Defaults to 0. */
     readonly offset?: number;
     /** Maximum number of instructions; defaults to 64 and is capped at 4096. */
     readonly count?: number;
-    /** Rendered syntax; defaults to `intel`. */
+    /** Rendered syntax; defaults to `intel`. Applies to `x86` only. */
     readonly syntax?: DisassemblySyntax;
+    /** Decoding path; `auto` sniffs `offset` for bytecode, defaults to `auto`. */
+    readonly format?: DisassemblyFormat;
+    /** Keep only code objects whose `qualname` or `name` contains this text. Applies to `pyc` only. */
+    readonly code?: string;
+    /** Cap on decoded code objects; defaults to 1024 and is capped at 16384. Applies to `pyc` only. */
+    readonly codeLimit?: number;
+    /** Cap on emitted instructions; defaults to 65536 and is capped at 1048576. Applies to `pyc` only. */
+    readonly instructionLimit?: number;
 }
 
 /** One decoded instruction. */
@@ -1152,23 +1163,6 @@ export interface AsarReport {
     readonly packedBytes: number;
     readonly entries: AsarEntry[];
     readonly truncated: boolean;
-}
-
-/** Framing of the input bytes for one `pyc()` call. */
-export type PycFormat = "auto" | "marshal" | "pyc";
-
-/** Inputs of one `pyc()` call. */
-export interface PycOptions {
-    /** Absolute offset of the stream start; defaults to the file start. */
-    readonly offset?: number;
-    /** Stream framing; `auto` picks `marshal` on the version byte, else `pyc`. */
-    readonly format?: PycFormat;
-    /** Keep only code objects whose `qualname` or `name` contains this text. */
-    readonly code?: string;
-    /** Cap on decoded code objects; defaults to 1024 and is capped at 16384. */
-    readonly codeLimit?: number;
-    /** Cap on emitted instructions; defaults to 65536 and is capped at 1048576. */
-    readonly instructionLimit?: number;
 }
 
 /** One decoded constant of a code object. */
