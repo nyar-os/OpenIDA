@@ -10,9 +10,9 @@ use std::{
 };
 
 use open_ida_core::{
-    AsarOptions, BinaryView, CarveOptions, DisassembleOptions, DisassemblySyntax, DumpOptions, FindOptions, IdaError,
-    InflateFormat, InflateOptions, NsisOptions, OpenIda, OpenIdaOptions, PycFormat, PycOptions, SearchMode,
-    SearchOptions, StringEncoding, StringsOptions, TauriAssetsOptions, scan_assets,
+    BinaryView, CarveOptions, DisassembleOptions, DisassemblySyntax, DumpOptions, FindOptions, IdaError,
+    InflateFormat, InflateOptions, OpenIda, OpenIdaOptions, PycFormat, PycOptions, SearchMode,
+    SearchOptions, StringEncoding, StringsOptions, TauriAssetsOptions, UnpackFormat, UnpackOptions, UnpackReport, scan_assets,
 };
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
@@ -3138,7 +3138,15 @@ fn nsis_decodes_an_uncompressed_container() {
     let start = bytes.len();
     bytes.extend_from_slice(&container);
 
-    let report = BinaryView::from_bytes("setup.exe", bytes).nsis(&NsisOptions::default()).expect("nsis");
+    let view = BinaryView::from_bytes("setup.exe", bytes);
+    let sniffed = view.unpack(&UnpackOptions::default()).expect("sniff the NSIS container");
+    assert!(matches!(sniffed, UnpackReport::Nsis(_)));
+    let report = view
+        .unpack(&UnpackOptions { format: UnpackFormat::Nsis, ..UnpackOptions::default() })
+        .expect("nsis");
+    let UnpackReport::Nsis(report) = report else {
+        panic!("the explicit nsis route must answer with an NSIS report");
+    };
     assert_eq!(report.header.start_offset as usize, start);
     assert_eq!(report.header.method, "none");
     assert!(!report.header.solid);
@@ -3155,9 +3163,14 @@ fn nsis_decodes_an_uncompressed_container() {
 }
 
 #[test]
-fn nsis_rejects_a_non_nsis_input() {
-    let error = BinaryView::from_bytes("plain.exe", pe_bytes()).nsis(&NsisOptions::default()).expect_err("parse");
+fn unpack_rejects_input_without_any_container_signature() {
+    let view = BinaryView::from_bytes("plain.exe", pe_bytes());
+    let error = view
+        .unpack(&UnpackOptions { format: UnpackFormat::Nsis, ..UnpackOptions::default() })
+        .expect_err("the PE must not contain an NSIS first header");
     assert_eq!(error.code(), "binary/parse");
+    let sniffed = view.unpack(&UnpackOptions::default()).expect_err("the PE must not sniff as a container");
+    assert_eq!(sniffed.code(), "binary/parse");
 }
 
 #[test]
@@ -3645,7 +3658,14 @@ fn asar_lists_the_header_tree() {
     let file = TempFile::new("asar");
     file.write(&asar_bytes());
     let view = BinaryView::open(file.path()).expect("open asar");
-    let report = view.asar(&AsarOptions::default()).expect("decode asar");
+    let sniffed = view.unpack(&UnpackOptions::default()).expect("sniff the asar archive");
+    assert!(matches!(sniffed, UnpackReport::Asar(_)));
+    let report = view
+        .unpack(&UnpackOptions { format: UnpackFormat::Asar, ..UnpackOptions::default() })
+        .expect("decode asar");
+    let UnpackReport::Asar(report) = report else {
+        panic!("the explicit asar route must answer with an asar report");
+    };
 
     let json_len = ASAR_JSON.len() as u64;
     assert_eq!(report.header.start_offset, 0);
@@ -3665,7 +3685,12 @@ fn asar_lists_the_header_tree() {
     let packed = view.read_bytes(16 + json_len, 13).expect("read packed bytes");
     assert_eq!(packed, b"alpha-payload".as_slice());
 
-    let cut = view.asar(&AsarOptions { entries_limit: 1, ..AsarOptions::default() }).expect("cut listing");
+    let cut = view
+        .unpack(&UnpackOptions { format: UnpackFormat::Asar, entries_limit: 1, ..UnpackOptions::default() })
+        .expect("cut listing");
+    let UnpackReport::Asar(cut) = cut else {
+        panic!("the explicit asar route must answer with an asar report");
+    };
     assert_eq!(cut.entries.len(), 1);
     assert!(cut.truncated);
 }
@@ -3679,8 +3704,15 @@ fn asar_extracts_packed_entries() {
     let dir = std::env::temp_dir().join(format!("open-ida-{}-{id}-asar", std::process::id()));
 
     let report = view
-        .asar(&AsarOptions { extract_dir: Some(dir.display().to_string()), ..AsarOptions::default() })
+        .unpack(&UnpackOptions {
+            format: UnpackFormat::Asar,
+            extract_dir: Some(dir.display().to_string()),
+            ..UnpackOptions::default()
+        })
         .expect("decode with extraction");
+    let UnpackReport::Asar(report) = report else {
+        panic!("the explicit asar route must answer with an asar report");
+    };
 
     let written = report.entries[1].extracted.as_ref().expect("nested entry").replace('\\', "/");
     assert!(written.ends_with("/dir/b.txt"), "the archive path is mirrored: {written}");
@@ -3694,7 +3726,56 @@ fn asar_rejects_a_non_asar_input() {
     let file = TempFile::new("asar-bad");
     file.write(&pe_bytes());
     let view = BinaryView::open(file.path()).expect("open PE");
-    let error = view.asar(&AsarOptions::default()).unwrap_err();
+    let error = view
+        .unpack(&UnpackOptions { format: UnpackFormat::Asar, ..UnpackOptions::default() })
+        .unwrap_err();
+    assert_eq!(error.code(), "binary/parse");
+}
+
+/// Assembles a minimal valid empty 7z container: signature, version 0.4 and a
+/// start header that announces a zero-length next header.
+fn sevenz_bytes() -> Vec<u8> {
+    let mut bytes = vec![0u8; 32];
+    bytes[..6].copy_from_slice(&[0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C]);
+    bytes[6] = 0x00;
+    bytes[7] = 0x04;
+    bytes
+}
+
+#[test]
+fn unpack_indexes_a_sevenz_container() {
+    let file = TempFile::new("sevenz");
+    file.write(&sevenz_bytes());
+    let view = BinaryView::open(file.path()).expect("open 7z");
+    let sniffed = view.unpack(&UnpackOptions::default()).expect("sniff the 7z container");
+    let UnpackReport::SevenZ(report) = sniffed else {
+        panic!("the 7z signature must win the auto sniff");
+    };
+    assert_eq!(report.start_offset, 0);
+    assert_eq!(report.version, "0.4");
+    assert_eq!(report.entry_count, 0);
+    assert_eq!(report.folder_count, 0);
+    assert_eq!(report.total_unpack_size, 0);
+    assert!(report.methods.is_empty());
+    assert!(!report.truncated);
+
+    let explicit = view
+        .unpack(&UnpackOptions { format: UnpackFormat::SevenZ, ..UnpackOptions::default() })
+        .expect("explicit 7z route");
+    let UnpackReport::SevenZ(explicit) = explicit else {
+        panic!("the explicit 7z route must answer with a 7z report");
+    };
+    assert_eq!(explicit.entry_count, 0);
+}
+
+#[test]
+fn unpack_rejects_a_non_sevenz_input_on_the_explicit_route() {
+    let file = TempFile::new("sevenz-bad");
+    file.write(&pe_bytes());
+    let view = BinaryView::open(file.path()).expect("open PE");
+    let error = view
+        .unpack(&UnpackOptions { format: UnpackFormat::SevenZ, ..UnpackOptions::default() })
+        .unwrap_err();
     assert_eq!(error.code(), "binary/parse");
 }
 
