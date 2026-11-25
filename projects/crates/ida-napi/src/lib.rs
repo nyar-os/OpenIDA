@@ -92,7 +92,7 @@ fn binary_inflate(ctx: CallContext) -> Result<JsValue> {
     scan::binary_inflate(ctx)
 }
 
-/// Decodes one `7z`, `asar` or `NSIS` container, described by an options JSON.
+/// Decodes one `7z`, `asar`, `NSIS` or PyInstaller container, described by an options JSON.
 #[function]
 fn binary_unpack(ctx: CallContext) -> Result<JsValue> {
     scan::binary_unpack(ctx)

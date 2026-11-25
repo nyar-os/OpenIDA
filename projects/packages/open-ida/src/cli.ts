@@ -41,6 +41,7 @@ import type {
     NsisReport,
     AsarReport,
     SevenZReport,
+    PyInstallerReport,
     UnpackFormat,
     UnpackOptions,
     DisassemblyFormat,
@@ -798,6 +799,39 @@ function describeSevenZ(report: SevenZReport): string {
         lines.push(
             `  ${kind} ${String(entry.size ?? 0).padStart(10)}  ${entry.name}${entry.extracted !== null ? ` -> ${entry.extracted}` : ''}`,
         );
+    }
+    return lines.join('\n');
+}
+
+function describePyInstaller(report: PyInstallerReport): string {
+    if (report.archiveKind === 'pyz') {
+        const lines = [
+            `pyz ${hex(report.startOffset)} · ${report.python ?? 'unknown interpreter'} · magic ${report.pythonMagic === null ? '?' : hex(report.pythonMagic)} · ${report.entryCount} module(s)`,
+        ];
+        if (report.truncated) {
+            lines.push('  (listing truncated)');
+        }
+        for (const module of report.modules.slice(0, 40)) {
+            lines.push(
+                `  ${module.isPackage ? 'pkg' : 'mod'} ${String(module.length).padStart(10)} ${hex(module.offset).padStart(10)}  ${module.name}${module.extracted !== null ? ` -> ${module.extracted}` : ''}`,
+            );
+        }
+        return lines.join('\n');
+    }
+    const lines = [
+        `carchive ${hex(report.startOffset)} · cookie ${hex(report.cookieOffset ?? 0)} · package ${report.packageLength ?? 0} B · TOC ${hex(report.tocOffset ?? 0)} + ${report.tocLength ?? 0} B`,
+        `  version ${report.version ?? 'unknown'} · word ${report.versionWord ?? 0} · ${report.entryCount} entry(s) · ${report.entries.length} listed`,
+    ];
+    if (report.truncated) {
+        lines.push('  (listing truncated)');
+    }
+    for (const entry of report.entries.slice(0, 40)) {
+        lines.push(
+            `  ${entry.kind.padEnd(6)} ${String(entry.length).padStart(10)} ${hex(entry.offset).padStart(10)}  ${entry.name} · ${entry.compressed ? 'zlib' : 'stored'}${entry.moduleCount !== null ? ` · ${entry.moduleCount} module(s)` : ''}${entry.extracted !== null ? ` -> ${entry.extracted}` : ''}`,
+        );
+        for (const module of entry.modules.slice(0, 20)) {
+            lines.push(`      ${module.name}${module.extracted !== null ? ` -> ${module.extracted}` : ''}`);
+        }
     }
     return lines.join('\n');
 }
@@ -1750,8 +1784,8 @@ cli
             return 2;
         }
         const format = text(options, 'format') ?? 'auto';
-        if (!['auto', '7z', 'asar', 'nsis'].includes(format)) {
-            ctx.fail('open-ida.cli.format', { message: '`--format <format>` must be auto, 7z, asar or nsis' });
+        if (!['auto', '7z', 'asar', 'nsis', 'pyinstaller', 'pyz'].includes(format)) {
+            ctx.fail('open-ida.cli.format', { message: '`--format <format>` must be auto, 7z, asar, nsis, pyinstaller or pyz' });
             return 2;
         }
         const offsetText = text(options, 'offset');
@@ -1782,7 +1816,13 @@ cli
         try {
             const report = ida.unpack(unpackOptions);
             const described =
-                report.format === '7z' ? describeSevenZ(report) : report.format === 'asar' ? describeAsar(report) : describeNsis(report);
+                report.format === '7z'
+                    ? describeSevenZ(report)
+                    : report.format === 'asar'
+                      ? describeAsar(report)
+                      : report.format === 'nsis'
+                        ? describeNsis(report)
+                        : describePyInstaller(report);
             ctx.emitResult(report, described);
             return 0;
         } finally {
