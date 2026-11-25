@@ -38,6 +38,7 @@ mod pe_delay_imports;
 mod pe_exception;
 mod pe_rich_header;
 mod pyc;
+mod pyc_opcodes;
 mod relocations;
 mod resources;
 mod segments;

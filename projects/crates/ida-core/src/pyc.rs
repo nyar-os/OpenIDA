@@ -1,4 +1,4 @@
-//! Static decoding of CPython `marshal` streams and 3.11 bytecode.
+//! Static decoding of CPython `marshal` streams and 3.11 through 3.13 bytecode.
 //!
 //! The input is either a raw `marshal` dump (the object graph, optionally
 //! prefixed by the version byte `2` through `6` that `PyMarshal_Write`
@@ -16,10 +16,11 @@
 //!
 //! Every `code` object in the graph is flattened into the report in parse
 //! order. Its bytecode is walked as word-code pairs: the opcode byte names
-//! the instruction, the argument byte resolves against the names, constants
-//! and locals tables, and inline cache slots (opcode byte `0`, the only
-//! place that value appears in non-adaptive code) are counted against the
-//! preceding instruction instead of being emitted. Nothing is executed.
+//! the instruction through the table of the selected interpreter version,
+//! the argument byte resolves against the names, constants and locals
+//! tables, and inline cache slots (opcode byte `0`, the only place that
+//! value appears in non-adaptive code) are counted against the preceding
+//! instruction instead of being emitted. Nothing is executed.
 
 use data_binary_inspect::BinarySession;
 use serde::{Deserialize, Serialize};
@@ -50,11 +51,9 @@ const RENDER_LIST_LIMIT: usize = 4096;
 /// Hard cap on one decoded string, bytes object or the whole stream.
 const MAX_BLOB_SIZE: usize = 64 * 1024 * 1024;
 
-/// First opcode that carries an argument byte.
-const HAVE_ARGUMENT: u8 = 90;
-
-/// Opcode that prefixes a larger argument.
-const EXTENDED_ARG: u8 = 144;
+/// Interpreter whose opcode table decodes a raw `marshal` stream when the
+/// input carries no magic and the caller pinned no version.
+const DEFAULT_PYTHON: u16 = 312;
 
 /// Inputs of one [`crate::OpenIda::pyc`] call.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -69,6 +68,10 @@ pub struct PycOptions {
     /// Keep only code objects whose `qualname` or `name` contains this text.
     #[serde(default)]
     pub code: Option<String>,
+    /// Opcode table for a raw `marshal` stream: `311`, `312` or `313`. A
+    /// `.pyc` container always selects the table named by its magic.
+    #[serde(default)]
+    pub python: Option<u16>,
     /// Cap on decoded code objects; clamped to 16384.
     #[serde(default = "default_code_limit")]
     pub code_limit: usize,
@@ -83,6 +86,7 @@ impl Default for PycOptions {
             offset: None,
             format: PycFormat::default(),
             code: None,
+            python: None,
             code_limit: default_code_limit(),
             instruction_limit: default_instruction_limit(),
         }
@@ -125,7 +129,7 @@ pub struct PycInstruction {
     pub opcode: u8,
     /// Opcode name, or `<opcode N>` when unknown.
     pub name: String,
-    /// Combined argument, `None` for opcodes below `HAVE_ARGUMENT`.
+    /// Combined argument, `None` for opcodes that carry no argument byte.
     pub arg: Option<u32>,
     /// Resolved argument text: name, constant repr, local, jump target, ...
     pub resolved: Option<String>,
@@ -197,6 +201,9 @@ pub struct PycReport {
     pub pyc_flags: Option<u32>,
     /// Interpreter named by the magic, e.g. `CPython 3.11`.
     pub python: Option<String>,
+    /// Opcode table the bytecode was decoded with, e.g. `3.12`; the table a
+    /// raw `marshal` stream assumed when no magic named the interpreter.
+    pub opcode_table: String,
     /// Code objects decoded before the limit and the filter.
     pub code_count: usize,
     /// Instructions emitted across every decoded code object.
@@ -267,9 +274,36 @@ pub fn analyze(session: &BinarySession, options: &PycOptions) -> Result<PycRepor
         stream = PYC_HEADER_SIZE;
     }
 
+    // The magic names the interpreter of a container; a raw stream carries no
+    // version, so the pinned `python` option or the default picks the table.
+    let version = match pyc_magic {
+        Some(magic) => magic_version(magic).ok_or_else(|| {
+            IdaError::parse(format!(
+                "unknown pyc magic {magic:#x}; the decoder reads CPython {}",
+                crate::pyc_opcodes::SUPPORTED_VERSIONS
+                    .iter()
+                    .map(|version| version_label(*version))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ))
+        })?,
+        None => options.python.unwrap_or(DEFAULT_PYTHON),
+    };
+    let table = crate::pyc_opcodes::table_for(version).ok_or_else(|| {
+        IdaError::parse(format!(
+            "no opcode table for CPython {}; the decoder reads {}",
+            version_label(version),
+            crate::pyc_opcodes::SUPPORTED_VERSIONS
+                .iter()
+                .map(|version| version_label(*version))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ))
+    })?;
+
     let code_limit = options.code_limit.clamp(1, 16_384);
     let instruction_limit = options.instruction_limit.clamp(1, 1_048_576);
-    let mut parser = Parser::new(&data[stream..], code_limit, instruction_limit);
+    let mut parser = Parser::new(&data[stream..], code_limit, instruction_limit, version, table);
     if !matches!(parser.stream()?, Value::Code(_)) {
         return Err(IdaError::parse("the marshal stream does not start with a code object"));
     }
@@ -295,6 +329,7 @@ pub fn analyze(session: &BinarySession, options: &PycOptions) -> Result<PycRepor
         pyc_magic,
         pyc_flags,
         python,
+        opcode_table: version_label(version),
         code_count: parser.decoded_codes,
         instruction_count,
         codes,
@@ -302,18 +337,27 @@ pub fn analyze(session: &BinarySession, options: &PycOptions) -> Result<PycRepor
     })
 }
 
+/// Names the interpreter version from a `.pyc` magic number.
+fn magic_version(magic: u32) -> Option<u16> {
+    Some(match magic & 0xffff {
+        3413 => 308,
+        3425 => 309,
+        3439 => 310,
+        3495 => 311,
+        3531 => 312,
+        3571 => 313,
+        _ => return None,
+    })
+}
+
+/// Formats a `311`-style version as `3.11`.
+fn version_label(version: u16) -> String {
+    format!("{}.{}", version / 100, version % 100)
+}
+
 /// Names the interpreter from a `.pyc` magic number.
 fn python_name(magic: u32) -> Option<String> {
-    let version = match magic & 0xffff {
-        3413 => "3.8",
-        3425 => "3.9",
-        3439 => "3.10",
-        3495 => "3.11",
-        3531 => "3.12",
-        3571 => "3.13",
-        _ => return None,
-    };
-    Some(format!("CPython {version}"))
+    magic_version(magic).map(|version| format!("CPython {}", version_label(version)))
 }
 
 /// A decoded `marshal` value, kept in memory only.
@@ -366,6 +410,8 @@ struct Parser<'a> {
     data: &'a [u8],
     pos: usize,
     version: Option<u8>,
+    python: u16,
+    opcodes: &'static [(u8, &'static str)],
     refs: Vec<Value>,
     codes: Vec<PycCodeObject>,
     decoded_codes: usize,
@@ -375,12 +421,21 @@ struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    /// Creates a parser over one stream body.
-    fn new(data: &'a [u8], code_limit: usize, instruction_limit: usize) -> Self {
+    /// Creates a parser over one stream body, disassembling with the opcode
+    /// table of `python`.
+    fn new(
+        data: &'a [u8],
+        code_limit: usize,
+        instruction_limit: usize,
+        python: u16,
+        opcodes: &'static [(u8, &'static str)],
+    ) -> Self {
         Self {
             data,
             pos: 0,
             version: None,
+            python,
+            opcodes,
             refs: Vec::new(),
             codes: Vec::new(),
             decoded_codes: 0,
@@ -721,6 +776,11 @@ impl<'a> Parser<'a> {
     }
 
     /// Walks `co_code` as word-code pairs and resolves arguments.
+    ///
+    /// The walk emits the instructions first, counting the inline cache
+    /// slots against them, and resolves the arguments in a second pass:
+    /// from 3.12 on, a relative jump target is computed past the caches of
+    /// the jumping instruction, exactly like `dis` renders it.
     fn disassemble(
         &mut self,
         code: &[u8],
@@ -730,6 +790,7 @@ impl<'a> Parser<'a> {
         cells: &[String],
     ) -> (Vec<PycInstruction>, bool) {
         let tables = Tables { names, consts, varnames, cells, codes: &self.codes };
+        let extended_arg = crate::pyc_opcodes::extended_arg(self.python);
         let mut out: Vec<PycInstruction> = Vec::new();
         let mut cut = false;
         let mut extended: u32 = 0;
@@ -744,24 +805,37 @@ impl<'a> Parser<'a> {
                 offset += 2;
                 continue;
             }
-            let arg = if op >= HAVE_ARGUMENT { Some(u32::from(byte) | extended) } else { None };
-            extended = if op == EXTENDED_ARG { (u32::from(byte) | extended) << 8 } else { 0 };
+            let arg = if crate::pyc_opcodes::has_argument(self.python, op) {
+                Some(u32::from(byte) | extended)
+            } else {
+                None
+            };
+            extended = if op == extended_arg { (u32::from(byte) | extended) << 8 } else { 0 };
             if self.budget == 0 {
                 cut = true;
                 offset += 2;
                 continue;
             }
             self.budget -= 1;
-            let resolved = arg.and_then(|arg| resolve(op, arg, offset as u32, &tables));
+            let name = match crate::pyc_opcodes::lookup(self.opcodes, op) {
+                Some(name) => name.to_string(),
+                None => format!("<opcode {op}>"),
+            };
             out.push(PycInstruction {
                 offset: offset as u32,
                 opcode: op,
-                name: opcode_name(op).to_string(),
+                name,
                 arg,
-                resolved,
+                resolved: None,
                 caches: 0,
             });
             offset += 2;
+        }
+        for instruction in &mut out {
+            if let Some(arg) = instruction.arg {
+                instruction.resolved =
+                    resolve(&instruction.name, self.python, arg, instruction.offset, instruction.caches, &tables);
+            }
         }
         (out, cut)
     }
@@ -836,24 +910,71 @@ fn flags_text(flags: u32) -> String {
     parts.join(", ")
 }
 
-/// Resolves one instruction argument into display text.
-fn resolve(op: u8, arg: u32, offset: u32, tables: &Tables) -> Option<String> {
+/// Resolves one instruction argument into display text, mirroring the rule
+/// the `dis` module of the selected interpreter applies to the opcode name.
+fn resolve(name: &str, python: u16, arg: u32, offset: u32, caches: u32, tables: &Tables) -> Option<String> {
     let Tables { names, consts, varnames, cells, codes } = *tables;
     let index = arg as usize;
-    match op {
-        100 | 172 => consts.get(index).map(|value| repr_value(value, codes)),
-        90..=91 | 95..=98 | 101 | 106 | 108..=109 | 160 => names.get(index).cloned(),
-        116 => names.get(index / 2).map(|base| if arg & 1 == 1 { format!("NULL + {base}") } else { base.clone() }),
-        124..=126 => varnames.get(index).cloned(),
-        135..=139 | 148 => cells.get(index).cloned(),
-        111..=112 => Some(format!("to {}", arg * 2)),
-        93 | 110 | 114..=115 | 128..=129 => Some(format!("to {}", offset + 2 + arg * 2)),
-        123 | 134 | 140 | 173..=176 => Some(format!("to {}", offset + 2 - arg * 2.min((offset + 2) / 2))),
-        117 => Some(if arg == 0 { "is".to_string() } else { "is not".to_string() }),
-        118 => Some(if arg == 0 { "in".to_string() } else { "not in".to_string() }),
-        107 => CMP_OPS.get(index).map(|text| (*text).to_string()),
-        122 => NB_OPS.get(index).map(|text| (*text).to_string()),
-        132 => {
+    match name {
+        "LOAD_CONST" | "RETURN_CONST" | "KW_NAMES" | "CALL_KW" => {
+            consts.get(index).map(|value| repr_value(value, codes))
+        }
+        "LOAD_ATTR" if python != 311 => {
+            let base = names.get(index / 2)?;
+            Some(if arg & 1 == 1 { format!("NULL|self + {base}") } else { base.clone() })
+        }
+        "LOAD_GLOBAL" => {
+            let base = names.get(index / 2)?;
+            Some(if arg & 1 == 1 {
+                if python == 313 {
+                    format!("{base} + NULL")
+                } else {
+                    format!("NULL + {base}")
+                }
+            } else {
+                base.clone()
+            })
+        }
+        "LOAD_SUPER_ATTR" => {
+            let base = names.get(index / 4)?;
+            Some(if arg & 1 == 1 { format!("NULL|self + {base}") } else { base.clone() })
+        }
+        "STORE_NAME" | "DELETE_NAME" | "STORE_ATTR" | "DELETE_ATTR" | "STORE_GLOBAL" | "DELETE_GLOBAL"
+        | "LOAD_NAME" | "LOAD_ATTR" | "IMPORT_NAME" | "IMPORT_FROM" | "LOAD_METHOD"
+        | "LOAD_FROM_DICT_OR_GLOBALS" => names.get(index).cloned(),
+        "LOAD_FAST" | "STORE_FAST" | "DELETE_FAST" | "LOAD_FAST_CHECK" | "LOAD_FAST_AND_CLEAR"
+        | "STORE_FAST_MAYBE_NULL" => varnames.get(index).cloned(),
+        "LOAD_FAST_LOAD_FAST" | "STORE_FAST_LOAD_FAST" | "STORE_FAST_STORE_FAST" => {
+            let first = varnames.get((index >> 4) & 0xf)?;
+            let second = varnames.get(index & 0xf)?;
+            Some(format!("{first}, {second}"))
+        }
+        // From 3.11 the free-variable opcodes index `co_localsplusnames`:
+        // locals first, then cells and frees, so the name lives in `varnames`
+        // below their count and in `cells` above it.
+        "MAKE_CELL" | "LOAD_CLOSURE" | "LOAD_DEREF" | "STORE_DEREF" | "DELETE_DEREF" | "LOAD_CLASSDEREF"
+        | "LOAD_FROM_DICT_OR_DEREF" => {
+            if index < varnames.len() {
+                varnames.get(index).cloned()
+            } else {
+                cells.get(index - varnames.len()).cloned()
+            }
+        }
+        "IS_OP" => Some(if arg & 1 == 1 { "is not".to_string() } else { "is".to_string() }),
+        "CONTAINS_OP" => Some(if arg & 1 == 1 { "not in".to_string() } else { "in".to_string() }),
+        "COMPARE_OP" => {
+            // The operator index moved into the high bits of the argument:
+            // raw in 3.11, above bit 4 in 3.12 and above bit 5 in 3.13,
+            // where bit 4 marks the 3.13 boolean coercion.
+            let (shift, operators): (u32, &[&str]) = match python {
+                311 => (0, &CMP_OPS_311),
+                312 => (4, &CMP_OPS),
+                _ => (5, &CMP_OPS),
+            };
+            let text = operators.get(index >> shift as usize)?;
+            Some(if python == 313 && arg & 16 != 0 { format!("bool({text})") } else { (*text).to_string() })
+        }
+        "MAKE_FUNCTION" | "SET_FUNCTION_ATTRIBUTE" => {
             let mut parts = Vec::new();
             for (bit, name) in [(1, "defaults"), (2, "kwdefaults"), (4, "annotations"), (8, "closure")] {
                 if arg & bit != 0 {
@@ -862,142 +983,95 @@ fn resolve(op: u8, arg: u32, offset: u32, tables: &Tables) -> Option<String> {
             }
             Some(parts.join(", "))
         }
-        155 => {
+        "FORMAT_VALUE" => {
             let converter = ["", "str", "repr", "ascii"][usize::try_from(arg & 3).unwrap_or(0)];
             let format = if arg & 4 != 0 { ", with format" } else { "" };
             Some(format!("{}{format}", if converter.is_empty() { "none" } else { converter }))
+        }
+        "BINARY_OP" => NB_OPS.get(index).map(|text| (*text).to_string()),
+        "CALL_INTRINSIC_1" => INTRINSIC_1.get(index).map(|text| (*text).to_string()),
+        "CALL_INTRINSIC_2" => INTRINSIC_2.get(index).map(|text| (*text).to_string()),
+        "CONVERT_VALUE" => ["", "str", "repr", "ascii"].get(index).map(|text| (*text).to_string()),
+        _ if is_jump(name) => {
+            // Relative jumps: forward unless the name says backward, the same
+            // rule `dis` applies; 3.13 additionally encodes backward
+            // conditional jumps as a negative argument. From 3.12 the target
+            // skips the cache slots of the jumping instruction.
+            let signed: i64 = if name.contains("JUMP_BACKWARD") {
+                -i64::from(arg)
+            } else if python == 313 {
+                (arg as i32) as i64
+            } else {
+                i64::from(arg)
+            };
+            let mut target = i64::from(offset) + 2 + signed * 2;
+            if python >= 312 {
+                target += i64::from(caches) * 2;
+            }
+            Some(format!("to {target}"))
         }
         _ => None,
     }
 }
 
-/// Comparison operators indexed by the `COMPARE_OP` argument.
-const CMP_OPS: [&str; 10] = ["<", "<=", "==", "!=", ">", ">=", "is", "is not", "in", "not in"];
+/// Whether one opcode name is a relative jump.
+fn is_jump(name: &str) -> bool {
+    matches!(
+        name,
+        "FOR_ITER"
+            | "SEND"
+            | "JUMP_FORWARD"
+            | "JUMP_BACKWARD"
+            | "JUMP_BACKWARD_NO_INTERRUPT"
+            | "JUMP_IF_FALSE_OR_POP"
+            | "JUMP_IF_TRUE_OR_POP"
+            | "POP_JUMP_IF_FALSE"
+            | "POP_JUMP_IF_TRUE"
+            | "POP_JUMP_IF_NONE"
+            | "POP_JUMP_IF_NOT_NONE"
+            | "POP_JUMP_FORWARD_IF_FALSE"
+            | "POP_JUMP_FORWARD_IF_TRUE"
+            | "POP_JUMP_FORWARD_IF_NONE"
+            | "POP_JUMP_FORWARD_IF_NOT_NONE"
+            | "POP_JUMP_BACKWARD_IF_FALSE"
+            | "POP_JUMP_BACKWARD_IF_TRUE"
+            | "POP_JUMP_BACKWARD_IF_NONE"
+            | "POP_JUMP_BACKWARD_IF_NOT_NONE"
+    )
+}
 
-/// Arithmetic operators indexed by the `BINARY_OP` argument.
+/// The six comparison operators of 3.12 and 3.13.
+const CMP_OPS: [&str; 6] = ["<", "<=", "==", "!=", ">", ">="];
+
+/// The ten comparison operators of 3.11, where identity and membership
+/// still run through `COMPARE_OP`.
+const CMP_OPS_311: [&str; 10] = ["<", "<=", "==", "!=", ">", ">=", "is", "is not", "in", "not in"];
+
+/// Arithmetic operators indexed by the `BINARY_OP` argument, in the order of
+/// CPython's `_nb_ops` table (`dis` renders the symbol, not the enum name).
 const NB_OPS: [&str; 26] = [
-    "add", "and", "floor_divide", "lshift", "matrix_multiply", "multiply", "remainder", "or", "power", "rshift",
-    "subtract", "true_divide", "xor", "inplace_add", "inplace_and", "inplace_floor_divide", "inplace_lshift",
-    "inplace_matrix_multiply", "inplace_multiply", "inplace_remainder", "inplace_or", "inplace_power",
-    "inplace_rshift", "inplace_subtract", "inplace_true_divide", "inplace_xor",
+    "+", "&", "//", "<<", "@", "*", "%", "|", "**", ">>", "-", "/", "^", "+=", "&=", "//=", "<<=", "@=", "*=", "%=",
+    "|=", "**=", ">>=", "-=", "/=", "^=",
 ];
 
-/// Names the 3.11 base opcodes; specialized forms never appear in `co_code`.
-fn opcode_name(op: u8) -> &'static str {
-    match op {
-        0 => "CACHE",
-        1 => "POP_TOP",
-        2 => "PUSH_NULL",
-        9 => "NOP",
-        10 => "UNARY_POSITIVE",
-        11 => "UNARY_NEGATIVE",
-        12 => "UNARY_NOT",
-        15 => "UNARY_INVERT",
-        25 => "BINARY_SUBSCR",
-        30 => "GET_LEN",
-        31 => "MATCH_MAPPING",
-        32 => "MATCH_SEQUENCE",
-        33 => "MATCH_KEYS",
-        35 => "PUSH_EXC_INFO",
-        36 => "CHECK_EXC_MATCH",
-        37 => "CHECK_EG_MATCH",
-        49 => "WITH_EXCEPT_START",
-        50 => "GET_AITER",
-        51 => "GET_ANEXT",
-        52 => "BEFORE_ASYNC_WITH",
-        53 => "BEFORE_WITH",
-        54 => "END_ASYNC_FOR",
-        60 => "STORE_SUBSCR",
-        61 => "DELETE_SUBSCR",
-        68 => "GET_ITER",
-        69 => "GET_YIELD_FROM_ITER",
-        70 => "PRINT_EXPR",
-        71 => "LOAD_BUILD_CLASS",
-        74 => "LOAD_ASSERTION_ERROR",
-        75 => "RETURN_GENERATOR",
-        82 => "LIST_TO_TUPLE",
-        83 => "RETURN_VALUE",
-        84 => "IMPORT_STAR",
-        85 => "SETUP_ANNOTATIONS",
-        86 => "YIELD_VALUE",
-        87 => "ASYNC_GEN_WRAP",
-        88 => "PREP_RERAISE_STAR",
-        89 => "POP_EXCEPT",
-        90 => "STORE_NAME",
-        91 => "DELETE_NAME",
-        92 => "UNPACK_SEQUENCE",
-        93 => "FOR_ITER",
-        94 => "UNPACK_EX",
-        95 => "STORE_ATTR",
-        96 => "DELETE_ATTR",
-        97 => "STORE_GLOBAL",
-        98 => "DELETE_GLOBAL",
-        99 => "SWAP",
-        100 => "LOAD_CONST",
-        101 => "LOAD_NAME",
-        102 => "BUILD_TUPLE",
-        103 => "BUILD_LIST",
-        104 => "BUILD_SET",
-        105 => "BUILD_MAP",
-        106 => "LOAD_ATTR",
-        107 => "COMPARE_OP",
-        108 => "IMPORT_NAME",
-        109 => "IMPORT_FROM",
-        110 => "JUMP_FORWARD",
-        111 => "JUMP_IF_FALSE_OR_POP",
-        112 => "JUMP_IF_TRUE_OR_POP",
-        114 => "POP_JUMP_FORWARD_IF_FALSE",
-        115 => "POP_JUMP_FORWARD_IF_TRUE",
-        116 => "LOAD_GLOBAL",
-        117 => "IS_OP",
-        118 => "CONTAINS_OP",
-        119 => "RERAISE",
-        120 => "COPY",
-        122 => "BINARY_OP",
-        123 => "SEND",
-        124 => "LOAD_FAST",
-        125 => "STORE_FAST",
-        126 => "DELETE_FAST",
-        128 => "POP_JUMP_FORWARD_IF_NOT_NONE",
-        129 => "POP_JUMP_FORWARD_IF_NONE",
-        130 => "RAISE_VARARGS",
-        131 => "GET_AWAITABLE",
-        132 => "MAKE_FUNCTION",
-        133 => "BUILD_SLICE",
-        134 => "JUMP_BACKWARD_NO_INTERRUPT",
-        135 => "MAKE_CELL",
-        136 => "LOAD_CLOSURE",
-        137 => "LOAD_DEREF",
-        138 => "STORE_DEREF",
-        139 => "DELETE_DEREF",
-        140 => "JUMP_BACKWARD",
-        142 => "CALL_FUNCTION_EX",
-        144 => "EXTENDED_ARG",
-        145 => "LIST_APPEND",
-        146 => "SET_ADD",
-        147 => "MAP_ADD",
-        148 => "LOAD_CLASSDEREF",
-        149 => "COPY_FREE_VARS",
-        151 => "RESUME",
-        152 => "MATCH_CLASS",
-        155 => "FORMAT_VALUE",
-        156 => "BUILD_CONST_KEY_MAP",
-        157 => "BUILD_STRING",
-        160 => "LOAD_METHOD",
-        162 => "LIST_EXTEND",
-        163 => "SET_UPDATE",
-        164 => "DICT_MERGE",
-        165 => "DICT_UPDATE",
-        166 => "PRECALL",
-        171 => "CALL",
-        172 => "KW_NAMES",
-        173 => "POP_JUMP_BACKWARD_IF_NOT_NONE",
-        174 => "POP_JUMP_BACKWARD_IF_NONE",
-        175 => "POP_JUMP_BACKWARD_IF_FALSE",
-        176 => "POP_JUMP_BACKWARD_IF_TRUE",
-        _ => "UNKNOWN",
-    }
-}
+/// The `CALL_INTRINSIC_1` operand descriptions.
+const INTRINSIC_1: [&str; 6] = [
+    "INTRINSIC_1_INVALID",
+    "INTRINSIC_PRINT",
+    "INTRINSIC_IMPORT_STAR",
+    "INTRINSIC_STOPITERATION_ERROR",
+    "INTRINSIC_ASYNC_GEN_WRAP",
+    "INTRINSIC_UNARY_POSITIVE",
+];
+
+/// The `CALL_INTRINSIC_2` operand descriptions.
+const INTRINSIC_2: [&str; 5] = [
+    "INTRINSIC_2_INVALID",
+    "INTRINSIC_PREP_RERAISE_STAR",
+    "INTRINSIC_TYPEWITH",
+    "INTRINSIC_TYPEVAR",
+    "INTRINSIC_EVAL_CODE",
+];
 
 /// Renders one constant in a Python-like, length-capped form.
 fn repr_value(value: &Value, codes: &[PycCodeObject]) -> String {
