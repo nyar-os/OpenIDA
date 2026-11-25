@@ -1,17 +1,20 @@
-//! Unified decoding of `7z`, `asar` and `NSIS` containers.
+//! Unified decoding of `7z`, `asar`, `NSIS` and PyInstaller containers.
 //!
 //! One semantic verb — unpack — covers every supported container format; the
 //! format is a parameter. `auto` sniffs the bytes at the requested offset:
 //! the `7z` signature header, the `asar` pickle magic followed by a JSON
-//! object, or the `NullsoftInst` first header (scanning the file when no
-//! offset is given). Explicit formats skip the sniff and answer with the
-//! stable parse error of their own decoder.
+//! object, the `NullsoftInst` first header (scanning the file when no
+//! offset is given), the `PYZ\0` archive magic, or the PyInstaller cookie
+//! magic in the final kilobyte. Explicit formats skip the sniff and answer
+//! with the stable parse error of their own decoder.
 //!
 //! `7z` indexing and entry decoding run through the internalized
 //! `data-binary-sevenz` crate over a [`boost_source`] adapter of the open
-//! session; `asar` and `NSIS` reuse their engine modules. Nothing is executed
-//! and no external process is spawned; extraction writes only traversal-safe
-//! paths under the caller-chosen directory.
+//! session; `asar`, `NSIS` and PyInstaller reuse their engine modules.
+//! PyInstaller `CArchive` entries and nested `PYZ` modules inflate with the
+//! bundled `miniz_oxide` zlib decoder and the engine's own `marshal` reader.
+//! Nothing is executed and no external process is spawned; extraction writes
+//! only traversal-safe paths under the caller-chosen directory.
 
 use std::io;
 use std::path::{Component, Path};
@@ -24,6 +27,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::asar::{self, AsarOptions};
 use crate::nsis::{self, NsisOptions};
+use crate::pyinstaller::{self, PyInstallerOptions, PyInstallerReport};
 use crate::{IdaError, Result};
 
 /// The 7z signature header magic.
@@ -58,6 +62,10 @@ pub enum UnpackFormat {
     Asar,
     /// An `NSIS` installer container.
     Nsis,
+    /// A PyInstaller `CArchive` bundle appended to an executable.
+    Pyinstaller,
+    /// A standalone PyInstaller `PYZ` archive.
+    Pyz,
 }
 
 /// Inputs of one [`crate::OpenIda::unpack`] call.
@@ -191,6 +199,8 @@ pub enum UnpackReport {
     Asar(asar::AsarReport),
     /// An `NSIS` installer container.
     Nsis(nsis::NsisReport),
+    /// A PyInstaller `CArchive` bundle or standalone `PYZ` archive.
+    Pyinstaller(PyInstallerReport),
 }
 
 fn default_entries_limit() -> usize {
@@ -219,6 +229,8 @@ pub fn analyze(session: &BinarySession, options: &UnpackOptions) -> Result<Unpac
         UnpackFormat::SevenZ => sevenz(session, options).map(UnpackReport::SevenZ),
         UnpackFormat::Asar => asar::analyze(session, &asar_options(options)).map(UnpackReport::Asar),
         UnpackFormat::Nsis => nsis::analyze(session, &nsis_options(options)).map(UnpackReport::Nsis),
+        UnpackFormat::Pyinstaller => pyinstaller_carchive(session, options).map(UnpackReport::Pyinstaller),
+        UnpackFormat::Pyz => pyinstaller_pyz(session, options).map(UnpackReport::Pyinstaller),
         UnpackFormat::Auto => Err(IdaError::parse("the auto sniff did not resolve a format")),
     }
 }
@@ -238,11 +250,17 @@ fn sniff(session: &BinarySession, offset: Option<u64>) -> Result<UnpackFormat> {
         if head.len() == 20 && head[4..20] == *nsis::SIGNATURE {
             return Ok(UnpackFormat::Nsis);
         }
+        if pyinstaller::looks_like_pyz(head) {
+            return Ok(UnpackFormat::Pyz);
+        }
+    }
+    if offset.is_none_or(|value| value == 0) && pyinstaller::locate_cookie(&|start, length| session.read(start, length).map(|bytes| bytes.to_vec()).map_err(IdaError::from), size).is_some() {
+        return Ok(UnpackFormat::Pyinstaller);
     }
     if offset.is_none() && nsis::locate(session, None).is_ok() {
         return Ok(UnpackFormat::Nsis);
     }
-    Err(IdaError::parse("no 7z, asar or NSIS container signature was found at the probe offset"))
+    Err(IdaError::parse("no 7z, asar, NSIS or PyInstaller container signature was found at the probe offset"))
 }
 
 /// Reads one little-endian word from a fetched header window.
@@ -269,6 +287,34 @@ fn nsis_options(options: &UnpackOptions) -> NsisOptions {
         extract_dir: options.extract_dir.clone(),
         extract_limit: options.extract_limit,
     }
+}
+
+/// Maps one `UnpackOptions` onto the PyInstaller engine inputs.
+fn pyinstaller_options(options: &UnpackOptions) -> PyInstallerOptions {
+    PyInstallerOptions {
+        offset: options.offset,
+        entries_limit: options.entries_limit,
+        extract_dir: options.extract_dir.clone(),
+        extract_limit: options.extract_limit,
+    }
+}
+
+/// Decodes the PyInstaller `CArchive` whose cookie ends the file.
+fn pyinstaller_carchive(session: &BinarySession, options: &UnpackOptions) -> Result<PyInstallerReport> {
+    let engine = pyinstaller_options(options);
+    let read = |start: u64, length: u64| session.read(start, length).map(|bytes| bytes.to_vec()).map_err(IdaError::from);
+    let dir = engine.extract_dir.clone().unwrap_or_default();
+    let write = |name: &str, bytes: &[u8]| write_entry(Path::new(&dir), name, bytes);
+    pyinstaller::analyze_carchive(&read, &write, session.size(), &engine)
+}
+
+/// Decodes a standalone PyInstaller `PYZ` archive at the offset.
+fn pyinstaller_pyz(session: &BinarySession, options: &UnpackOptions) -> Result<PyInstallerReport> {
+    let engine = pyinstaller_options(options);
+    let read = |start: u64, length: u64| session.read(start, length).map(|bytes| bytes.to_vec()).map_err(IdaError::from);
+    let dir = engine.extract_dir.clone().unwrap_or_default();
+    let write = |name: &str, bytes: &[u8]| write_entry(Path::new(&dir), name, bytes);
+    pyinstaller::analyze_pyz(&read, &write, session.size(), &engine)
 }
 
 /// Indexes one `7z` container and optionally extracts its entries.
@@ -378,12 +424,12 @@ fn write_entry(directory: &Path, name: &str, bytes: &[u8]) -> Result<String> {
     for part in name.split(['/', '\\']).filter(|part| !part.is_empty() && *part != ".") {
         let mut components = Path::new(part).components();
         if components.next() != Some(Component::Normal(part.as_ref())) || components.next().is_some() {
-            return Err(IdaError::parse(format!("unsafe 7z entry name: {name}")));
+            return Err(IdaError::parse(format!("unsafe container entry name: {name}")));
         }
         target.push(part);
     }
     if target == directory {
-        return Err(IdaError::parse(format!("7z entry name resolves to the extraction directory: {name}")));
+        return Err(IdaError::parse(format!("container entry name resolves to the extraction directory: {name}")));
     }
     if let Some(parent) = target.parent() {
         std::fs::create_dir_all(parent)?;

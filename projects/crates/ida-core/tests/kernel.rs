@@ -3780,6 +3780,216 @@ fn unpack_rejects_a_non_sevenz_input_on_the_explicit_route() {
     assert_eq!(error.code(), "binary/parse");
 }
 
+/// Appends one big-endian word, as PyInstaller stores cookie and TOC words.
+fn pyi_be32(out: &mut Vec<u8>, value: u32) {
+    out.extend_from_slice(&value.to_be_bytes());
+}
+
+/// Appends one `CArchive` TOC entry header plus its NUL-terminated name.
+/// The fixed header is 18 bytes; the declared entry size counts the name
+/// field, so the NUL padding is `19 - name length` bytes.
+fn pyi_toc_entry(out: &mut Vec<u8>, offset: u32, length: u32, compress_length: u32, flags: u8, typecode: u8, name: &str) {
+    pyi_be32(out, (18 + name.len() + 1) as u32);
+    pyi_be32(out, offset);
+    pyi_be32(out, length);
+    pyi_be32(out, compress_length);
+    out.push(flags);
+    out.push(typecode);
+    out.extend_from_slice(name.as_bytes());
+    out.push(0);
+}
+
+/// Writes one `marshal` short-ASCII string and one small int.
+fn pyi_marshal_str(out: &mut Vec<u8>, text: &str) {
+    out.push(b'Z');
+    out.push(text.len() as u8);
+    out.extend_from_slice(text.as_bytes());
+}
+
+fn pyi_marshal_int(out: &mut Vec<u8>, value: i32) {
+    out.push(b'i');
+    out.extend_from_slice(&value.to_le_bytes());
+}
+
+/// Writes the PYZ module dictionary: names mapped to triples.
+fn pyi_pyz_toc(out: &mut Vec<u8>, modules: &[(&str, bool, u32, u32)]) {
+    out.push(b'{');
+    for (name, is_package, offset, length) in modules {
+        pyi_marshal_str(out, name);
+        out.push(b'(');
+        out.extend_from_slice(&3i32.to_le_bytes());
+        out.push(if *is_package { b'T' } else { b'F' });
+        pyi_marshal_int(out, *offset as i32);
+        pyi_marshal_int(out, *length as i32);
+    }
+    out.push(b'0');
+}
+
+/// The PYZ image: header, two zlib-stored modules and the marshal dictionary.
+fn pyz_image() -> (Vec<u8>, Vec<u8>, Vec<u8>) {
+    let module_one = b"\xe3\x00\x00\x00\x00first module marshal".to_vec();
+    let module_two = b"\xe3\x00\x00\x00\x00second module marshal".to_vec();
+    let stream_one = miniz_oxide::deflate::compress_to_vec_zlib(&module_one, 6);
+    let stream_two = miniz_oxide::deflate::compress_to_vec_zlib(&module_two, 6);
+    let mut pyz = b"PYZ\x00".to_vec();
+    pyz.extend_from_slice(&[0xcb, 0x0d, 0x0d, 0x0a]);
+    pyi_be32(&mut pyz, 12 + stream_one.len() as u32 + stream_two.len() as u32);
+    pyz.extend_from_slice(&stream_one);
+    pyz.extend_from_slice(&stream_two);
+    let offset_one = 12;
+    let offset_two = 12 + stream_one.len() as u32;
+    pyi_pyz_toc(&mut pyz, &[("base_module", false, offset_one, stream_one.len() as u32), ("pkg.mod", true, offset_two, stream_two.len() as u32)]);
+    (pyz, module_one, module_two)
+}
+
+/// A fake bootloader prefix with a complete `CArchive` appended: a raw script,
+/// one zlib data entry and one zlib-compressed PYZ.
+fn pyinstaller_bytes() -> (Vec<u8>, Vec<u8>, Vec<u8>) {
+    let (pyz, module_one, module_two) = pyz_image();
+    let mut exe = b"MZ\x90\x00 fake bootloader prefix".to_vec();
+    let mut package: Vec<u8> = Vec::new();
+    let script = b"\xe3\x00\x00\x00\x00main script marshal".to_vec();
+    let script_offset = package.len() as u32;
+    package.extend_from_slice(&script);
+    let payload = b"compressible compressible compressible data".to_vec();
+    let stream = miniz_oxide::deflate::compress_to_vec_zlib(&payload, 6);
+    let data_offset = package.len() as u32;
+    package.extend_from_slice(&stream);
+    let pyz_stream = miniz_oxide::deflate::compress_to_vec_zlib(&pyz, 6);
+    let pyz_offset = package.len() as u32;
+    package.extend_from_slice(&pyz_stream);
+    let toc_offset = package.len() as u32;
+    let mut toc = Vec::new();
+    pyi_toc_entry(&mut toc, script_offset, script.len() as u32, script.len() as u32, 0, b's', "main.py");
+    pyi_toc_entry(&mut toc, data_offset, payload.len() as u32, stream.len() as u32, 1, b'd', "payload.bin");
+    pyi_toc_entry(&mut toc, pyz_offset, pyz.len() as u32, pyz_stream.len() as u32, 1, b'z', "PYZ-00.pyz");
+    let toc_length = toc.len() as u32;
+    package.extend_from_slice(&toc);
+    exe.extend_from_slice(&package);
+    exe.extend_from_slice(b"MEI\x0c\x0b\x0a\x0b\x0e");
+    pyi_be32(&mut exe, (package.len() + 24) as u32);
+    pyi_be32(&mut exe, toc_offset);
+    pyi_be32(&mut exe, toc_length);
+    pyi_be32(&mut exe, 312);
+    (exe, module_one, module_two)
+}
+
+#[test]
+fn unpack_indexes_a_pyinstaller_carchive_and_its_pyz() {
+    let (bytes, _, _) = pyinstaller_bytes();
+    let file = TempFile::new("pyi");
+    file.write(&bytes);
+    let view = BinaryView::open(file.path()).expect("open the bundle");
+
+    let sniffed = view.unpack(&UnpackOptions::default()).expect("sniff the CArchive");
+    let UnpackReport::Pyinstaller(report) = sniffed else {
+        panic!("the sniff must resolve to PyInstaller");
+    };
+    assert_eq!(report.archive_kind, "carchive");
+    assert_eq!(report.version.as_deref(), Some("3.12"));
+    assert_eq!(report.entry_count, 3);
+    assert_eq!(report.entries.len(), 3);
+    assert_eq!(report.entries[0].kind, "script");
+    assert_eq!(report.entries[0].name, "main.py");
+    assert!(!report.entries[0].compressed);
+    assert_eq!(report.entries[1].kind, "data");
+    assert!(report.entries[1].compressed);
+    assert_eq!(report.entries[2].typecode, "z");
+    assert_eq!(report.entries[2].module_count, Some(2));
+    assert_eq!(report.entries[2].modules[0].name, "base_module");
+    assert!(!report.entries[2].modules[0].is_package);
+    assert_eq!(report.entries[2].modules[1].name, "pkg.mod");
+    assert!(report.entries[2].modules[1].is_package);
+    assert!(!report.truncated);
+
+    let explicit = view
+        .unpack(&UnpackOptions { format: UnpackFormat::Pyinstaller, entries_limit: 2, ..UnpackOptions::default() })
+        .expect("explicit CArchive route");
+    let UnpackReport::Pyinstaller(report) = explicit else {
+        panic!("the explicit route must answer with a PyInstaller report");
+    };
+    assert_eq!(report.entries.len(), 2);
+    assert!(report.truncated);
+}
+
+#[test]
+fn unpack_indexes_a_standalone_pyz_archive() {
+    let (pyz, _, _) = pyz_image();
+    let file = TempFile::new("pyz");
+    file.write(&pyz);
+    let view = BinaryView::open(file.path()).expect("open the PYZ");
+
+    let sniffed = view.unpack(&UnpackOptions::default()).expect("sniff the PYZ");
+    let UnpackReport::Pyinstaller(report) = sniffed else {
+        panic!("the sniff must resolve to PyInstaller");
+    };
+    assert_eq!(report.archive_kind, "pyz");
+    assert_eq!(report.python.as_deref(), Some("CPython 3.12"));
+    assert_eq!(report.entry_count, 2);
+    assert_eq!(report.modules[0].name, "base_module");
+    assert_eq!(report.modules[1].name, "pkg.mod");
+}
+
+#[test]
+fn pyinstaller_extracts_entries_and_pyz_modules() {
+    let (bytes, module_one, module_two) = pyinstaller_bytes();
+    let file = TempFile::new("pyi-extract");
+    file.write(&bytes);
+    let view = BinaryView::open(file.path()).expect("open the bundle");
+    let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
+    let dir = std::env::temp_dir().join(format!("open-ida-{id}-pyi"));
+
+    let report = view
+        .unpack(&UnpackOptions {
+            format: UnpackFormat::Pyinstaller,
+            extract_dir: Some(dir.display().to_string()),
+            ..UnpackOptions::default()
+        })
+        .expect("decode with extraction");
+    let UnpackReport::Pyinstaller(report) = report else {
+        panic!("the explicit route must answer with a PyInstaller report");
+    };
+
+    let script = report.entries[0].extracted.as_ref().expect("script entry").replace('\\', "/");
+    assert!(script.ends_with("/main.py"), "the entry name is mirrored: {script}");
+    assert_eq!(fs::read(&script).expect("read script"), b"\xe3\x00\x00\x00\x00main script marshal");
+    let payload = report.entries[1].extracted.as_ref().expect("data entry").replace('\\', "/");
+    assert_eq!(fs::read(&payload).expect("read payload"), b"compressible compressible compressible data");
+    assert!(report.entries[2].extracted.is_none(), "the PYZ blob itself is not written");
+    let modules = &report.entries[2].modules;
+    let first = modules[0].extracted.as_ref().expect("module one").replace('\\', "/");
+    assert!(first.ends_with("/PYZ-00.pyz/base_module.pyc"), "modules land under the PYZ name: {first}");
+    assert_eq!(fs::read(&first).expect("read module one"), module_one);
+    let second = modules[1].extracted.as_ref().expect("module two").replace('\\', "/");
+    assert_eq!(fs::read(&second).expect("read module two"), module_two);
+    fs::remove_dir_all(&dir).expect("cleanup");
+}
+
+#[test]
+fn unpack_rejects_a_broken_pyinstaller_cookie() {
+    let (mut bytes, _, _) = pyinstaller_bytes();
+    // Claim a package longer than the file.
+    let cookie = bytes.len() - 16;
+    bytes[cookie..cookie + 4].copy_from_slice(&(u32::MAX).to_be_bytes());
+    let file = TempFile::new("pyi-bad");
+    file.write(&bytes);
+    let view = BinaryView::open(file.path()).expect("open the bundle");
+    let error = view
+        .unpack(&UnpackOptions { format: UnpackFormat::Pyinstaller, ..UnpackOptions::default() })
+        .unwrap_err();
+    assert_eq!(error.code(), "binary/parse");
+    assert!(error.message().contains("package length"), "the message names the field: {}", error.message());
+
+    let plain = TempFile::new("pyi-none");
+    plain.write(&pe_bytes());
+    let view = BinaryView::open(plain.path()).expect("open the PE");
+    let error = view
+        .unpack(&UnpackOptions { format: UnpackFormat::Pyinstaller, ..UnpackOptions::default() })
+        .unwrap_err();
+    assert_eq!(error.code(), "binary/parse");
+    assert!(error.message().contains("cookie"), "the message names the cookie: {}", error.message());
+}
+
 /// Writes one raw little-endian word of a code object header field.
 fn marshal_word(out: &mut Vec<u8>, value: i32) {
     out.extend_from_slice(&value.to_le_bytes());
