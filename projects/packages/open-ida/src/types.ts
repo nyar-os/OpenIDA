@@ -1056,15 +1056,22 @@ export interface InflateReport {
     readonly output: string | null;
 }
 
-/** Inputs of one `nsis()` call. */
-export interface NsisOptions {
-    /** Absolute offset of the first header; when omitted the file is scanned. */
+/** Container format selector of one `unpack()` call. */
+export type UnpackFormat = 'auto' | '7z' | 'asar' | 'nsis';
+
+/** Inputs of one `unpack()` call. */
+export interface UnpackOptions {
+    /** Container format; `auto` sniffs the bytes at `offset`. */
+    readonly format?: UnpackFormat;
+    /** Absolute offset of the container start; when omitted `auto` scans for an NSIS header. */
     readonly offset?: number;
-    /** Cap on rendered script commands; defaults to 4096 and is capped at 65536. */
+    /** Cap on listed container entries; defaults to 4096 and is capped at 65536. */
+    readonly entriesLimit?: number;
+    /** Cap on rendered NSIS script commands; defaults to 4096 and is capped at 65536. */
     readonly commandsLimit?: number;
-    /** Cap on rendered strings; defaults to 8192 and is capped at 65536. */
+    /** Cap on rendered NSIS strings; defaults to 8192 and is capped at 65536. */
     readonly stringsLimit?: number;
-    /** Directory the payload files are extracted into. */
+    /** Directory the container entries are extracted into. */
     readonly extractDir?: string;
     /** Cap on one extracted file in bytes; defaults to 256 MiB and is capped at 1 GiB. */
     readonly extractLimit?: number;
@@ -1125,18 +1132,6 @@ export interface NsisReport {
     readonly truncated: boolean;
 }
 
-/** Inputs of one `asar()` call. */
-export interface AsarOptions {
-    /** Absolute offset of the archive start; defaults to the file start. */
-    readonly offset?: number;
-    /** Cap on listed file entries; defaults to 4096 and is capped at 65536. */
-    readonly entriesLimit?: number;
-    /** Directory the packed entries are extracted into. */
-    readonly extractDir?: string;
-    /** Cap on one extracted file in bytes; defaults to 256 MiB and is capped at 1 GiB. */
-    readonly extractLimit?: number;
-}
-
 /** The 16-byte asar header plus the derived data-area facts. */
 export interface AsarHeader {
     readonly startOffset: number;
@@ -1164,6 +1159,55 @@ export interface AsarReport {
     readonly entries: AsarEntry[];
     readonly truncated: boolean;
 }
+
+/** One packed 7z folder range inside the container. */
+export interface SevenZPackRange {
+    readonly start: number;
+    readonly length: number;
+}
+
+/** One packed 7z folder: a coder chain feeding the entry sub-streams. */
+export interface SevenZFolder {
+    readonly index: number;
+    readonly coders: string[];
+    readonly packRanges: SevenZPackRange[];
+    readonly unpackSize: number;
+    readonly crc: number | null;
+    readonly subStreamCount: number;
+}
+
+/** One 7z archive entry (file or directory). */
+export interface SevenZEntry {
+    readonly index: number;
+    readonly name: string;
+    readonly size: number | null;
+    readonly offset: number | null;
+    readonly attributes: number | null;
+    readonly isDir: boolean;
+    readonly isAnti: boolean;
+    readonly folderIndex: number | null;
+    readonly crc: number | null;
+    readonly extracted: string | null;
+}
+
+/** Facts indexed from one 7z container header. */
+export interface SevenZReport {
+    readonly startOffset: number;
+    readonly version: string;
+    readonly methods: string[];
+    readonly folderCount: number;
+    readonly entryCount: number;
+    readonly totalUnpackSize: number;
+    readonly folders: SevenZFolder[];
+    readonly entries: SevenZEntry[];
+    readonly truncated: boolean;
+}
+
+/** The decoded container, discriminated by the format that produced it. */
+export type UnpackReport =
+    | ({ readonly format: '7z' } & SevenZReport)
+    | ({ readonly format: 'asar' } & AsarReport)
+    | ({ readonly format: 'nsis' } & NsisReport);
 
 /** One decoded constant of a code object. */
 export interface PycConst {

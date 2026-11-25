@@ -60,6 +60,17 @@ TypeScript sources through `../src/*.js`; native-dependent assertions skip
 themselves when the addon is absent, so a green run without `pnpm build:napi`
 proves less than it appears to.
 
+## Internalization rule
+
+The engine and the CLI never spawn an external process. Every decode,
+decompression and bytecode interpretation — PE / ELF / Mach-O, NSIS, asar,
+CPython `marshal`, 7z with LZMA — is implemented in-tree or in a pinned
+`boost.rs` crate. Analysis workflows must not depend on `bsdtar`, `7z`,
+disassembler SDKs or third-party deobfuscator tools; a capability that today
+exists only as a one-off analysis script (for example a JavaScript
+deobfuscation pass) is internalized into the engine before it becomes a
+product surface.
+
 ## Dependency pins
 
 Cross-repository dependencies pin a full 40-character revision, not a branch or
