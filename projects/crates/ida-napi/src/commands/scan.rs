@@ -25,6 +25,7 @@ struct DisasmInput {
     syntax: Option<DisassemblySyntax>,
     format: Option<String>,
     code: Option<String>,
+    python: Option<u16>,
     code_limit: Option<usize>,
     instruction_limit: Option<usize>,
 }
@@ -53,6 +54,7 @@ pub(crate) fn disasm_report(handle: u64, options_json: &str) -> std::result::Res
                 offset: input.offset,
                 format: PycFormat::Auto,
                 code: input.code,
+                python: input.python,
                 code_limit: input.code_limit.unwrap_or(defaults.code_limit),
                 instruction_limit: input.instruction_limit.unwrap_or(defaults.instruction_limit),
             };

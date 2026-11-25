@@ -805,7 +805,7 @@ function describeSevenZ(report: SevenZReport): string {
 function describePyc(report: PycReport): string {
     const version = report.python ?? 'CPython marshal';
     const lines = [
-        `pyc ${hex(report.startOffset)} · ${report.sourceFormat} · ${version} · ${report.codeCount} code object(s) · ${report.instructionCount} instruction(s)${report.truncated ? ' (truncated)' : ''}`,
+        `pyc ${hex(report.startOffset)} · ${report.sourceFormat} · ${version} · table ${report.opcodeTable} · ${report.codeCount} code object(s) · ${report.instructionCount} instruction(s)${report.truncated ? ' (truncated)' : ''}`,
     ];
     for (const code of report.codes) {
         lines.push(
@@ -1581,6 +1581,7 @@ cli
     .option('--syntax <syntax>', 'cli.opt.syntax')
     .option('--format <format>', 'cli.opt.disasmFormat')
     .option('--code <qualname>', 'cli.opt.disasmCode')
+    .option('--python <version>', 'cli.opt.disasmPython')
     .option('--code-limit <count>', 'cli.opt.disasmCodeLimit')
     .option('--instruction-limit <count>', 'cli.opt.disasmInstructionLimit')
     .actionCtx(async (options, _args, ctx) => {
@@ -1624,6 +1625,12 @@ cli
             return 2;
         }
         const code = text(options, 'code');
+        const pythonText = text(options, 'python');
+        const python = pythonText === undefined ? undefined : parseNumber(pythonText);
+        if (pythonText !== undefined && (python === undefined || python < 1)) {
+            ctx.fail('open-ida.cli.python', { message: '`--python <version>` must be a positive integer such as 312' });
+            return 2;
+        }
         const ida = new OpenIDA({ path: file });
         try {
             const report = ida.disasm({
@@ -1632,6 +1639,7 @@ cli
                 syntax,
                 format: format as DisassemblyFormat,
                 ...(code === undefined ? {} : { code }),
+                ...(python === undefined ? {} : { python }),
                 ...(codeLimit === undefined ? {} : { codeLimit }),
                 ...(instructionLimit === undefined ? {} : { instructionLimit }),
             });
