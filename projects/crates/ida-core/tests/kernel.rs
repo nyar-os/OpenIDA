@@ -13,6 +13,7 @@ use open_ida_core::{
     BinaryView, CarveOptions, DisassembleOptions, DisassemblySyntax, DumpOptions, FindOptions, IdaError,
     InflateFormat, InflateOptions, OpenIda, OpenIdaOptions, PycFormat, PycOptions, SearchMode,
     SearchOptions, StringEncoding, StringsOptions, TauriAssetsOptions, UnpackFormat, UnpackOptions, UnpackReport, scan_assets,
+    sniff_pyc,
 };
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(0);
@@ -3975,6 +3976,20 @@ fn pyc_reads_a_pyc_container_and_filters_by_qualname() {
 
     let forced = view.pyc(&PycOptions { format: PycFormat::Marshal, ..PycOptions::default() });
     assert!(forced.is_err(), "the pyc header is not a marshal stream");
+}
+
+#[test]
+fn sniff_accepts_every_assigned_pyc_magic() {
+    // Every assigned CPython magic is odd, so the signature must not depend on parity.
+    for magic in [3413u16, 3425, 3439, 3495, 3531, 3571] {
+        let header = [magic as u8, (magic >> 8) as u8, 0x0d, 0x0a, 0, 0, 0, 0];
+        assert!(sniff_pyc(&header), "magic {magic} must sniff as bytecode");
+    }
+    assert!(sniff_pyc(&[0xE3, 0, 0, 0, 0]), "a raw code object sniffs as bytecode");
+    assert!(sniff_pyc(&[4, 0, 0, 0, 0]), "a marshal version prefix sniffs as bytecode");
+    assert!(!sniff_pyc(b"MZ\x90\x00\x03\x00\x00\x00"), "a PE header is not bytecode");
+    assert!(!sniff_pyc(b"\x7fELF\x02\x01\x01\x00"), "an ELF header is not bytecode");
+    assert!(!sniff_pyc(&[0x01, 0x01, 0x0d, 0x0a, 0, 0, 0, 0]), "a magic outside the assigned range is not bytecode");
 }
 
 #[test]

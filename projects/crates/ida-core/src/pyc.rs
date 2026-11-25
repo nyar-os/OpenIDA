@@ -229,7 +229,7 @@ pub fn sniff(bytes: &[u8]) -> bool {
     }
     if bytes.len() >= 4 && bytes[2] == 0x0D && bytes[3] == 0x0A {
         let magic = u16::from_le_bytes([bytes[0], bytes[1]]);
-        return (2000..=4000).contains(&magic) && magic % 2 == 0;
+        return (2000..=4000).contains(&magic);
     }
     false
 }
