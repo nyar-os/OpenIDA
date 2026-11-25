@@ -133,8 +133,9 @@ the TypeScript session, so a script and a person read the same result.
   extraction mirrors the archive paths.
 - **Bytecode decoding.** CPython `marshal` streams and `.pyc` containers
   decoded statically through `disasm --format pyc` to every code object, with
-  the 3.11 through 3.13 bytecode disassembled as word-code pairs: opcode names,
-  arguments resolved against the names,
+  the 3.11 through 3.13 bytecode disassembled as word-code pairs: the opcode
+  table named by the container magic (raw streams take the 3.12 table unless
+  `--python` pins another), arguments resolved against the names,
   constants and locals tables, jump targets and inline cache slots counted.
 - **Patching you can audit.** Atomic writes with the before and after hash of
   the whole file; pass `--out` to keep the original untouched.
