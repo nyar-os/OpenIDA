@@ -17,10 +17,11 @@
 //! `marshal` decoder, and module payloads are zlib streams of bare `marshal`
 //! code objects — exactly what `disasm --format pyc` consumes.
 //!
-//! Compression is zlib (`miniz_oxide`) bounded by the declared length.
+//! Compression is zlib (`ida-inflate`) bounded by the declared length.
 //! Nothing is executed, no external process is spawned, and extraction writes
 //! only traversal-safe paths under the caller-chosen directory.
 
+use ida_inflate::{InflateStatus, decode_zlib};
 use serde::{Deserialize, Serialize};
 
 use crate::Result;
@@ -377,10 +378,12 @@ fn payload(read: &dyn Fn(u64, u64) -> Result<Vec<u8>>, package_start: u64, entry
         return Ok(stored);
     }
     let limit = entry.length.min(DEFAULT_PAYLOAD_LIMIT as u64) as usize;
-    match miniz_oxide::inflate::decompress_to_vec_zlib_with_limit(&stored, limit) {
-        Ok(bytes) => Ok(bytes),
-        Err(error) if !error.output.is_empty() => Ok(error.output),
-        Err(_) => Err(IdaError::parse(format!("the zlib payload of entry {} did not inflate", entry.index))),
+    let decoded = decode_zlib(&stored, limit);
+    if decoded.status == InflateStatus::Complete || !decoded.output.is_empty() {
+        Ok(decoded.output)
+    }
+    else {
+        Err(IdaError::parse(format!("the zlib payload of entry {} did not inflate", entry.index)))
     }
 }
 
@@ -433,11 +436,13 @@ fn extract_pyz_modules(bytes: &[u8], write: &dyn Fn(&str, &[u8]) -> Result<Strin
         let stored = &bytes[module.offset as usize..end as usize];
         // The PYZ table records the stored length, so the inflate cap is the
         // payload limit, not the declared size.
-        let out = match miniz_oxide::inflate::decompress_to_vec_zlib_with_limit(stored, DEFAULT_PAYLOAD_LIMIT) {
-            Ok(out) => out,
-            Err(error) if !error.output.is_empty() => error.output,
+        let decoded = decode_zlib(stored, DEFAULT_PAYLOAD_LIMIT);
+        let out = if decoded.status == InflateStatus::Complete || !decoded.output.is_empty() {
+            decoded.output
+        }
+        else {
             // `--no-compress` bundles store bare marshal streams.
-            Err(_) => stored.to_vec(),
+            stored.to_vec()
         };
         let written = write(&format!("{pyz_name}/{}.pyc", module.name), &out)?;
         module.extracted = Some(written);

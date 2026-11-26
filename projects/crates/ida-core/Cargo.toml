@@ -20,7 +20,13 @@ data-binary-pe = { workspace = true }
 data-binary-sevenz = { workspace = true }
 data-compression = { workspace = true }
 boost-source = { workspace = true }
-iced-x86 = { workspace = true }
 regex = { workspace = true }
-brotli = { workspace = true }
+ida-inflate = { workspace = true }
+ida-brotli = { workspace = true }
+ida-x86 = { workspace = true }
+
+[dev-dependencies]
+# Reference encoders, used only by the kernel tests to build compressed
+# fixtures. The library itself decodes with the in-repo crates above.
 miniz_oxide = "0.8"
+brotli = "8"

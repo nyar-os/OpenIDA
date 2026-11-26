@@ -13,7 +13,7 @@ use std::path::{Component, Path, PathBuf};
 
 use data_binary_inspect::BinarySession;
 use data_compression::{CodecLimits, Lzma1};
-use miniz_oxide::inflate::decompress_to_vec_with_limit;
+use ida_inflate::{InflateStatus, decode_raw};
 use serde::{Deserialize, Serialize};
 
 use crate::{IdaError, Result};
@@ -384,24 +384,27 @@ fn decompress_header(session: &BinarySession, data_stream_offset: u64, header_si
 
     if solid {
         let stream = session.read(data_stream_offset + 4, SOLID_PROBE)?;
-        return match decompress_to_vec_with_limit(stream, header_size as usize) {
-            Ok(block) => Ok(block),
-            Err(error) if error.output.len() >= header_size as usize => Ok(error.output[..header_size as usize].to_vec()),
-            Err(error) => Err(IdaError::parse(format!("the solid NSIS stream did not decode cleanly ({:?})", error.status))),
-        };
+        let decoded = decode_raw(stream, header_size as usize);
+        if decoded.status == InflateStatus::Complete {
+            return Ok(decoded.output);
+        }
+        if decoded.output.len() >= header_size as usize {
+            return Ok(decoded.output[..header_size as usize].to_vec());
+        }
+        return Err(IdaError::parse(format!("the solid NSIS stream did not decode cleanly ({:?})", decoded.status)));
     }
 
     let size_field = word(session.read(data_stream_offset, 4)?, 0);
     let compressed = (size_field & 0x7fff_ffff) as u64;
     let stream = session.read(data_stream_offset + 4, compressed)?;
-    match decompress_to_vec_with_limit(stream, header_size as usize + 1) {
-        Ok(block) if block.len() >= header_size as usize => Ok(block[..header_size as usize].to_vec()),
-        Ok(block) => Err(IdaError::parse(format!(
+    let decoded = decode_raw(stream, header_size as usize + 1);
+    match decoded.status {
+        InflateStatus::Complete if decoded.output.len() < header_size as usize => Err(IdaError::parse(format!(
             "the NSIS header block decoded to {} bytes, not the announced {header_size}",
-            block.len()
+            decoded.output.len()
         ))),
-        Err(error) if error.output.len() >= header_size as usize => Ok(error.output[..header_size as usize].to_vec()),
-        Err(error) => Err(IdaError::parse(format!("the NSIS header block did not decode cleanly ({:?})", error.status))),
+        _ if decoded.output.len() >= header_size as usize => Ok(decoded.output[..header_size as usize].to_vec()),
+        _ => Err(IdaError::parse(format!("the NSIS header block did not decode cleanly ({:?})", decoded.status))),
     }
 }
 
@@ -705,15 +708,14 @@ fn extract_files(session: &BinarySession, files: &mut [NsisFile], directory: &Pa
         }
         let stream = session.read(offset + 4, size)?;
         let output = if file.compressed_size.is_some() {
-            match decompress_to_vec_with_limit(stream, limit) {
-                Ok(bytes) => bytes,
-                Err(error) => {
-                    return Err(IdaError::parse(format!(
-                        "the NSIS file {} did not decode cleanly ({:?})",
-                        file.index, error.status
-                    )));
-                }
+            let decoded = decode_raw(stream, limit);
+            if decoded.status != InflateStatus::Complete {
+                return Err(IdaError::parse(format!(
+                    "the NSIS file {} did not decode cleanly ({:?})",
+                    file.index, decoded.status
+                )));
             }
+            decoded.output
         }
         else {
             stream.to_vec()

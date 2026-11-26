@@ -1,12 +1,13 @@
 //! `x86` / `x64` disassembly over the opened bytes.
 //!
 //! The pinned inspection engine does not decode instructions, so this module
-//! owns that step with `iced-x86`. Addresses use the `PE` virtual address when
-//! one is available and fall back to the file offset for other containers.
-//! Other architectures are reported as unsupported instead of being guessed.
+//! owns that step with the in-repo `ida-x86` decoder. Addresses use the `PE`
+//! virtual address when one is available and fall back to the file offset for
+//! other containers. Other architectures are reported as unsupported instead of
+//! being guessed.
 
 use data_binary_inspect::{Architecture, BinaryFormat, BinarySession};
-use iced_x86::{Decoder, DecoderOptions, Formatter, Instruction, IntelFormatter, MasmFormatter, NasmFormatter};
+use ida_x86::{Decoder, Syntax};
 use serde::{Deserialize, Serialize};
 
 use crate::{IdaError, Result};
@@ -139,8 +140,8 @@ pub(crate) fn analyze(session: &BinarySession, options: &DisassembleOptions) -> 
     };
 
     let limit = options.count.min(MAX_COUNT);
-    let mut decoder = Decoder::with_ip(bitness, bytes, start_address, DecoderOptions::NONE);
-    let mut formatter = formatter(options.syntax);
+    let mut decoder = Decoder::new(bitness, &bytes, start_address);
+    let syntax = syntax_of(options.syntax);
     let mut instructions = Vec::new();
     let mut truncated = false;
 
@@ -161,7 +162,7 @@ pub(crate) fn analyze(session: &BinarySession, options: &DisassembleOptions) -> 
             offset: options.offset + relative as u64,
             length: length as u32,
             bytes: hex_bytes(&bytes[relative..end]),
-            text: render(formatter.as_mut(), &instruction),
+            text: instruction.format(syntax).to_string(),
         });
     }
 
@@ -176,26 +177,12 @@ pub(crate) fn analyze(session: &BinarySession, options: &DisassembleOptions) -> 
     })
 }
 
-fn formatter(syntax: DisassemblySyntax) -> Box<dyn Formatter> {
+fn syntax_of(syntax: DisassemblySyntax) -> Syntax {
     match syntax {
-        DisassemblySyntax::Intel => {
-            let mut formatter = IntelFormatter::new();
-            let options = formatter.options_mut();
-            options.set_hex_prefix("0x");
-            options.set_hex_suffix("");
-            options.set_uppercase_hex(false);
-            options.set_small_hex_numbers_in_decimal(false);
-            Box::new(formatter)
-        }
-        DisassemblySyntax::Masm => Box::new(MasmFormatter::new()),
-        DisassemblySyntax::Nasm => Box::new(NasmFormatter::new()),
+        DisassemblySyntax::Intel => Syntax::Intel,
+        DisassemblySyntax::Masm => Syntax::Masm,
+        DisassemblySyntax::Nasm => Syntax::Nasm,
     }
-}
-
-fn render(formatter: &mut dyn Formatter, instruction: &Instruction) -> String {
-    let mut text = String::new();
-    formatter.format(instruction, &mut text);
-    text
 }
 
 fn hex_bytes(bytes: &[u8]) -> String {

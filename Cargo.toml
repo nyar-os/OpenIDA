@@ -26,9 +26,10 @@ data-compression = { git = "https://github.com/oovm/boost.rs", rev = "9785e3c2cd
 boost-source = { git = "https://github.com/oovm/boost.rs", rev = "9785e3c2cd753e16bc4cc8952ce5d973af0c3b69" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-iced-x86 = "=1.21.0"
 regex = "1"
-brotli = "8"
+ida-inflate = { path = "projects/crates/ida-inflate" }
+ida-brotli = { path = "projects/crates/ida-brotli" }
+ida-x86 = { path = "projects/crates/ida-x86" }
 open-ida-core = { path = "projects/crates/ida-core" }
 
 [workspace.lints.rust]

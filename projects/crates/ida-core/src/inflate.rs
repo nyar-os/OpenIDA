@@ -9,7 +9,7 @@
 use std::path::Path;
 
 use data_binary_inspect::BinarySession;
-use miniz_oxide::inflate::{TINFLStatus, decompress_to_vec_with_limit, decompress_to_vec_zlib_with_limit};
+use ida_inflate::{Decoded, InflateStatus, decode_raw, decode_zlib};
 use serde::{Deserialize, Serialize};
 
 use crate::{IdaError, Result};
@@ -82,7 +82,7 @@ pub struct InflateReport {
     /// Output cap after the 64 MiB clamp.
     pub limit: usize,
     /// Decoder outcome: `complete`, `output-limit`, `input-truncated`,
-    /// `checksum`, `stalled` or `invalid`.
+    /// `checksum` or `invalid`.
     pub status: String,
     /// Whether the output cap stopped the decode.
     pub truncated: bool,
@@ -110,9 +110,9 @@ pub fn decode(session: &BinarySession, options: &InflateOptions) -> Result<Infla
     let format = resolve_format(options.format, bytes)?;
 
     let (output, status) = match format {
-        InflateFormat::Zlib => run(decompress_to_vec_zlib_with_limit(bytes, limit)),
-        InflateFormat::Gzip => run(decompress_to_vec_with_limit(gzip_payload(bytes)?, limit)),
-        InflateFormat::Raw => run(decompress_to_vec_with_limit(bytes, limit)),
+        InflateFormat::Zlib => run(decode_zlib(bytes, limit)),
+        InflateFormat::Gzip => run(decode_raw(gzip_payload(bytes)?, limit)),
+        InflateFormat::Raw => run(decode_raw(bytes, limit)),
         InflateFormat::Auto => unreachable!("auto is resolved before decoding"),
     }?;
 
@@ -152,28 +152,25 @@ fn resolve_format(requested: InflateFormat, bytes: &[u8]) -> Result<InflateForma
 /// Only a complete stream, a stream stopped by the output cap and a stream cut
 /// by the end of the file produce output. Anything else is rejected, so a wrong
 /// offset never leaves a file full of garbage behind.
-fn run(result: std::result::Result<Vec<u8>, miniz_oxide::inflate::DecompressError>) -> Result<(Vec<u8>, &'static str)> {
-    match result {
-        Ok(output) => Ok((output, "complete")),
-        Err(error) => {
-            let status = status_name(error.status);
-            match status {
-                "output-limit" | "input-truncated" if !error.output.is_empty() => Ok((error.output, status)),
-                _ => Err(IdaError::parse(format!("the selected range did not decode cleanly ({status})"))),
-            }
+fn run(decoded: Decoded) -> Result<(Vec<u8>, &'static str)> {
+    let status = status_name(decoded.status);
+    match decoded.status {
+        InflateStatus::Complete => Ok((decoded.output, status)),
+        InflateStatus::OutputLimit | InflateStatus::NeedsMoreInput if !decoded.output.is_empty() => {
+            Ok((decoded.output, status))
         }
+        _ => Err(IdaError::parse(format!("the selected range did not decode cleanly ({status})"))),
     }
 }
 
 /// Stable names for the decoder outcomes.
-fn status_name(status: TINFLStatus) -> &'static str {
+fn status_name(status: InflateStatus) -> &'static str {
     match status {
-        TINFLStatus::Done => "complete",
-        TINFLStatus::HasMoreOutput => "output-limit",
-        TINFLStatus::NeedsMoreInput => "input-truncated",
-        TINFLStatus::Adler32Mismatch => "checksum",
-        TINFLStatus::FailedCannotMakeProgress => "stalled",
-        _ => "invalid",
+        InflateStatus::Complete => "complete",
+        InflateStatus::OutputLimit => "output-limit",
+        InflateStatus::NeedsMoreInput => "input-truncated",
+        InflateStatus::Checksum => "checksum",
+        InflateStatus::Invalid => "invalid",
     }
 }
 

@@ -21,6 +21,7 @@ use std::path::Path;
 
 use data_binary_inspect::{BinaryFormat, BinarySession};
 use data_binary_pe::pe;
+use ida_brotli::decompress;
 use serde::{Deserialize, Serialize};
 
 use crate::{IdaError, Result};
@@ -41,6 +42,8 @@ const RECORD_STRIDE: usize = 16;
 const ENTRY_STRIDE: usize = 32;
 /// Printable share a preview window must reach before it is rendered.
 const MIN_PREVIEW_RATIO: f64 = 0.9;
+/// Cap on the decoded size of one embedded asset.
+const MAX_DECODED_ASSET: usize = 64 * 1024 * 1024;
 
 /// Inputs of one [`crate::OpenIda::tauri_assets`] call.
 ///
@@ -210,12 +213,11 @@ fn blob_record(data: &[u8], resolve_va: &dyn Fn(u64) -> Option<usize>, at: usize
     Some((offset, length as usize))
 }
 
-/// Decodes a standalone brotli stream and requires it to consume its length.
+/// Decodes one standalone brotli stream bounded by [`MAX_DECODED_ASSET`].
 fn brotli_decode(data: &[u8], offset: usize, length: usize) -> Option<Vec<u8>> {
-    let mut input = &data[offset..offset + length];
-    let mut output = Vec::new();
-    brotli::BrotliDecompress(&mut input, &mut output).ok()?;
-    input.is_empty().then_some(output)
+    let end = offset.checked_add(length)?;
+    let input = data.get(offset..end)?;
+    decompress(input, MAX_DECODED_ASSET).ok()
 }
 
 /// Writes one decoded asset under `dir`, mirroring its key path.
