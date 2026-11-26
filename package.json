@@ -12,7 +12,7 @@
         "fmt": "cargo fmt --all",
         "p": "git push && git push --tags --prune",
         "reset": "git reset Head~ --soft",
-        "check:rust": "cargo fmt -p open-ida-core -p open-ida-napi -- --check && cargo clippy -p open-ida-core -p open-ida-napi --all-targets -- -D warnings && cargo test -p open-ida-core -p open-ida-napi",
+        "check:rust": "cargo fmt -p ida-domain -p ida-format-adapters -p open-ida-napi -- --check && cargo clippy -p ida-domain -p ida-format-adapters -p open-ida-napi --all-targets -- -D warnings && cargo test -p ida-domain -p ida-format-adapters -p open-ida-napi",
         "build:napi": "wae native build",
         "build:ts": "pnpm --filter @wae/open-ida run build",
         "build:ui": "pnpm --filter @wae/open-ida-ui run build",

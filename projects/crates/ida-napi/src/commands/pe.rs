@@ -1,7 +1,7 @@
 //! PE-specific directory reports: debug, version, resources, mitigations,
 //! exceptions, imports, relocations, certificates, TLS and load config.
 
-use open_ida_core::IdaError;
+use ida_domain::IdaError;
 use serde_json::Value;
 use wae::{CallContext, JsValue, Result};
 

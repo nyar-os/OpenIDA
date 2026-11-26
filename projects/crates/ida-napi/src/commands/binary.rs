@@ -3,7 +3,8 @@
 
 use std::path::Path;
 
-use open_ida_core::{IdaError, OpenIdaOptions, StringsOptions};
+use data_encoding::representation::Hex;
+use ida_domain::{IdaError, OpenIdaOptions, StringsOptions};
 use serde_json::{Value, json};
 use wae::{CallContext, Error, JsValue, Result};
 
@@ -43,10 +44,7 @@ pub(crate) fn hexdump_report(handle: u64, offset: Option<u64>, length: Option<u6
 pub(crate) fn read_report(handle: u64, offset: u64, length: u64) -> std::result::Result<Value, IdaError> {
     with_engine(handle, |engine| {
         let bytes = engine.read(offset, length)?;
-        let mut hex = String::with_capacity(bytes.len() * 2);
-        for byte in bytes {
-            hex.push_str(&format!("{byte:02x}"));
-        }
+        let hex = String::from_utf8(Hex::lowercase().encode(bytes)).expect("hex encoding is ASCII");
         Ok(json!({ "offset": offset, "length": length, "hex": hex }))
     })
 }
@@ -57,7 +55,7 @@ pub(crate) fn patch_report(
     hex_bytes: &str,
     output: Option<&Path>,
 ) -> std::result::Result<Value, IdaError> {
-    let bytes = open_ida_core::parse_hex(hex_bytes)?;
+    let bytes = ida_domain::parse_hex(hex_bytes)?;
     with_engine_mut(handle, |engine| encoded(&engine.patch(offset, &bytes, output)?))
 }
 

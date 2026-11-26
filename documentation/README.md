@@ -10,21 +10,24 @@ agent-facing documentation lives in [agents.md](agents.md).
 
 | Path                                           | What it is                                                                                                                                                                                                                                                                                                                                                                      |
 |------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `../projects/crates/ida-core`                  | Rust crate `open-ida-core`: session defaults, `OpenIda` API, PE debug/CodeView and version-resource parsing, Mach-O load-command identity, disassembly, binary diff, entropy and encoded string scanning, stable errors and the capability matrix. Container decoding, imports, exports, symbols, search, hex dumps and patching come from the pinned `boost.rs` binary crates. |
+| `../projects/crates/ida-domain`                | Rust crate `ida-domain`: session defaults, `OpenIda` API, the workflows (inspect, compare, disassemble, patch, extract), stable errors and the capability matrix. It owns no format decoder; container decoding, imports, exports, symbols, search, hex dumps and patching come from the pinned `boost.rs` binary crates.                                                                          |
+| `../projects/crates/ida-format-adapters`       | Rust crate `ida-format-adapters`: thin projections over format facts (`pe`, `elf`, `macho`, `python`, `containers`) plus the shared `IdaError`/`Result`. No session policy and no Node-API.                                                                                                                                                                                    |
 | `../projects/crates/ida-napi`                  | Rust crate `open-ida-napi`: `cdylib` Node-API exports and the Studio WebView host. It maps JSON in and JSON out; no analysis lives here.                                                                                                                                                                                                                                        |
 | `projects/packages/open-ida`                   | TypeScript package `@wae/open-ida`: `OpenIDA` session (`src/api.ts`), CLI (`src/cli.ts`, bin `open-ida`), GUI helpers, stable errors, types and `locales/en-US/cli.json`.                                                                                                                                                                                                       |
 | `projects/packages/open-ida/tests`             | TypeScript smoke test compiled with `tsconfig.test.json` into `dist-test`. Test files do not live under `src`.                                                                                                                                                                                                                                                                  |
-| `../projects/crates/ida-core`                  | Rust integration tests for the core crate.                                                                                                                                                                                                                                                                                                                                      |
+| `../projects/crates/ida-domain/tests`          | Rust integration tests for the domain crate: `contract.rs`, `workflows.rs`, `decode.rs`, `deflate.rs` and `brotli.rs`.                                                                                                                                                                                                                                                        |
+| `../projects/crates/ida-format-adapters/tests` | Rust projection tests for the adapter crate: `projection.rs` and `pyc_opcodes.rs`.                                                                                                                                                                                                                                                                                             |
 | `projects/packages/open-ida-ui`                | `@wae/open-ida-ui`: VMZ static shell for the Studio window. `vmz build . --profile static` emits `dist/static`, staged into `open-ida/dist/gui`.                                                                                                                                                                                                                                |
 | `projects/packages/open-ida-skills`            | `@wae/open-ida-skills`: skill document under `skills/`. No runtime library and no analysis.                                                                                                                                                                                                                                                                                     |
 | `projects/packages/open-ida-<platform>-<arch>` | Five prebuilt addon packages: `win32-x64`, `darwin-x64`, `darwin-arm64`, `linux-x64`, `linux-arm64`. Each is a thin manifest around a staged `.node` file.                                                                                                                                                                                                                      |
 | `projects/sites/homepage`                      | `@wae/open-ida-homepage`: VMZ product site.                                                                                                                                                                                                                                                                                                                                     |
 | `wae.config.ts`                                | Build order, native targets, platform package mapping, staging, skills registration, CI job names and window behaviour.                                                                                                                                                                                                                                                         |
-| `Cargo.toml`                                   | Cargo workspace; members are `projects/crates/*`, default members `core` and `napi`.                                                                                                                                                                                                                                                                                            |
+| `Cargo.toml`                                   | Cargo workspace; members are `projects/crates/*`, default members `ida-domain`, `ida-format-adapters` and `open-ida-napi`.                                                                                                                                                                                                                                                      |
 | `pnpm-workspace.yaml`                          | pnpm workspace covering `projects/packages/*` and `projects/sites/*`.                                                                                                                                                                                                                                                                                                           |
 
-The CLI, SDK and Studio all read the same core crate. A behaviour change in
-`core` reaches every surface; `capabilities()` is the single disclosure point.
+The CLI, SDK and Studio all read the same domain crate. A behaviour change in
+`ida-domain` reaches every surface; `capabilities()` is the single disclosure
+point.
 
 ## Build and test
 
@@ -45,8 +48,8 @@ pnpm check:rust               # fmt check + clippy -D warnings + core/napi tests
 Useful narrower commands:
 
 ```bash
-cargo test -p open-ida-core
-cargo test -p open-ida-core --release
+cargo test -p ida-domain
+cargo test -p ida-format-adapters
 cargo test -p open-ida-napi
 pnpm build:ts                 # tsc for @wae/open-ida
 pnpm build:ui                 # static Studio shell
@@ -81,10 +84,10 @@ tag:
 - The workspace `Cargo.toml` pins `wae` to
   `f92f818fde7174154d77a87b55a5e44b367034c9` from `doki-land/wae-framework`.
 
-`open-ida-core` deliberately parses the PE debug directory and CodeView records
-itself because the pinned `data-binary-inspect` release does not expose them.
-Do not "fix" that by bumping the pin without re-reading the upstream API and
-running the core tests.
+`ida-format-adapters` deliberately parses the PE debug directory and CodeView
+records itself because the pinned `data-binary-inspect` release does not expose
+them. Do not "fix" that by bumping the pin without re-reading the upstream API
+and running the projection tests.
 
 ## Release and publishing
 

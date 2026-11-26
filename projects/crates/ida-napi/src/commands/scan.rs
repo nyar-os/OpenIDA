@@ -1,9 +1,9 @@
 //! Scanning operations: disassembly, pattern search, byte find, raw dump,
 //! carving and Tauri asset extraction, each driven by an options JSON.
 
-use open_ida_core::{
-    CarveOptions, DisassembleOptions, DisassemblySyntax, DumpOptions, FindOptions, IdaError, InflateOptions, PycFormat, PycOptions,
-    SearchOptions, TauriAssetsOptions, UnpackOptions, sniff_pyc,
+use ida_domain::{
+    CarveOptions, DisassembleOptions, DisassemblySyntax, DumpOptions, FindOptions, IdaError, InflateOptions, PycFormat,
+    PycOptions, SearchOptions, TauriAssetsOptions, UnpackOptions, sniff_pyc,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -43,9 +43,7 @@ pub(crate) fn disasm_report(handle: u64, options_json: &str) -> std::result::Res
                 length > 0 && sniff_pyc(engine.session().read(input.offset.unwrap_or(0), length)?)
             }
             other => {
-                return Err(IdaError::parse(format!(
-                    "unknown disassembly format `{other}`; expected auto, x86 or pyc"
-                )));
+                return Err(IdaError::parse(format!("unknown disassembly format `{other}`; expected auto, x86 or pyc")));
             }
         };
         if bytecode {
@@ -59,7 +57,8 @@ pub(crate) fn disasm_report(handle: u64, options_json: &str) -> std::result::Res
                 instruction_limit: input.instruction_limit.unwrap_or(defaults.instruction_limit),
             };
             encoded(&engine.pyc(&options)?)
-        } else {
+        }
+        else {
             let defaults = DisassembleOptions::default();
             let options = DisassembleOptions {
                 offset: input.offset.unwrap_or(defaults.offset),

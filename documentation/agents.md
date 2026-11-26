@@ -14,8 +14,8 @@ open-ida capabilities
 
 The matrix reports `formats`, `features`, `unsupported` and `architectures`.
 `partial` is not full support, and `unsupported` is a truthful answer rather than
-a failure. A classified container can still be unsupported: fat Mach-O
-containers are rejected, and unknown containers are rejected.
+a failure. A classified container can still be unsupported: unknown containers
+are rejected, and a fat Mach-O is a slice table rather than a thin image.
 
 ## Routes
 
@@ -121,10 +121,113 @@ Branch on `code`, never on message text. CLI usage failures add
    table is not a verified signature, and a set CFG bit is not proof that every
    indirect call is checked.
 
+## Code layout and ownership
+
+| Crate                        | Owns                                                                                                         | Must not contain                                                     |
+|------------------------------|--------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------|
+| `projects/crates/ida-domain` | Session defaults, `OpenIda`/`BinaryView`, capabilities, stable error re-export, workflows (`inspect`, `compare`, `disassemble`, `patch`, `extract`) | Format decoders, byte-observation algorithms that Boost owns, Node-API |
+| `projects/crates/ida-format-adapters` | Format projections `pe`, `elf`, `macho`, `python`, `containers`, and the shared `IdaError`/`Result` | Session policy, workflow ordering, Node-API                          |
+| `projects/crates/ida-napi`   | JSON-in/JSON-out exports and the WebView host                                                                 | Inspection policy, message parsing, report reshaping                  |
+
+x86/x64 decoding is no longer a product crate: `data-binary-x64` at `boost.rs`
+`f191fdc4` owns it behind the non-default `decode` feature, and the in-repo
+`projects/crates/ida-x86` crate was deleted in batch 3. Brotli,
+DEFLATE/zlib/gzip and LZMA are owned by `data-compression` at the same revision;
+`ida-brotli` and `ida-inflate` no longer exist, and only PE debug `NB10`
+legacy fields, Mach-O bind types and the format gaps listed in
+`architecture.md` stay product-local.
+
+The production dependency direction is `open-ida-napi -> ida-domain ->
+ida-format-adapters -> boost data-* crates`. `ida-format-adapters` lists
+`ida-domain` only as a dev-dependency so projection tests can open fixtures
+through `BinaryView`; do not make it a normal dependency. Directory constraints
+are in `architecture.md`; in short, one file per verb or per format projection
+and no `misc.rs`/`utils.rs` catch-all.
+
+## Error transport
+
+An operation fails with `ida_domain::IdaError`, which is
+`ida_format_adapters::error::IdaError` re-exported. It carries a stable `code`
+and a message. N-API serialises `"{code}: {message}"` and never derives or
+rewrites the code from the message; the SDK splits the prefix for display only
+and keeps branching on the code. Typed parameters are the target, not the
+current state: do not parse the message to recover an offset or a length, and do
+not change the code + message shape until the wiring pass introduces the typed
+payload.
+
+## Capability status
+
+`open-ida capabilities` is the only support claim. The status of each capability:
+
+- Migrated and consumed: container headers, sections, imports, exports,
+  symbols, search, hexdump, RVA mapping, the atomic patch writer, the
+  bounded DEFLATE/zlib/gzip envelopes and hex/base64 transforms.
+- Migrated to the format owners at `boost.rs` `f191fdc4`: the PE debug
+  directory (`data-binary-pe::read_debug_directory`), the ELF `.symtab` table
+  (`data-binary-pe::elf::read_elf_symbols`) and the Mach-O `LC_SYMTAB` table
+  (`data-binary-mach-o::read_macho_symbols`). Their local parsers were deleted
+  and the report shapes are unchanged.
+- Product projection over an upstream gap: the remaining `pe`, `elf`, `macho`,
+  `python` and `containers` projections. Migrated to a format owner only when
+  the pinned Boost revision exposes the same fields; `architecture.md` lists
+  every kept fact, its local path, the owner path and the exit condition.
+- Migrated to `data-binary-inspect` at `boost.rs` `f191fdc4`: byte diff,
+  encoded string extraction, the dump range window, entropy ranges and
+  `parse_hex`.
+- Migrated to `data-compression` at `boost.rs` `f191fdc4`: DEFLATE/zlib/gzip
+  through `Envelope::{Raw,Zlib,Gzip}` and the per-envelope
+  `Deflate`/`Zlib`/`Gzip::decode_bounded`, called by the `nsis` container, the
+  PyInstaller `CArchive`/`PYZ` decoder and the `inflate` workflow. The in-repo
+  `projects/crates/ida-inflate` crate was deleted.
+- Migrated to `data-compression` at `boost.rs` `f191fdc4` with the non-default
+  `brotli` feature: `Brotli::decode_bounded` drives the Tauri v2 embedded-asset
+  decode (`workflow/extract/tauri.rs`), which keeps the 64 MiB output cap and
+  rejects a blob that stops early or leaves trailing bytes. The in-repo
+  `projects/crates/ida-brotli` crate and the external `brotli` dev-dependency
+  were deleted (batch 2); tests use fixed Node.js 24 vectors.
+- Migrated to `data-binary-x64` at `boost.rs` `f191fdc4` with the non-default
+  `decode` feature: `decode::{Decoder, Instruction, Syntax}` drives
+  `workflow/disassemble.rs`, and the former in-repo `projects/crates/ida-x86`
+  crate was deleted (batch 3). The decoder suite moved to
+  `ida-domain/tests/decode.rs`.
+- Kept local with an owner gap: byte-regex `find` (upstream `find` is
+  literal-only and has no context preview), the overlay signature scan (product
+  policy over `dump::window`), PE debug `NB10` offset/timestamp and the
+  `debugType` names, the Mach-O bind type, and every PE/ELF/Mach-O fact listed
+  in the `architecture.md` gap table.
+- Product-local: `carve`, Tauri asset recovery, container unpack routing and the
+  PYC/PyInstaller decoders.
+- Still unsupported: decompilation, live debugging, Mach-O rebase stream,
+  ARM/ARM64 disassembly.
+
+## Verification
+
+```bash
+cargo test --workspace                 # domain contract/workflows/decode + adapter projections
+cargo check --workspace --all-targets  # zero warnings
+cargo tree -e normal,build,dev -i iced-x86  # must print nothing (no iced-x86 dependency)
+cargo fmt -p ida-domain -p ida-format-adapters -p open-ida-napi -- --check
+cargo clippy -p ida-domain -p ida-format-adapters -p open-ida-napi --all-targets -- -D warnings
+pnpm typecheck                         # when node_modules exists
+```
+
+Tests are layered: `ida-domain/tests/contract.rs` pins capabilities, codes and
+wire defaults; `ida-domain/tests/workflows.rs` drives product verbs;
+`ida-domain/tests/decode.rs` pins the migrated `data_binary_x64::decode`
+assertions; `ida-domain/tests/brotli.rs` pins the migrated Brotli assertions and
+the bounded product contract over fixed Node.js 24 vectors in
+`ida-domain/tests/brotli_fixtures/mod.rs`; `ida-format-adapters/tests/projection.rs`
+pins format fact shapes; and `ida-format-adapters/tests/pyc_opcodes.rs` pins the
+opcode tables. Do not put a test file under `src`.
+
 ## Key files
 
 | Path                                                         | Contents                                 |
 |--------------------------------------------------------------|------------------------------------------|
+| `projects/crates/ida-domain/src/session.rs`                   | `OpenIdaOptions`, `BinaryView`, `OpenIda`. |
+| `projects/crates/ida-domain/src/report.rs`                    | The public report surface.               |
+| `projects/crates/ida-domain/src/workflow/`                    | The five workflow modules.               |
+| `projects/crates/ida-format-adapters/src/`                    | `pe`, `elf`, `macho`, `python`, `containers`. |
 | `projects/packages/open-ida/src/api.ts`                      | `OpenIDA` session and `capabilities()`.  |
 | `projects/packages/open-ida/src/types.ts`                    | Every report shape.                      |
 | `projects/packages/open-ida/src/errors.ts`                   | Stable codes and `translateNativeError`. |

@@ -1,6 +1,6 @@
 //! Argument extraction and JSON response helpers shared by every export.
 
-use open_ida_core::IdaError;
+use ida_domain::IdaError;
 use serde::Serialize;
 use serde_json::Value;
 use wae::{CallContext, Error, JsValue, Result};

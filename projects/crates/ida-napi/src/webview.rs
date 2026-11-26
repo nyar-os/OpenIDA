@@ -11,7 +11,7 @@ use std::{
     time::Instant,
 };
 
-use open_ida_core::{IdaError, OpenIdaOptions, StringsOptions};
+use ida_domain::{IdaError, OpenIdaOptions, StringsOptions};
 use serde_json::{Value, json};
 use wae::{
     CallContext, JsValue, Result, optional_string_prop,
@@ -60,7 +60,7 @@ impl IpcHandler for IdaIpcHandler {
                 IpcOutcome::CloseWindow
             }
             "ready" => reply(id, "readyResult", json!({ "version": env!("CARGO_PKG_VERSION"), "platform": platform_name() })),
-            "capabilities" => reply(id, "capabilitiesResult", json!({ "capabilities": open_ida_core::capabilities() })),
+            "capabilities" => reply(id, "capabilitiesResult", json!({ "capabilities": ida_domain::capabilities() })),
             "binary.open" => {
                 let options = value
                     .get("options")

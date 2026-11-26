@@ -5,7 +5,7 @@ use std::{
     sync::{Mutex, MutexGuard, OnceLock},
 };
 
-use open_ida_core::{IdaError, OpenIda, OpenIdaOptions};
+use ida_domain::{IdaError, OpenIda, OpenIdaOptions};
 use serde_json::{Value, json};
 
 use crate::args::encoded;

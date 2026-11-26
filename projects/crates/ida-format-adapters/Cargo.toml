@@ -1,0 +1,26 @@
+[package]
+name = "ida-format-adapters"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Format fact projections for OpenIDA"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+data-binary-inspect = { workspace = true }
+data-binary-pe = { workspace = true }
+data-binary-mach-o = { workspace = true }
+data-compression = { workspace = true }
+data-encoding = { workspace = true }
+
+[dev-dependencies]
+# Projection tests open fixtures through the product view so the assertions
+# stay identical; the domain crate depends on this crate for production only.
+ida-domain = { workspace = true }

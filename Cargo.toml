@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["projects/crates/*"]
-default-members = ["projects/crates/ida-core", "projects/crates/ida-napi"]
+default-members = ["projects/crates/ida-domain", "projects/crates/ida-napi"]
 
 [workspace.package]
 version = "0.0.0"
@@ -17,20 +17,25 @@ repository = "https://github.com/nyar-os/OpenIDA"
 # the same commit.
 wae = { git = "https://github.com/doki-land/wae-framework.git", rev = "f92f818fde7174154d77a87b55a5e44b367034c9", default-features = false, features = ["webview"] }
 # Shared binary framework. Keep the same `boost.rs` revision as the rest of the
-# OpenX applications so parsing and target models do not drift.
-data-binary-inspect = { git = "https://github.com/oovm/boost.rs", rev = "9785e3c2cd753e16bc4cc8952ce5d973af0c3b69" }
-data-binary-pe = { git = "https://github.com/oovm/boost.rs", rev = "9785e3c2cd753e16bc4cc8952ce5d973af0c3b69" }
-data-binary-mach-o = { git = "https://github.com/oovm/boost.rs", rev = "9785e3c2cd753e16bc4cc8952ce5d973af0c3b69" }
-data-binary-sevenz = { git = "https://github.com/oovm/boost.rs", rev = "9785e3c2cd753e16bc4cc8952ce5d973af0c3b69" }
-data-compression = { git = "https://github.com/oovm/boost.rs", rev = "9785e3c2cd753e16bc4cc8952ce5d973af0c3b69", features = ["lzma"] }
-boost-source = { git = "https://github.com/oovm/boost.rs", rev = "9785e3c2cd753e16bc4cc8952ce5d973af0c3b69" }
+# OpenX applications so parsing and target models do not drift. The revision
+# adds the `data-binary-x64` decoder that replaced the in-repo `ida-x86` crate.
+data-binary-inspect = { git = "https://github.com/oovm/boost.rs", rev = "f191fdc4134a5be749f289315dfcacc7c4ad9200" }
+data-binary-pe = { git = "https://github.com/oovm/boost.rs", rev = "f191fdc4134a5be749f289315dfcacc7c4ad9200" }
+data-binary-mach-o = { git = "https://github.com/oovm/boost.rs", rev = "f191fdc4134a5be749f289315dfcacc7c4ad9200" }
+data-binary-sevenz = { git = "https://github.com/oovm/boost.rs", rev = "f191fdc4134a5be749f289315dfcacc7c4ad9200" }
+# `data-binary-x64` owns the x86/x64 decoder behind its non-default `decode`
+# feature; the encoder and native-image builder stay available without it.
+data-binary-x64 = { git = "https://github.com/oovm/boost.rs", rev = "f191fdc4134a5be749f289315dfcacc7c4ad9200", features = ["decode"] }
+data-compression = { git = "https://github.com/oovm/boost.rs", rev = "f191fdc4134a5be749f289315dfcacc7c4ad9200", features = ["lzma", "deflate", "brotli"] }
+# Stateless `Base64` / `Hex` / LEB128 transforms. Already in the graph through
+# `data-binary-inspect`; declared directly for the representation helpers.
+data-encoding = { git = "https://github.com/oovm/boost.rs", rev = "f191fdc4134a5be749f289315dfcacc7c4ad9200" }
+boost-source = { git = "https://github.com/oovm/boost.rs", rev = "f191fdc4134a5be749f289315dfcacc7c4ad9200" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 regex = "1"
-ida-inflate = { path = "projects/crates/ida-inflate" }
-ida-brotli = { path = "projects/crates/ida-brotli" }
-ida-x86 = { path = "projects/crates/ida-x86" }
-open-ida-core = { path = "projects/crates/ida-core" }
+ida-domain = { path = "projects/crates/ida-domain" }
+ida-format-adapters = { path = "projects/crates/ida-format-adapters" }
 
 [workspace.lints.rust]
 missing_docs = "deny"

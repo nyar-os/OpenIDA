@@ -2,7 +2,7 @@
 //!
 //! Every export performs one orthogonal operation and returns a JSON string, so
 //! the TypeScript layer owns argument parsing, help text and exit codes. Binary
-//! semantics stay in `open-ida-core`; this layer only forwards operations, keeps
+//! semantics stay in `ida-domain`; this layer only forwards operations, keeps
 //! the live handle table and hosts the WebView window. The CLI and the studio
 //! share the same table, so a file opened from one is visible to the other.
 //!
@@ -30,7 +30,7 @@ fn version(ctx: CallContext) -> Result<JsValue> {
 /// Reports the implemented and explicitly unsupported capability matrix.
 #[function]
 fn capabilities(ctx: CallContext) -> Result<JsValue> {
-    let matrix = open_ida_core::capabilities().to_string();
+    let matrix = ida_domain::capabilities().to_string();
     ctx.env().string(&matrix)
 }
 

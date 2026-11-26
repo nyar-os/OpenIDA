@@ -1,7 +1,7 @@
 //! ELF reports: static symbol table, dynamic dependencies, notes and the
 //! program header table.
 
-use open_ida_core::IdaError;
+use ida_domain::IdaError;
 use serde_json::Value;
 use wae::{CallContext, JsValue, Result};
 

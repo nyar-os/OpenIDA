@@ -3,7 +3,7 @@
 
 use std::path::Path;
 
-use open_ida_core::IdaError;
+use ida_domain::IdaError;
 use serde_json::Value;
 use wae::{CallContext, Error, JsValue, Result};
 
