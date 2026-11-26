@@ -38,7 +38,7 @@ mod pe_delay_imports;
 mod pe_exception;
 mod pe_rich_header;
 mod pyc;
-mod pyc_opcodes;
+pub mod pyc_opcodes;
 mod pyinstaller;
 mod relocations;
 mod resources;

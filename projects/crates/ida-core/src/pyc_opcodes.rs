@@ -516,31 +516,8 @@ pub(crate) fn extended_arg(version: u16) -> u8 {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::{OPCODES_311, OPCODES_312, OPCODES_313};
-
-    fn assert_sorted_unique(label: &str, table: &[(u8, &str)]) {
-        assert!(!table.is_empty(), "{label} is empty");
-        for pair in table.windows(2) {
-            assert!(pair[0].0 < pair[1].0, "{label} is not sorted at {}", pair[0].0);
-            assert!(!pair[0].1.is_empty(), "{label} has an empty name");
-        }
-    }
-
-    #[test]
-    fn tables_are_sorted_and_unique() {
-        assert_sorted_unique("3.11", OPCODES_311);
-        assert_sorted_unique("3.12", OPCODES_312);
-        assert_sorted_unique("3.13", OPCODES_313);
-    }
-
-    #[test]
-    fn every_table_names_cache_and_resume() {
-        for table in [OPCODES_311, OPCODES_312, OPCODES_313] {
-            assert_eq!(table[0], (0, "CACHE"));
-            assert!(table.iter().any(|(_, name)| *name == "RESUME"));
-            assert!(table.iter().any(|(_, name)| *name == "LOAD_CONST"));
-        }
-    }
+/// The opcode tables of every supported interpreter version, keyed by the
+/// version number (`311`, `312`, `313`).
+pub fn tables() -> [(u16, &'static [(u8, &'static str)]); 3] {
+    [(311, OPCODES_311), (312, OPCODES_312), (313, OPCODES_313)]
 }
