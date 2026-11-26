@@ -12,6 +12,7 @@
 //! unsupported instead of being approximated.
 
 #![recursion_limit = "256"]
+#![warn(missing_docs)]
 
 mod asar;
 mod carve;

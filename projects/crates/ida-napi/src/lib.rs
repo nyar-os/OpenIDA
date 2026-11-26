@@ -10,6 +10,8 @@
 //! because the wae macros reference their generated registration items by bare
 //! identifier; each entry point delegates to the domain modules below.
 
+#![warn(missing_docs)]
+
 use wae::{CallContext, JsValue, Result, function, register_module};
 
 mod args;
