@@ -1,14 +1,11 @@
-//! Mach-O load commands, segments, sections, dylibs and image identity.
+//! Mach-O format projections.
 //!
-//! The header, segment and section tables and the `LC_SYMTAB` symbol table
-//! (`read_macho_symbols`) come from `data-binary-mach-o`. The pinned release
-//! does not expose `LC_UUID`, `LC_BUILD_VERSION`, `LC_VERSION_MIN_*`, the
-//! dylib commands or the dylib timestamp, so those are decoded here from the
-//! same load-command stream. The classic dyld bind, weak-bind and lazy-bind
-//! opcode streams are decoded by [`bindings`] because the owner's `MachBind`
-//! has no bind type; the rebase stream and the chained fixup pointers are not.
-//! Fat/universal containers are reported as an architecture table; a thin
-//! image is inspected directly and does not have slices.
+//! `data-binary-mach-o` owns the header, the load-command stream, segments,
+//! sections, `LC_SYMTAB`, `LC_UUID`, `LC_BUILD_VERSION` / `LC_VERSION_MIN_*`,
+//! the dylib commands, the classic bind streams, the export trie, encryption,
+//! chained fixups, function starts, the embedded code signature and the fat
+//! slice table. Every module here maps those owner types onto the product JSON
+//! reports and keeps no decoder of its own.
 
 pub mod bindings;
 pub mod chained_fixups;
@@ -19,7 +16,6 @@ pub mod fat;
 pub mod function_starts;
 pub mod image;
 pub mod symbols;
-pub mod util;
 
 pub use bindings::{MachOBinding, MachOBindingsReport};
 pub use chained_fixups::{MachOChainedFixupsHeader, MachOChainedFixupsReport, MachOChainedImport};
@@ -30,31 +26,3 @@ pub use fat::{MachOSlice, MachOSliceExtraction, MachOSlicesReport};
 pub use function_starts::MachOFunctionStartsReport;
 pub use image::{MachODylib, MachOReport, MachOSection, MachOSegment};
 pub use symbols::{MachOSymbol, MachOSymbolsReport};
-
-const LC_FUNCTION_STARTS: u32 = 0x26;
-const LC_DYLD_INFO: u32 = 0x22;
-const LC_DYLD_INFO_ONLY: u32 = 0x8000_0022;
-const LC_DYLD_CHAINED_FIXUPS: u32 = 0x8000_0034;
-const LC_DYLD_EXPORTS_TRIE: u32 = 0x8000_0033;
-const LC_LOAD_DYLIB: u32 = 0x0c;
-const FAT_MAGIC: u32 = 0xcafe_babe;
-const FAT_MAGIC_64: u32 = 0xcafe_babf;
-/// Upper bound on the declared slice count, so a corrupt header cannot force a
-/// huge allocation.
-const MAX_FAT_SLICES: usize = 256;
-const LC_ID_DYLIB: u32 = 0x0d;
-const LC_LOAD_WEAK_DYLIB: u32 = 0x8000_0018;
-const LC_REEXPORT_DYLIB: u32 = 0x8000_001f;
-const LC_LAZY_LOAD_DYLIB: u32 = 0x20;
-const LC_LOAD_UPWARD_DYLIB: u32 = 0x8000_0023;
-const LC_VERSION_MIN_MACOSX: u32 = 0x24;
-const LC_VERSION_MIN_IPHONEOS: u32 = 0x25;
-const LC_VERSION_MIN_TVOS: u32 = 0x2f;
-const LC_VERSION_MIN_WATCHOS: u32 = 0x30;
-const LC_BUILD_VERSION: u32 = 0x32;
-const LC_UUID: u32 = 0x1b;
-const LC_ENCRYPTION_INFO: u32 = 0x21;
-const LC_ENCRYPTION_INFO_64: u32 = 0x2c;
-
-const HEADER32_SIZE: usize = 28;
-const HEADER64_SIZE: usize = 32;

@@ -11,7 +11,7 @@ No layer parses a business payload twice.
 |----------|---------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Domain   | `../projects/crates/ida-domain` (`ida-domain`)     | Session defaults, `OpenIda`, the capability matrix, the stable error surface and the workflows that assemble reports: inspect (strings, find), compare (diff), disassemble, patch and extract (dump, carve, inflate, Tauri assets, container unpack). It owns no format decoder. |
 | Adapters | `../projects/crates/ida-format-adapters` (`ida-format-adapters`) | Thin projections over `data-binary-*` facts: `pe`, `elf`, `macho`, `python` and `containers` (asar, nsis, overlay, entropy). Every entry takes an open `BinarySession` and returns one report. The shared `IdaError`/`Result` type is defined here so the domain can depend on the adapters without a cycle. |
-| Upstream | `data-binary-inspect`, `data-binary-pe`, `data-binary-mach-o`, `data-binary-x64`, `data-binary-sevenz`, `data-compression`, `data-encoding`, `boost-source` | Container detection, headers, sections, imports, exports, symbols, literal search, hex/base64 transforms, hex dumps, byte diff, printable-text extraction, entropy, address mapping, atomic patching, Mach-O headers/segments/sections, x86/x64 decoding (behind the `decode` feature) and bounded DEFLATE/zlib/gzip/Brotli decoding. Pinned at `boost.rs` revision `f191fdc4134a5be749f289315dfcacc7c4ad9200`. |
+| Upstream | `data-binary-inspect`, `data-binary-pe`, `data-binary-mach-o`, `data-binary-container`, `data-binary-x64`, `data-binary-sevenz`, `data-compression`, `data-encoding`, `boost-source` | Container detection, headers, sections, imports, exports, symbols, literal search, hex/base64 transforms, hex dumps, byte diff, printable-text extraction, entropy, address mapping, atomic patching, every PE directory, the ELF program-header/dynamic/note facts, the Mach-O identity/bind/export/fixup/signature/fat facts, the `.pyc`/PyInstaller/NSIS/`asar`/Tauri container facts, x86/x64 decoding (behind the `decode` feature) and bounded DEFLATE/zlib/gzip/Brotli decoding. Pinned at `boost.rs` revision `3e865d5c96ffe4e6d4da2143f63b3d29f12d0dd7`. |
 | Codecs   | none (product)                                   | LZMA1/LZMA2, the DEFLATE/zlib/gzip envelopes and Brotli are owned by `data-compression`; x86/x64 decoding is owned by `data-binary-x64::decode`. The former in-repo `ida-inflate`, `ida-brotli` and `ida-x86` crates were deleted in batches 1, 2 and 3. |
 | Binding  | `../projects/crates/ida-napi` (`open-ida-napi`)    | JSON-in / JSON-out Node-API exports plus the WebView host. No inspection policy and no message parsing.                                                                                                                                                |
 | SDK      | `projects/packages/open-ida/src`                   | `OpenIDA` session, report types, stable error translation, addon discovery.                                                                                                                                                                            |
@@ -149,30 +149,36 @@ both consumers and an independent oracle.
 | Capability                                                                 | Owner today                                  | Status                                | Target owner                        |
 |----------------------------------------------------------------------------|----------------------------------------------|---------------------------------------|-------------------------------------|
 | Headers, sections, imports, exports, symbols, search, hexdump, RVA mapping, atomic patch writer | `data-binary-inspect` / `data-binary-pe` / `data-binary-mach-o` | Migrated, consumed                   | same                                |
-| PE version resource, resources, relocations, exception, delay/bound imports, Rich header, certificates, TLS, load config, mitigations | `ida-format-adapters/src/pe`                 | Product projection over an upstream gap | `data-binary-pe`                    |
-| ELF `PT_DYNAMIC`, program headers, notes                                    | `ida-format-adapters/src/elf`                | Product projection over an upstream gap | `data-binary-pe::elf`               |
-| Mach-O UUID/build versions, function starts, exports, encryption, chained fixups, bind opcodes, fat slices, code signature | `ida-format-adapters/src/macho`              | Product projection over an upstream gap | `data-binary-mach-o`                |
-| PE debug directory and `RSDS`/`NB10` records                                | `data-binary-pe` (`read_debug_directory`)    | Migrated, consumed (batch 3)          | same                                |
+| PE version resource, resources, relocations, exception, delay/bound imports, Rich header, certificates, TLS, load config, mitigations | `data-binary-pe::pe` (`read_*`)              | Migrated, consumed (batch 4); report structs are projections | same |
+| ELF `PT_DYNAMIC`, program headers, notes                                    | `data-binary-pe::elf` (`read_*`)             | Migrated, consumed (batch 4); report structs are projections | same |
+| Mach-O UUID/build versions, function starts, exports, encryption, chained fixups, bind opcodes, fat slices, code signature | `data-binary-mach-o::mach_o` (`read_*`) | Migrated, consumed (batch 4); report structs are projections | same |
+| PE debug directory and `RSDS`/`NB10` records                                | `data-binary-pe` (`read_debug_directory`)    | Migrated, consumed (batch 3, unchanged in batch 4) | same                    |
 | ELF static symbol table (`.symtab`)                                         | `data-binary-pe::elf` (`read_elf_symbols`)   | Migrated, consumed (batch 3)          | same                                |
 | Mach-O `LC_SYMTAB` symbol table                                             | `data-binary-mach-o` (`read_macho_symbols`)  | Migrated, consumed (batch 3)          | same                                |
-| CPython `marshal`/`pyc` decode, opcode tables                               | `ida-format-adapters/src/python`             | Product-local decoder                 | format owner candidate              |
-| PyInstaller `CArchive`/`PYZ` facts                                          | `ida-format-adapters/src/python`             | Product-local container               | format owner candidate              |
-| `asar`, `NSIS` facts                                                         | `ida-format-adapters/src/containers`         | Product-local container               | `data-binary-zip`/archive candidate |
-| Byte diff, encoded strings, dump range window, entropy range                 | `data-binary-inspect` (`d440aae8`)           | Migrated, consumed                    | same                                |
+| CPython `marshal`/`pyc` decode, opcode tables                               | `data-binary-container::pyc`, `pyc_opcodes`  | Migrated, consumed (batch 4)          | same                                |
+| PyInstaller `CArchive`/`PYZ` facts                                          | `data-binary-container::pyinstaller`         | Migrated, consumed (batch 4)          | same                                |
+| `asar`, `NSIS`, Tauri v2 asset facts                                         | `data-binary-container::{asar,nsis,tauri}`   | Migrated, consumed (batch 4)          | same                                |
+| Byte diff, encoded strings, dump range window, entropy range                 | `data-binary-inspect` (`3e865d5c`)           | Migrated, consumed                    | same                                |
 | Byte-regex `find`                                                            | `ida-domain/src/workflow/inspect/find.rs`    | Kept local: upstream `find` is a literal matcher and has no context preview | `data-binary-inspect` once it owns byte regex |
 | Overlay range and container-signature scan                                   | `ida-format-adapters/src/containers/overlay.rs` | Product/format-owned semantics; range math from `dump::window` | stays product      |
-| x86/x64 decoding                                                             | `data-binary-x64` at `f191fdc4` (`decode` feature) through the disassemble workflow | Migrated, consumed: `decode::{Decoder, Instruction, Syntax}` drives `workflow/disassemble.rs`, and the former in-repo `projects/crates/ida-x86` crate was deleted (batch 3). Tests moved to `ida-domain/tests/decode.rs` | same                                |
-| DEFLATE/zlib/gzip decoding                                                   | `data-compression` at `d440aae8`             | Migrated, consumed: `Envelope::{Raw,Zlib,Gzip}::decode` and the per-envelope `Deflate`/`Zlib`/`Gzip::decode_bounded` calls drive the NSIS header block and payload chunks (`containers/nsis.rs`), PyInstaller `CArchive`/`PYZ` entries (`python/pyinstaller.rs`) and the `inflate` workflow (`workflow/extract/inflate.rs`). The former in-repo `projects/crates/ida-inflate` crate and its call sites were deleted | same                                |
-| Brotli decoding                                                              | `data-compression` at `d440aae8` (`brotli` feature) | Migrated, consumed: `Brotli::decode_bounded` drives the Tauri v2 embedded-asset decode (`workflow/extract/tauri.rs`), which rejects a blob that stops early or leaves `trailing_input != 0`. The former in-repo `projects/crates/ida-brotli` crate was deleted (batch 2) and the external `brotli` dev-dependency removed; tests use fixed Node.js 24 vectors | same                                |
-| Carve, Tauri asset recovery, container unpack routing                        | `ida-domain/src/workflow/extract`            | Product-local workflow                | stays product                       |
+| x86/x64 decoding                                                             | `data-binary-x64` at `3e865d5c` (`decode` feature) through the disassemble workflow | Migrated, consumed: `decode::{Decoder, Instruction, Syntax}` drives `workflow/disassemble.rs`, and the former in-repo `projects/crates/ida-x86` crate was deleted (batch 3). Tests moved to `ida-domain/tests/decode.rs` | same                                |
+| DEFLATE/zlib/gzip decoding                                                   | `data-compression` at `3e865d5c`             | Migrated, consumed: `Envelope::{Raw,Zlib,Gzip}::decode` and the per-envelope `Deflate`/`Zlib`/`Gzip::decode_bounded` calls drive the NSIS header block and payload chunks (`containers/nsis.rs`), PyInstaller `CArchive`/`PYZ` entries (`python/pyinstaller.rs`) and the `inflate` workflow (`workflow/extract/inflate.rs`). The former in-repo `projects/crates/ida-inflate` crate and its call sites were deleted | same                                |
+| Brotli decoding                                                              | `data-compression` at `3e865d5c` (`brotli` feature) | Migrated, consumed: `Brotli::decode_bounded` drives the Tauri v2 embedded-asset decode (`workflow/extract/tauri.rs`), which rejects a blob that stops early or leaves `trailing_input != 0`. The former in-repo `projects/crates/ida-brotli` crate was deleted (batch 2) and the external `brotli` dev-dependency removed; tests use fixed Node.js 24 vectors | same                                |
+| Carve and container unpack routing                                           | `ida-domain/src/workflow/extract`            | Product-local workflow                | stays product                       |
+| Tauri v2 asset recovery                                                      | `data-binary-container::tauri`               | Migrated, consumed (batch 4)          | same                                |
 | Decompilation, live debugging, Mach-O rebase stream                          | none                                         | Not implemented                       | stays unsupported                   |
 
 The workspace pins every consumed `boost.rs` crate at
-`f191fdc4134a5be749f289315dfcacc7c4ad9200`. That revision is the
-`d440aae8` tree plus the `data-binary-x64` decoder (behind the non-default
-`decode` feature), so the byte-observation owners did not move. `diff`, `text`,
-`dump`, `entropy`, the bounded DEFLATE envelopes, Brotli and the x86/x64 decoder
-are the migrated owners; `find` stays local because its product verb is a
+`3e865d5c96ffe4e6d4da2143f63b3d29f12d0dd7`. Batch 4 pinned that revision and
+consumed the newly exposed `data-binary-pe` (`read_debug_directory` with
+`NB10` offset/timestamp, version resources, resources, relocations, exception,
+delay/bound imports, Rich header, certificates, TLS, load config, mitigations),
+`data-binary-pe::elf` (`read_program_headers`, `read_dynamic`, `read_notes`),
+`data-binary-mach-o::mach_o` (`read_fat_slices`, `read_exports`, encryption,
+`read_chained_fixups`, `read_function_starts`, `read_code_signature`,
+identity/UUID/build version, dylib timestamp and lazy commands, bind types) and
+the new `data-binary-container` crate (`pyc`, `pyc_opcodes`, `pyinstaller`,
+`nsis`, `asar`, `tauri`). `find` stays local because its product verb is a
 regular-expression matcher rather than the upstream literal search, and
 `overlay` stays product-owned because the container signature families are
 OpenIDA policy. `data-compression` is the unique owner of DEFLATE/zlib/gzip and
@@ -197,58 +203,85 @@ mode.
 
 ## Format fact ownership
 
-Batch 3 compared every `ida-format-adapters/src/{pe,elf,macho}.rs` field with the
-public API of the owning `boost.rs` crate at `f191fdc4`. A fact moved to the
-owner only when offset, span, truncation and error code mean the same thing;
-the product report shape did not change. Three facts migrated (687 lines of
-adapter code became 381, so about 300 lines of local parsing left the repo), the
-rest stay because the owner has no field for them or returns it with different
-semantics.
+Batch 4 compared every `ida-format-adapters/src/{pe,elf,macho,python,containers}`
+field with the public API of the owning `boost.rs` crate at `3e865d5c`. A fact
+moved to the owner only when offset, span, truncation and error code mean the
+same thing; the product report shape did not change. 29 fact families migrated,
+and the adapters now hold no container, `PE`, `ELF` or Mach-O decoder.
 
-### Migrated to the format owners
+### Owner matrix (fact -> owner path)
 
-| Fact                                            | Local parser removed            | Owner now used                                                      |
-|-------------------------------------------------|---------------------------------|---------------------------------------------------------------------|
-| PE debug directory entries and `RSDS`/`NB10`    | `pe/debug.rs` 28-byte entry walk | `data-binary-pe::pe::{read_debug_directory, PeDebugEntry, PeCodeView}` |
-| ELF `.symtab` entries and the linked string table | `elf/symbols.rs` section/symbol `Reader` | `data-binary-pe::elf::{parse_elf, read_elf_symbols, ElfSymbol}` |
-| Mach-O `LC_SYMTAB` entries and the string table | `macho/symbols.rs` load-command walk | `data-binary-mach-o::{parse_macho, read_macho_symbols, MachSymbol}` |
+| Fact family | Owner path |
+|-------------|------------|
+| PE debug directory, `RSDS`/`NB10` | `data-binary-pe::pe::{read_debug_directory, PeDebugEntry::stable_type_name, PeCodeView::{offset,timestamp}}` |
+| PE version resource | `data-binary-pe::pe::read_version_resources` |
+| PE resource tree | `data-binary-pe::pe::read_resources` |
+| PE base relocations | `data-binary-pe::pe::read_relocations` |
+| PE exception/unwind | `data-binary-pe::pe::read_exception_directory` |
+| PE delay imports | `data-binary-pe::pe::read_delay_imports` |
+| PE bound imports | `data-binary-pe::pe::read_bound_imports` |
+| PE Rich header | `data-binary-pe::pe::read_rich_header` |
+| PE certificates | `data-binary-pe::pe::read_certificates` |
+| PE TLS | `data-binary-pe::pe::read_tls_directory` |
+| PE load config | `data-binary-pe::pe::read_load_config` |
+| PE mitigations (header/section/load-config facts) | `data-binary-pe::pe::read_mitigations` |
+| ELF program headers | `data-binary-pe::elf::read_program_headers` |
+| ELF dynamic table | `data-binary-pe::elf::read_dynamic` |
+| ELF notes | `data-binary-pe::elf::read_notes` |
+| ELF `.symtab` | `data-binary-pe::elf::read_elf_symbols` |
+| Mach-O image identity (header/segments/sections/dylibs/UUID/build/entry/encryption) | `data-binary-mach-o::mach_o::{parse_macho, MachOImage}` |
+| Mach-O fat slices | `data-binary-mach-o::mach_o::read_fat_slices` |
+| Mach-O export trie | `data-binary-mach-o::mach_o::read_exports` |
+| Mach-O chained fixups | `data-binary-mach-o::mach_o::read_chained_fixups` |
+| Mach-O function starts | `data-binary-mach-o::mach_o::read_function_starts` |
+| Mach-O code signature | `data-binary-mach-o::mach_o::read_code_signature` |
+| Mach-O classic bind streams | `data-binary-mach-o::mach_o::read_bindings` |
+| Mach-O `LC_SYMTAB` | `data-binary-mach-o::mach_o::read_macho_symbols` |
+| `.pyc` / `marshal` | `data-binary-container::pyc::{analyze, sniff}` |
+| CPython opcode tables | `data-binary-container::pyc_opcodes` |
+| PyInstaller `CArchive`/`PYZ` | `data-binary-container::pyinstaller::{analyze_carchive, analyze_pyz, locate_cookie}` |
+| NSIS | `data-binary-container::nsis::{analyze, locate}` |
+| `asar` | `data-binary-container::asar::analyze` |
+| Tauri v2 assets | `data-binary-container::tauri::{analyze, scan_assets}` |
 
-### Remaining gaps (local parsing kept)
+### Deleted local parser modules
 
-| Fact                                                       | Local path                        | Owner path                                  | Decision                                                                 | Exit condition                                              |
-|------------------------------------------------------------|-----------------------------------|---------------------------------------------|--------------------------------------------------------------------------|-------------------------------------------------------------|
-| PE `debugType` vocabulary                                  | `pe/debug.rs::debug_type_name`    | `PeDebugEntry::type_name`                   | Kept: the owner spells `reserved10`, `clsid`, `vc_feature`; switching would change wire values | Owner exposes the product vocabulary, or the values may change |
-| PE `NB10` record offset and timestamp                      | `pe/debug.rs::code_view`          | `PeCodeView`                                | Kept: the owner drops the legacy pair                                    | `PeCodeView` returns `offset`/`timestamp`                   |
-| PE version resource (`VS_VERSIONINFO`)                     | `pe/version.rs`                   | none                                        | Kept: no owner reader                                                    | `data-binary-pe` owns version resources                     |
-| PE resource directory tree                                 | `pe/resources.rs`                 | none                                        | Kept                                                                     | `read_resources` upstream                                   |
-| PE base relocations                                        | `pe/relocations.rs`               | none                                        | Kept                                                                     | `read_relocations` upstream                                 |
-| PE exception runtime functions and x64 unwind              | `pe/exception.rs`                 | none                                        | Kept                                                                     | `read_runtime_functions` upstream                           |
-| PE delay imports                                           | `pe/delay_imports.rs`             | none                                        | Kept                                                                     | `read_delay_imports` upstream                               |
-| PE bound imports                                           | `pe/bound_imports.rs`             | none                                        | Kept                                                                     | `read_bound_imports` upstream                               |
-| PE Rich header                                             | `pe/rich_header.rs`               | none                                        | Kept                                                                     | `read_rich_header` upstream                                 |
-| PE attribute certificate table                             | `pe/certificates.rs`              | none                                        | Kept                                                                     | `read_certificates` upstream                                |
-| PE TLS directory                                           | `pe/tls.rs`                       | none                                        | Kept                                                                     | `read_tls` upstream                                         |
-| PE load configuration (also read by `mitigations`)         | `pe/load_config.rs`, `pe/mitigations.rs` | none                                 | Kept                                                                     | `read_load_config` upstream                                 |
-| ELF `PT_DYNAMIC` table                                     | `elf/dynamic.rs`                  | none                                        | Kept                                                                     | dynamic table upstream                                      |
-| ELF program headers                                        | `elf/segments.rs`                 | none (`ElfImage` has sections only)         | Kept                                                                     | `ElfImage.segments` upstream                                |
-| ELF note segments                                           | `elf/notes.rs`                    | none                                        | Kept                                                                     | `read_elf_notes` upstream                                   |
-| Mach-O identity (`LC_UUID`, `LC_BUILD_VERSION`, `LC_VERSION_MIN_*`, dylib timestamp) | `macho/image.rs` | `MachOImage` has dylibs without a timestamp and no UUID/build fields | Kept | Owner exposes those load commands                           |
-| Mach-O `LC_FUNCTION_STARTS`                                 | `macho/function_starts.rs`        | none                                        | Kept                                                                     | `read_function_starts` upstream                             |
-| Mach-O dyld export trie                                     | `macho/exports.rs`                | `MachDyldInfo` offsets only                 | Kept                                                                     | `read_exports_trie` upstream                                |
-| Mach-O `LC_ENCRYPTION_INFO(_64)`                            | `macho/encryption.rs`             | none                                        | Kept                                                                     | crypt range upstream                                        |
-| Mach-O `LC_DYLD_CHAINED_FIXUPS`                             | `macho/chained_fixups.rs`         | none                                        | Kept                                                                     | chained fixups upstream                                     |
-| Mach-O classic bind opcodes                                 | `macho/bindings.rs`               | `read_bindings`, `MachBind`                 | Kept: `MachBind` has no bind type and names streams `weak_bind`/`lazy_bind`; the product reports `pointer`/`text-abs32` and special ordinals | `MachBind.bind_type` plus the product stream vocabulary |
-| Mach-O code signature blob table                            | `macho/code_signature.rs`         | none                                        | Kept                                                                     | code-directory blob upstream                                |
-| Mach-O fat/universal header                                 | `macho/fat.rs`                    | `macho_magic` probe only                    | Kept                                                                     | fat header upstream                                         |
-| PyInstaller `CArchive`/`PYZ`, PYC, `asar`, `NSIS`           | `python/`, `containers/`          | none                                        | Kept (product container formats)                                         | a format owner appears                                     |
+| Removed path | Fact it parsed | Replacement |
+|--------------|----------------|-------------|
+| `python/pyc/marshal.rs` | `marshal` object graph | `data-binary-container::pyc` |
+| `python/pyc/render.rs` | `.pyc` report rendering | `data-binary-container::pyc::analyze` |
+| `macho/util.rs` | fat-magic probe | `data_binary_mach_o::mach_o::fat_magic` |
+| decoder bodies in `pe/{debug,version,resources,relocations,exception,delay_imports,bound_imports,rich_header,certificates,tls,load_config,mitigations}.rs` | byte walks over `IMAGE_*` directories | the `read_*` calls above |
+| decoder bodies in `elf/{segments,dynamic,notes}.rs` | `e_phoff` / `PT_DYNAMIC` / `PT_NOTE` walks | `read_program_headers` / `read_dynamic` / `read_notes` |
+| decoder bodies in `macho/{image,fat,exports,encryption,chained_fixups,function_starts,code_signature,bindings}.rs` | load-command and trie walks | the `MachOImage` fields and `read_*` calls above |
+| decoder bodies in `python/{pyc,pyc_opcodes,pyinstaller}.rs`, `containers/{asar,nsis}.rs`, `workflow/extract/tauri.rs` | container parsers | `data-binary-container` calls |
 
-The PE debug directory keeps one upstream bound: `read_debug_directory` caps the
-walk at 256 entries, so a corrupt directory that declares more reports the
-capped result instead of the declared count.
+Only projections remain in those files: each maps owner types into the
+published report JSON and aliases different owner names (for example
+`PeResourcesReport` -> `ResourcesReport`).
+
+### Remaining gaps (product-local)
+
+| Gap | Local path | Why it stays |
+|-----|------------|--------------|
+| PE overlay range and signature families | `containers/overlay.rs` | The owner exposes sections and directories, not "the overlay"; which signatures count is OpenIDA policy. |
+| `unpack` verb | `workflow/extract/unpack.rs` | A verb: format routing plus the 7z aggregation; the 7z facts are `data-binary-sevenz`. |
+| `carve` verb | `workflow/extract/carve.rs` | A product scan-and-write workflow, not a container fact. |
+| Byte-regex `find` | `workflow/inspect/find.rs` | Upstream `find` is literal-only and has no context preview. |
+| Mach-O binding list bound | `macho/bindings.rs` | `read_bindings` is unbounded; the projection keeps the product 512-entry cap and `total`/`truncated`. |
+| PyInstaller cookie window | `python/pyinstaller.rs` | Reads the final 1 KiB through the session and rebases the owner's in-window offset; equivalent to a full-image scan without loading a whole installer. |
+
+Report-shape adaptations: owner report names that differ are aliased, owner
+types without serde (ELF dynamic/segments/notes, Mach-O reports) are copied into
+the existing JSON structs, and every `ContainerError` / `PeAnalysisError` /
+`ElfParseError` / `MachOParseError` is mapped onto `IdaError`, keeping the
+existing codes. The PE32+ `DllCharacteristics` fixture now uses the real
+optional-header offset 70, because the owner reads it correctly and the former
+local `+0x4a` workaround was removed.
 
 ## Representation helpers
 
-`data-encoding` at `f191fdc4` owns `Hex`, `Base64`, LEB128 and ZigZag. It was
+`data-encoding` at `3e865d5c` owns `Hex`, `Base64`, LEB128 and ZigZag. It was
 already in the graph through `data-binary-inspect`; the workspace now declares it
 directly, so no new external crate was added. Standard byte-to-hex conversions
 route through `representation::Hex::lowercase()`:
@@ -280,9 +313,14 @@ the PE `CodeView` GUID / Mach-O `LC_UUID` dash layouts.
   `ida-domain/tests/brotli_fixtures/mod.rs`; the tests never encode.
 - `ida-format-adapters/tests/projection.rs` asserts the format fact shapes
   (PE/ELF/Mach-O/PYC/container). The test target opens fixtures through
-  `BinaryView` via the dev-dependency; the assertion bodies are unchanged from
-  the kernel suite.
-- `ida-format-adapters/tests/pyc_opcodes.rs` pins the opcode table invariants.
+  `BinaryView` via the dev-dependency. Batch 4 removed no projection test; the
+  only fixture change is the PE32+ `DllCharacteristics` offset (70 instead of
+  the former local `+0x4a` workaround).
+- `ida-format-adapters/tests/pyc_opcodes.rs` pins the opcode table invariants;
+  the tables now come from `data-binary-container::pyc_opcodes`.
+- The three unit tests of the deleted in-repo Tauri brotli decoder moved with
+  the decoder to `data-binary-container`; the product workflow-level Tauri
+  coverage in `workflows.rs` is unchanged, so the workspace total is 207.
 - The TypeScript smoke test lives in
   `projects/packages/open-ida/tests/smoke.test.ts`, compiles with
   `tsconfig.test.json` and asserts the error contract plus the absent-addon

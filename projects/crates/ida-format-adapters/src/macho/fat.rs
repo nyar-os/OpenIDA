@@ -1,16 +1,15 @@
-//! Fat/universal Mach-O containers: the architecture slice table and the
-//! extraction of one slice to a caller-chosen path.
+//! Fat/universal Mach-O projection and slice extraction.
+//!
+//! The architecture table is owned by `data-binary-mach-o`
+//! (`read_fat_slices`). This module keeps the product JSON shape and the
+//! product extraction verb, which refuses to overwrite the source container.
 
 use std::path::Path;
 
 use data_binary_inspect::BinarySession;
-use data_binary_mach_o::mach_o::{architecture, macho_magic};
+use data_binary_mach_o::mach_o::{fat_magic, read_fat_slices};
 use serde::{Deserialize, Serialize};
 
-use super::{
-    MAX_FAT_SLICES,
-    util::{be_u32, be_u64, fat_header},
-};
 use crate::{IdaError, Result};
 
 /// One architecture slice of a fat/universal Mach-O.
@@ -48,49 +47,30 @@ pub struct MachOSlicesReport {
 /// Lists the architecture slices of a fat/universal Mach-O container.
 pub fn slices(session: &BinarySession) -> Result<MachOSlicesReport> {
     let bytes = session.read(0, session.size())?;
-    let Some((is_fat64, count)) = fat_header(bytes)
-    else {
+    if fat_magic(bytes).is_none() {
         return Err(IdaError::unsupported(
             "the file is not a fat/universal Mach-O container; a thin image is inspected with `macho`",
         ));
-    };
-    if count > MAX_FAT_SLICES {
-        return Err(IdaError::parse(format!("the fat header declares {count} slices, above the {MAX_FAT_SLICES}-entry limit")));
     }
+    let table = read_fat_slices(bytes).map_err(|error| IdaError::parse(format!("Mach-O: {error}")))?;
 
-    let entry_size = if is_fat64 { 32 } else { 20 };
-    let table_end = 8usize.saturating_add(count.saturating_mul(entry_size));
-    let table = bytes.get(8..table_end).ok_or_else(|| IdaError::parse("the fat architecture table is truncated"))?;
-
-    let mut entries = Vec::with_capacity(count);
-    for index in 0..count {
-        let entry = &table[index * entry_size..(index + 1) * entry_size];
-        let cpu_type = be_u32(entry, 0)? as i32;
-        let cpu_subtype = be_u32(entry, 4)? as i32;
-        let (offset, size, alignment) = if is_fat64 {
-            (be_u64(entry, 8)?, be_u64(entry, 16)?, be_u32(entry, 24)?)
-        }
-        else {
-            (u64::from(be_u32(entry, 8)?), u64::from(be_u32(entry, 12)?), be_u32(entry, 16)?)
-        };
-        let end = offset
-            .checked_add(size)
-            .filter(|end| *end <= bytes.len() as u64)
-            .ok_or_else(|| IdaError::parse(format!("slice {index} lies outside the file")))?;
-        let bits = macho_magic(&bytes[offset as usize..end as usize]).map(|(is_64, _)| if is_64 { 64 } else { 32 });
-        entries.push(MachOSlice {
-            index,
-            cpu_type,
-            cpu_subtype,
-            architecture: architecture(cpu_type).as_str().to_string(),
-            offset,
-            size,
-            alignment,
-            bits,
-        });
-    }
-
-    Ok(MachOSlicesReport { is_fat64, slices: entries })
+    Ok(MachOSlicesReport {
+        is_fat64: table.is_fat64,
+        slices: table
+            .slices
+            .iter()
+            .map(|slice| MachOSlice {
+                index: slice.index,
+                cpu_type: slice.cpu_type,
+                cpu_subtype: slice.cpu_subtype,
+                architecture: slice.architecture.as_str().to_string(),
+                offset: slice.offset,
+                size: slice.size,
+                alignment: slice.alignment,
+                bits: slice.bits,
+            })
+            .collect(),
+    })
 }
 
 /// One fat slice written to a caller-chosen path.

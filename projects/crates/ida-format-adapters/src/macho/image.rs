@@ -1,16 +1,16 @@
-//! Mach-O image identity: the header summary, segment and section tables and
-//! the dylib load commands decoded by `analyze`.
+//! Mach-O image identity projection.
+//!
+//! The header, segment/section tables, dylib commands, `LC_UUID`,
+//! `LC_BUILD_VERSION`/`LC_VERSION_MIN_*` and `LC_MAIN` are owned by
+//! `data-binary-mach-o` (`parse_macho`). This module only maps the owner types
+//! into the product report shape.
 
 use data_binary_inspect::{BinaryFormat, BinarySession};
-use data_binary_mach_o::mach_o::{MachOEndian, MachOImage, architecture, parse_macho};
+use data_binary_mach_o::mach_o::{
+    MachBuildInfo, MachOEndian, MachOImage, architecture, fat_magic, parse_macho, render_version,
+};
 use serde::{Deserialize, Serialize};
 
-use super::{
-    HEADER32_SIZE, HEADER64_SIZE, LC_BUILD_VERSION, LC_ID_DYLIB, LC_LAZY_LOAD_DYLIB, LC_LOAD_DYLIB, LC_LOAD_UPWARD_DYLIB,
-    LC_LOAD_WEAK_DYLIB, LC_REEXPORT_DYLIB, LC_UUID, LC_VERSION_MIN_IPHONEOS, LC_VERSION_MIN_MACOSX, LC_VERSION_MIN_TVOS,
-    LC_VERSION_MIN_WATCHOS,
-    util::{Reader, fat_header},
-};
 use crate::{IdaError, Result};
 
 /// One linked or identifying dylib command.
@@ -124,55 +124,13 @@ pub struct MachOReport {
 /// Decodes the Mach-O load commands of one session.
 pub fn analyze(session: &BinarySession) -> Result<MachOReport> {
     let bytes = session.read(0, session.size())?;
-    if fat_header(bytes).is_some() {
+    if fat_magic(bytes).is_some() {
         return Err(IdaError::unsupported("the Mach-O is a fat/universal container; use `macho-slices` and inspect a slice"));
     }
     if session.format() != BinaryFormat::MachO {
         return Err(IdaError::unsupported("Mach-O inspection requires a Mach-O container"));
     }
     let image = parse_macho(bytes).map_err(|error| IdaError::parse(format!("Mach-O: {error}")))?;
-    let reader = Reader { bytes, endian: image.header.endian };
-
-    let header_size = if image.header.is_64 { HEADER64_SIZE } else { HEADER32_SIZE };
-    let mut offset = header_size as u64;
-    let mut uuid = None;
-    let mut platform = None;
-    let mut min_os = None;
-    let mut sdk = None;
-    let mut dylibs = Vec::new();
-
-    for _ in 0..image.header.command_count {
-        let (Some(command), Some(size)) = (reader.u32(offset), reader.u32(offset + 4))
-        else {
-            break;
-        };
-        if size < 8 {
-            break;
-        }
-        match command {
-            LC_UUID if size >= 24 => uuid = reader.uuid(offset + 8),
-            LC_BUILD_VERSION if size >= 24 => {
-                platform = reader.u32(offset + 8).map(platform_name).map(str::to_string);
-                min_os = reader.u32(offset + 12).map(render_version);
-                sdk = reader.u32(offset + 16).map(render_version);
-            }
-            LC_VERSION_MIN_MACOSX | LC_VERSION_MIN_IPHONEOS | LC_VERSION_MIN_TVOS | LC_VERSION_MIN_WATCHOS if size >= 16 => {
-                platform = Some(version_min_platform(command).to_string());
-                min_os = reader.u32(offset + 8).map(render_version);
-                sdk = reader.u32(offset + 12).map(render_version);
-            }
-            LC_LOAD_DYLIB | LC_ID_DYLIB | LC_LOAD_WEAK_DYLIB | LC_REEXPORT_DYLIB | LC_LAZY_LOAD_DYLIB
-            | LC_LOAD_UPWARD_DYLIB
-                if size >= 24 =>
-            {
-                if let Some(dylib) = reader.dylib(offset, size, command) {
-                    dylibs.push(dylib);
-                }
-            }
-            _ => {}
-        }
-        offset = offset.saturating_add(u64::from(size));
-    }
 
     let segments = image
         .segments
@@ -193,8 +151,11 @@ pub fn analyze(session: &BinarySession) -> Result<MachOReport> {
         .sections
         .iter()
         .map(|section| {
-            let segment = image.segments.iter().find(|segment| segment.name == section.segment);
-            let protection = segment.map(|segment| segment.initial_protection).unwrap_or(0);
+            let protection = image
+                .segments
+                .iter()
+                .find(|segment| segment.name == section.segment)
+                .map_or(0, |segment| segment.initial_protection);
             MachOSection {
                 segment: section.segment.clone(),
                 name: section.name.clone(),
@@ -210,8 +171,20 @@ pub fn analyze(session: &BinarySession) -> Result<MachOReport> {
         })
         .collect::<Vec<_>>();
 
+    let dylibs = image
+        .dylibs
+        .iter()
+        .map(|dylib| MachODylib {
+            kind: dylib.kind.as_str().to_string(),
+            name: dylib.name.clone(),
+            timestamp: dylib.timestamp,
+            current_version: render_version(dylib.current_version),
+            compatibility_version: render_version(dylib.compatibility_version),
+        })
+        .collect::<Vec<_>>();
+
+    let build = image.build.as_ref();
     let entry_offset = image.entry_offset;
-    let entry_address = entry_offset.and_then(|offset| map_file_offset(&image, offset));
 
     Ok(MachOReport {
         is_64: image.header.is_64,
@@ -227,12 +200,12 @@ pub fn analyze(session: &BinarySession) -> Result<MachOReport> {
         flags: image.header.flags,
         command_count: image.header.command_count,
         size_of_commands: image.header.size_of_commands,
-        uuid,
-        platform,
-        min_os,
-        sdk,
+        uuid: image.uuid_string(),
+        platform: build.map(|build| build.platform.as_str().to_string()),
+        min_os: build.map(MachBuildInfo::min_os_version),
+        sdk: build.map(MachBuildInfo::sdk_version),
         entry_offset,
-        entry_address,
+        entry_address: entry_offset.and_then(|offset| map_file_offset(&image, offset)),
         dylibs,
         segments,
         sections,
@@ -271,48 +244,5 @@ fn file_type_name(file_type: u32) -> &'static str {
         0xa => "dsym",
         0xb => "kext-bundle",
         _ => "other",
-    }
-}
-
-fn platform_name(platform: u32) -> &'static str {
-    match platform {
-        1 => "macos",
-        2 => "ios",
-        3 => "tvos",
-        4 => "watchos",
-        5 => "bridgeos",
-        6 => "mac-catalyst",
-        7 => "ios-simulator",
-        8 => "tvos-simulator",
-        9 => "watchos-simulator",
-        10 => "driverkit",
-        11 => "visionos",
-        12 => "visionos-simulator",
-        _ => "unknown",
-    }
-}
-
-fn version_min_platform(command: u32) -> &'static str {
-    match command {
-        LC_VERSION_MIN_MACOSX => "macos",
-        LC_VERSION_MIN_IPHONEOS => "ios",
-        LC_VERSION_MIN_TVOS => "tvos",
-        _ => "watchos",
-    }
-}
-
-/// Renders a packed `x.y.z` version such as `0x000D0100` as `13.1.0`.
-pub(super) fn render_version(value: u32) -> String {
-    format!("{}.{}.{}", value >> 16, (value >> 8) & 0xff, value & 0xff)
-}
-
-pub(super) fn dylib_kind(command: u32) -> &'static str {
-    match command {
-        LC_ID_DYLIB => "id",
-        LC_LOAD_WEAK_DYLIB => "weak",
-        LC_REEXPORT_DYLIB => "reexport",
-        LC_LAZY_LOAD_DYLIB => "lazy",
-        LC_LOAD_UPWARD_DYLIB => "upward",
-        _ => "load",
     }
 }

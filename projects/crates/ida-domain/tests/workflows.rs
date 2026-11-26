@@ -1304,7 +1304,6 @@ fn dump_clamps_the_length_and_rejects_ranges_outside_the_file() {
 
 /// Builds a container of zero padding around one printable JavaScript-style
 /// run that mentions the `synthetic-blob` marker twice.
-
 fn carve_fixture() -> (Vec<u8>, usize, usize, usize) {
     let mut js: Vec<u8> = Vec::new();
     js.extend_from_slice(b"(function(){var mode=\"synthetic-blob\";document.addEventListener(\"click\",function(){\n");
@@ -1661,7 +1660,6 @@ fn asar_rejects_a_non_asar_input() {
 
 /// Assembles a minimal valid empty 7z container: signature, version 0.4 and a
 /// start header that announces a zero-length next header.
-
 fn sevenz_bytes() -> Vec<u8> {
     let mut bytes = vec![0u8; 32];
     bytes[..6].copy_from_slice(&[0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C]);
@@ -1707,7 +1705,6 @@ fn unpack_rejects_a_non_sevenz_input_on_the_explicit_route() {
 }
 
 /// Appends one big-endian word, as PyInstaller stores cookie and TOC words.
-
 fn pyi_be32(out: &mut Vec<u8>, value: u32) {
     out.extend_from_slice(&value.to_be_bytes());
 }

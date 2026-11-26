@@ -168,8 +168,6 @@ fn hex_parser_accepts_common_separators() {
     assert_eq!(error.code(), "binary/parse");
 }
 
-/// 单节 `PE32+`：`.rdata` 覆盖文件 0x200..0x800，内含导入、导出与一个 `COFF` 符号。
-
 #[test]
 fn find_options_use_camel_case_defaults() {
     let defaults: FindOptions = serde_json::from_str(r#"{ "pattern": "ab" }"#).expect("minimal wire options");

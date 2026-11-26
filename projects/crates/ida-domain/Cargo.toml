@@ -17,6 +17,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 data-binary-inspect = { workspace = true }
 data-binary-pe = { workspace = true }
+data-binary-container = { workspace = true }
 data-binary-sevenz = { workspace = true }
 data-binary-x64 = { workspace = true }
 data-compression = { workspace = true }

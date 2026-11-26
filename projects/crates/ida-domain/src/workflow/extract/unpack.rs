@@ -261,13 +261,7 @@ fn sniff(session: &BinarySession, offset: Option<u64>) -> Result<UnpackFormat> {
             return Ok(UnpackFormat::Pyz);
         }
     }
-    if offset.is_none_or(|value| value == 0)
-        && pyinstaller::locate_cookie(
-            &|start, length| session.read(start, length).map(|bytes| bytes.to_vec()).map_err(IdaError::from),
-            size,
-        )
-        .is_some()
-    {
+    if offset.is_none_or(|value| value == 0) && pyinstaller::locate_cookie(session)?.is_some() {
         return Ok(UnpackFormat::Pyinstaller);
     }
     if offset.is_none() && nsis::locate(session, None).is_ok() {
@@ -315,19 +309,13 @@ fn pyinstaller_options(options: &UnpackOptions) -> PyInstallerOptions {
 /// Decodes the PyInstaller `CArchive` whose cookie ends the file.
 fn pyinstaller_carchive(session: &BinarySession, options: &UnpackOptions) -> Result<PyInstallerReport> {
     let engine = pyinstaller_options(options);
-    let read = |start: u64, length: u64| session.read(start, length).map(|bytes| bytes.to_vec()).map_err(IdaError::from);
-    let dir = engine.extract_dir.clone().unwrap_or_default();
-    let write = |name: &str, bytes: &[u8]| write_entry(Path::new(&dir), name, bytes);
-    pyinstaller::analyze_carchive(&read, &write, session.size(), &engine)
+    pyinstaller::analyze_carchive(session, &engine)
 }
 
 /// Decodes a standalone PyInstaller `PYZ` archive at the offset.
 fn pyinstaller_pyz(session: &BinarySession, options: &UnpackOptions) -> Result<PyInstallerReport> {
     let engine = pyinstaller_options(options);
-    let read = |start: u64, length: u64| session.read(start, length).map(|bytes| bytes.to_vec()).map_err(IdaError::from);
-    let dir = engine.extract_dir.clone().unwrap_or_default();
-    let write = |name: &str, bytes: &[u8]| write_entry(Path::new(&dir), name, bytes);
-    pyinstaller::analyze_pyz(&read, &write, session.size(), &engine)
+    pyinstaller::analyze_pyz(session, &engine)
 }
 
 /// Indexes one `7z` container and optionally extracts its entries.

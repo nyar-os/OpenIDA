@@ -130,12 +130,16 @@ Branch on `code`, never on message text. CLI usage failures add
 | `projects/crates/ida-napi`   | JSON-in/JSON-out exports and the WebView host                                                                 | Inspection policy, message parsing, report reshaping                  |
 
 x86/x64 decoding is no longer a product crate: `data-binary-x64` at `boost.rs`
-`f191fdc4` owns it behind the non-default `decode` feature, and the in-repo
+`3e865d5c` owns it behind the non-default `decode` feature, and the in-repo
 `projects/crates/ida-x86` crate was deleted in batch 3. Brotli,
 DEFLATE/zlib/gzip and LZMA are owned by `data-compression` at the same revision;
-`ida-brotli` and `ida-inflate` no longer exist, and only PE debug `NB10`
-legacy fields, Mach-O bind types and the format gaps listed in
-`architecture.md` stay product-local.
+`ida-brotli` and `ida-inflate` no longer exist. Batch 4 also moved every PE
+directory, the ELF program-header/dynamic/note facts, the Mach-O identity and
+extended load-command facts and the `.pyc`/PyInstaller/NSIS/`asar`/Tauri
+containers to `data-binary-pe`, `data-binary-mach-o` and the new
+`data-binary-container`; only the overlay policy, the `unpack`/`carve` verbs,
+byte-regex `find` and the format gaps listed in `architecture.md` stay
+product-local.
 
 The production dependency direction is `open-ida-napi -> ida-domain ->
 ida-format-adapters -> boost data-* crates`. `ida-format-adapters` lists
@@ -162,41 +166,42 @@ payload.
 - Migrated and consumed: container headers, sections, imports, exports,
   symbols, search, hexdump, RVA mapping, the atomic patch writer, the
   bounded DEFLATE/zlib/gzip envelopes and hex/base64 transforms.
-- Migrated to the format owners at `boost.rs` `f191fdc4`: the PE debug
-  directory (`data-binary-pe::read_debug_directory`), the ELF `.symtab` table
-  (`data-binary-pe::elf::read_elf_symbols`) and the Mach-O `LC_SYMTAB` table
-  (`data-binary-mach-o::read_macho_symbols`). Their local parsers were deleted
-  and the report shapes are unchanged.
-- Product projection over an upstream gap: the remaining `pe`, `elf`, `macho`,
-  `python` and `containers` projections. Migrated to a format owner only when
-  the pinned Boost revision exposes the same fields; `architecture.md` lists
-  every kept fact, its local path, the owner path and the exit condition.
-- Migrated to `data-binary-inspect` at `boost.rs` `f191fdc4`: byte diff,
+- Migrated to the format owners at `boost.rs` `3e865d5c`: every PE directory
+  (`data-binary-pe::pe::read_*`), the ELF program headers, dynamic table, notes
+  and `.symtab` (`data-binary-pe::elf::read_*`), the Mach-O image identity,
+  fat slices, exports, chained fixups, function starts, code signature, bind
+  streams and `LC_SYMTAB` (`data-binary-mach-o::mach_o`), and the
+  `.pyc`/PyInstaller/NSIS/`asar`/Tauri facts (`data-binary-container`). Their
+  local parsers were deleted; only projection structs remain, and report shapes
+  are unchanged.
+- Product projection over an upstream gap: none of the format decode paths.
+  `architecture.md` lists the remaining product-local items: overlay policy,
+  the `unpack`/`carve` verbs, byte-regex `find`, the Mach-O binding-list bound
+  and the windowed PyInstaller cookie adapter.
+- Migrated to `data-binary-inspect` at `boost.rs` `3e865d5c`: byte diff,
   encoded string extraction, the dump range window, entropy ranges and
   `parse_hex`.
-- Migrated to `data-compression` at `boost.rs` `f191fdc4`: DEFLATE/zlib/gzip
+- Migrated to `data-compression` at `boost.rs` `3e865d5c`: DEFLATE/zlib/gzip
   through `Envelope::{Raw,Zlib,Gzip}` and the per-envelope
   `Deflate`/`Zlib`/`Gzip::decode_bounded`, called by the `nsis` container, the
   PyInstaller `CArchive`/`PYZ` decoder and the `inflate` workflow. The in-repo
   `projects/crates/ida-inflate` crate was deleted.
-- Migrated to `data-compression` at `boost.rs` `f191fdc4` with the non-default
+- Migrated to `data-compression` at `boost.rs` `3e865d5c` with the non-default
   `brotli` feature: `Brotli::decode_bounded` drives the Tauri v2 embedded-asset
-  decode (`workflow/extract/tauri.rs`), which keeps the 64 MiB output cap and
-  rejects a blob that stops early or leaves trailing bytes. The in-repo
-  `projects/crates/ida-brotli` crate and the external `brotli` dev-dependency
-  were deleted (batch 2); tests use fixed Node.js 24 vectors.
-- Migrated to `data-binary-x64` at `boost.rs` `f191fdc4` with the non-default
+  decode, now inside `data-binary-container::tauri`, which keeps the 64 MiB
+  output cap and rejects a blob that stops early or leaves trailing bytes. The
+  in-repo `projects/crates/ida-brotli` crate and the external `brotli`
+  dev-dependency were deleted (batch 2); tests use fixed Node.js 24 vectors.
+- Migrated to `data-binary-x64` at `boost.rs` `3e865d5c` with the non-default
   `decode` feature: `decode::{Decoder, Instruction, Syntax}` drives
   `workflow/disassemble.rs`, and the former in-repo `projects/crates/ida-x86`
   crate was deleted (batch 3). The decoder suite moved to
   `ida-domain/tests/decode.rs`.
 - Kept local with an owner gap: byte-regex `find` (upstream `find` is
   literal-only and has no context preview), the overlay signature scan (product
-  policy over `dump::window`), PE debug `NB10` offset/timestamp and the
-  `debugType` names, the Mach-O bind type, and every PE/ELF/Mach-O fact listed
-  in the `architecture.md` gap table.
-- Product-local: `carve`, Tauri asset recovery, container unpack routing and the
-  PYC/PyInstaller decoders.
+  policy over `dump::window`), and the items listed in the `architecture.md`
+  gap table.
+- Product-local: the `unpack` routing and `carve` verbs.
 - Still unsupported: decompilation, live debugging, Mach-O rebase stream,
   ARM/ARM64 disassembly.
 

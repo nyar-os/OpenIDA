@@ -1,8 +1,9 @@
 //! CPython bytecode and PyInstaller container projections.
 //!
-//! [`pyc`] decodes the `marshal` object graph and the 3.11 through 3.13
-//! bytecode; [`pyc_opcodes`] holds the opcode tables; [`pyinstaller`] reads the
-//! `CArchive` and `PYZ` container facts. Nothing is executed.
+//! `data-binary-container` owns the `marshal` object graph, the `.pyc`
+//! container, the 3.11 through 3.13 opcode tables and the PyInstaller
+//! `CArchive` / `PYZ` facts. The modules here only adapt a session and keep
+//! the product report names.
 
 pub mod pyc;
 pub mod pyc_opcodes;

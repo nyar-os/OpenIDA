@@ -6,10 +6,9 @@
 //! `binary/unsupported` answer for an image without a symbol table.
 
 use data_binary_inspect::{BinaryFormat, BinarySession};
-use data_binary_mach_o::mach_o::{parse_macho, read_macho_symbols};
+use data_binary_mach_o::mach_o::{fat_magic, parse_macho, read_macho_symbols};
 use serde::{Deserialize, Serialize};
 
-use super::util::fat_header;
 use crate::{IdaError, Result};
 
 /// One `nlist` entry of the `LC_SYMTAB` symbol table.
@@ -50,7 +49,7 @@ pub struct MachOSymbolsReport {
 /// Decodes the `LC_SYMTAB` symbol table of one session.
 pub fn symbols(session: &BinarySession, limit: Option<usize>) -> Result<MachOSymbolsReport> {
     let bytes = session.read(0, session.size())?;
-    if fat_header(bytes).is_some() {
+    if fat_magic(bytes).is_some() {
         return Err(IdaError::unsupported("the Mach-O is a fat/universal container; use `macho-slices` and inspect a slice"));
     }
     if session.format() != BinaryFormat::MachO {

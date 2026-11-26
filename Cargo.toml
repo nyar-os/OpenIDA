@@ -17,20 +17,23 @@ repository = "https://github.com/nyar-os/OpenIDA"
 # the same commit.
 wae = { git = "https://github.com/doki-land/wae-framework.git", rev = "f92f818fde7174154d77a87b55a5e44b367034c9", default-features = false, features = ["webview"] }
 # Shared binary framework. Keep the same `boost.rs` revision as the rest of the
-# OpenX applications so parsing and target models do not drift. The revision
-# adds the `data-binary-x64` decoder that replaced the in-repo `ida-x86` crate.
-data-binary-inspect = { git = "https://github.com/oovm/boost.rs", rev = "f191fdc4134a5be749f289315dfcacc7c4ad9200" }
-data-binary-pe = { git = "https://github.com/oovm/boost.rs", rev = "f191fdc4134a5be749f289315dfcacc7c4ad9200" }
-data-binary-mach-o = { git = "https://github.com/oovm/boost.rs", rev = "f191fdc4134a5be749f289315dfcacc7c4ad9200" }
-data-binary-sevenz = { git = "https://github.com/oovm/boost.rs", rev = "f191fdc4134a5be749f289315dfcacc7c4ad9200" }
+# OpenX applications so parsing and target models do not drift. This revision
+# owns the extended PE/ELF/Mach-O facts and the Python/installer containers.
+data-binary-inspect = { git = "https://github.com/oovm/boost.rs", rev = "3e865d5c96ffe4e6d4da2143f63b3d29f12d0dd7" }
+data-binary-pe = { git = "https://github.com/oovm/boost.rs", rev = "3e865d5c96ffe4e6d4da2143f63b3d29f12d0dd7" }
+data-binary-mach-o = { git = "https://github.com/oovm/boost.rs", rev = "3e865d5c96ffe4e6d4da2143f63b3d29f12d0dd7" }
+data-binary-sevenz = { git = "https://github.com/oovm/boost.rs", rev = "3e865d5c96ffe4e6d4da2143f63b3d29f12d0dd7" }
+# Owner of the Python and installer container facts (`.pyc`, PyInstaller,
+# NSIS, `asar`, Tauri v2 asset tables).
+data-binary-container = { git = "https://github.com/oovm/boost.rs", rev = "3e865d5c96ffe4e6d4da2143f63b3d29f12d0dd7" }
 # `data-binary-x64` owns the x86/x64 decoder behind its non-default `decode`
 # feature; the encoder and native-image builder stay available without it.
-data-binary-x64 = { git = "https://github.com/oovm/boost.rs", rev = "f191fdc4134a5be749f289315dfcacc7c4ad9200", features = ["decode"] }
-data-compression = { git = "https://github.com/oovm/boost.rs", rev = "f191fdc4134a5be749f289315dfcacc7c4ad9200", features = ["lzma", "deflate", "brotli"] }
+data-binary-x64 = { git = "https://github.com/oovm/boost.rs", rev = "3e865d5c96ffe4e6d4da2143f63b3d29f12d0dd7", features = ["decode"] }
+data-compression = { git = "https://github.com/oovm/boost.rs", rev = "3e865d5c96ffe4e6d4da2143f63b3d29f12d0dd7", features = ["lzma", "deflate", "brotli"] }
 # Stateless `Base64` / `Hex` / LEB128 transforms. Already in the graph through
 # `data-binary-inspect`; declared directly for the representation helpers.
-data-encoding = { git = "https://github.com/oovm/boost.rs", rev = "f191fdc4134a5be749f289315dfcacc7c4ad9200" }
-boost-source = { git = "https://github.com/oovm/boost.rs", rev = "f191fdc4134a5be749f289315dfcacc7c4ad9200" }
+data-encoding = { git = "https://github.com/oovm/boost.rs", rev = "3e865d5c96ffe4e6d4da2143f63b3d29f12d0dd7" }
+boost-source = { git = "https://github.com/oovm/boost.rs", rev = "3e865d5c96ffe4e6d4da2143f63b3d29f12d0dd7" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 regex = "1"

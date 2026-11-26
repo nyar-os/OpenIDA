@@ -1,9 +1,9 @@
 //! `ELF` format projections.
 //!
-//! `data-binary-pe::elf` owns the header, the section table and the static
-//! symbol table (`read_elf_symbols`). The dynamic table, the program headers
-//! and the note segments are decoded here because the pinned release does not
-//! expose them.
+//! `data-binary-pe::elf` owns the header, the section table, the static symbol
+//! table (`read_elf_symbols`), the program headers (`read_program_headers`),
+//! the dynamic table (`read_dynamic`) and the note segments (`read_notes`).
+//! Every module here maps those owner types onto the product JSON reports.
 
 pub mod dynamic;
 pub mod notes;

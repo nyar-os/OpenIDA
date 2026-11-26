@@ -19,9 +19,13 @@
 //! - [`containers`]: `asar`, `NSIS`, overlay anatomy, entropy and the container
 //!   facts consumed by the product `unpack` workflow.
 //!
-//! The pinned `boost.rs` release does not expose every field decoded here.
-//! Each module documents the gap it fills; the Boost wiring pass replaces the
-//! local decoder with the matching owner and keeps these report shapes.
+//! Every fact is owned by the pinned `boost.rs` revision
+//! (`3e865d5c96ffe4e6d4da2143f63b3d29f12d0dd7`): `data-binary-pe` supplies the
+//! `PE` and `ELF` facts, `data-binary-mach-o` the Mach-O facts and
+//! `data-binary-container` the Python/installer containers. The modules here
+//! hold no parser; they map owner types onto the published report shapes.
+//! Product-local policy that the owner cannot express is limited to the `PE`
+//! overlay range (see `documentation/architecture.md`).
 
 #![recursion_limit = "256"]
 #![warn(missing_docs)]

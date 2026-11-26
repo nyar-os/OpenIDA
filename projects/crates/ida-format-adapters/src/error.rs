@@ -72,3 +72,9 @@ impl From<data_binary_inspect::InspectError> for IdaError {
         Self::new(error.code(), error.message().to_string())
     }
 }
+
+impl From<data_binary_container::ContainerError> for IdaError {
+    fn from(error: data_binary_container::ContainerError) -> Self {
+        Self::new(error.code(), error.message().to_string())
+    }
+}

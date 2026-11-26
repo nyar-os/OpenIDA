@@ -14,7 +14,7 @@
 ///
 /// Node.js 24 `zlib.brotliCompressSync`, quality 5, window bits 22 (default).
 /// Compressed length 1 byte.
-pub(crate) const EMPTY: &str = concat!("3b");
+pub(crate) const EMPTY: &str = "3b";
 
 /// `Hello, Brotli! This is a short ASCII fixture.`: 45 bytes, SHA-256
 /// `582071a29ac3f4dbc954694662b7e1c0ba153165dc8e2cefaad7b78447a7e852`.
@@ -30,7 +30,7 @@ pub(crate) const SHORT_Q0: &str =
 /// Node.js 24 `zlib.brotliCompressSync`, quality 5, window bits 22 (default).
 /// Compressed length 48 bytes.
 pub(crate) const SHORT_Q5: &str =
-    concat!("1b2c0000443797eaec62e86ab9f921ff201c0ee2e15d8822bf2824bd0f74c45a86d5ed93c480271e747a0476fe7eb504");
+    "1b2c0000443797eaec62e86ab9f921ff201c0ee2e15d8822bf2824bd0f74c45a86d5ed93c480271e747a0476fe7eb504";
 
 /// Repetitive dictionary-word corpus: 162500 bytes, SHA-256
 /// `39ff8072e410602fc801e0838721bed4241fd8b2df751453d17d88e7de196feb`.
